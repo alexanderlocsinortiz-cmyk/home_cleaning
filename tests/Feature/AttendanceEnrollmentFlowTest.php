@@ -8,6 +8,7 @@ use App\Models\DeviceEnrollmentRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AttendanceEnrollmentFlowTest extends TestCase
@@ -49,7 +50,7 @@ class AttendanceEnrollmentFlowTest extends TestCase
         ]);
 
         $response = $this->withHeaders([
-            'X-Device-Token' => $device->api_token,
+            ...$this->signedDeviceHeaders($device, 'GET', '/api/iot/device/enrollment/next'),
         ])->getJson('/api/iot/device/enrollment/next');
 
         $response->assertOk()
@@ -75,7 +76,10 @@ class AttendanceEnrollmentFlowTest extends TestCase
         ]);
 
         $response = $this->withHeaders([
-            'X-Device-Token' => $device->api_token,
+            ...$this->signedDeviceHeaders($device, 'POST', '/api/iot/device/enrollment/status', [
+                'request_id' => $request->id,
+                'status' => 'completed',
+            ]),
         ])->postJson('/api/iot/device/enrollment/status', [
             'request_id' => $request->id,
             'status' => 'completed',
@@ -97,7 +101,11 @@ class AttendanceEnrollmentFlowTest extends TestCase
         $device = $this->createDevice('ESP32-ENROLL-04', str_repeat('f', 64));
 
         $response = $this->withHeaders([
-            'X-Device-Token' => $device->api_token,
+            ...$this->signedDeviceHeaders($device, 'POST', '/api/iot/attendance/punch', [
+                'template_id' => 14,
+                'punch_type' => 'auto',
+                'timestamp' => '2026-03-31 07:45:00',
+            ]),
         ])->postJson('/api/iot/attendance/punch', [
             'template_id' => 14,
             'punch_type' => 'auto',
@@ -156,5 +164,27 @@ class AttendanceEnrollmentFlowTest extends TestCase
             'location' => 'Front Desk',
             'is_active' => true,
         ]);
+    }
+
+    private function signedDeviceHeaders(Device $device, string $method, string $path, array $payload = []): array
+    {
+        $timestamp = (string) now()->timestamp;
+        $nonce = Str::lower(Str::random(24));
+        $requestBody = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $bodyHash = hash('sha256', $requestBody ?: '');
+        $canonicalString = implode("\n", [
+            strtoupper($method),
+            ltrim($path, '/'),
+            $timestamp,
+            $nonce,
+            $bodyHash,
+        ]);
+
+        return [
+            'X-Device-Token' => $device->api_token,
+            'X-IoT-Timestamp' => $timestamp,
+            'X-IoT-Nonce' => $nonce,
+            'X-IoT-Signature' => hash_hmac('sha256', $canonicalString, $device->api_token),
+        ];
     }
 }

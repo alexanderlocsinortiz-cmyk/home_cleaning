@@ -6,16 +6,16 @@
 @section('content')
 @php
     $hasActiveFilters = $search !== '' || collect($filters)->contains(fn ($value) => $value !== '');
-    $verificationStyles = [
-        'verified' => 'background:#dcfce7;color:#166534;border:1px solid #86efac;',
-        'unverified' => 'background:#fef3c7;color:#92400e;border:1px solid #fcd34d;',
+    $verificationClasses = [
+        'verified' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        'unverified' => 'border-amber-200 bg-amber-50 text-amber-700',
     ];
-    $bookingStatusStyles = [
-        'pending' => 'background:#fef3c7;color:#b45309;',
-        'confirmed' => 'background:#E1F5EE;color:#1D9E75;',
-        'in_progress' => 'background:#f3e8ff;color:#9333ea;',
-        'completed' => 'background:#dcfce7;color:#16a34a;',
-        'cancelled' => 'background:#fee2e2;color:#dc2626;',
+    $bookingStatusClasses = [
+        'pending' => 'bg-amber-100 text-amber-700',
+        'confirmed' => 'bg-accent-50 text-accent-700',
+        'in_progress' => 'bg-primary-100 text-primary-700',
+        'completed' => 'bg-accent-100 text-accent-800',
+        'cancelled' => 'bg-danger-100 text-danger-700',
     ];
     $customerDirectory = $customers->getCollection()->mapWithKeys(function ($customer) use ($genderOptions) {
         return [
@@ -54,89 +54,85 @@
     })->all();
 @endphp
 
-<div class="space-y-6" style="font-family: 'DM Sans', sans-serif;">
-
+<div class="admin-page-content cleanflow-page-shell space-y-4 p-0">
     @if(session('success'))
-        <div style="background:#dcfce7;border:1px solid #86efac;color:#166534;border-radius:14px;padding:14px 16px;display:flex;align-items:flex-start;gap:10px;">
-            <i class="fas fa-check-circle" style="margin-top:2px;"></i>
+        <div class="cleanflow-alert cleanflow-alert--success flex items-start gap-3">
+            <i class="fas fa-check-circle mt-0.5"></i>
             <div>
-                <div style="font-size:14px;font-weight:700;">Action completed</div>
-                <div style="font-size:13px;margin-top:2px;">{{ session('success') }}</div>
+                <div class="text-sm font-bold">Action completed</div>
+                <div class="text-sm">{{ session('success') }}</div>
             </div>
         </div>
     @endif
 
     @if(session('error'))
-        <div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:14px;padding:14px 16px;display:flex;align-items:flex-start;gap:10px;">
-            <i class="fas fa-exclamation-triangle" style="margin-top:2px;"></i>
+        <div class="cleanflow-alert cleanflow-alert--error flex items-start gap-3">
+            <i class="fas fa-exclamation-triangle mt-0.5"></i>
             <div>
-                <div style="font-size:14px;font-weight:700;">Action blocked</div>
-                <div style="font-size:13px;margin-top:2px;">{{ session('error') }}</div>
+                <div class="text-sm font-bold">Action blocked</div>
+                <div class="text-sm">{{ session('error') }}</div>
             </div>
         </div>
     @endif
 
-    <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <div style="background:white;border:1px solid #e2e8f0;border-radius:18px;padding:18px 20px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
                 <div>
-                    <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Total Customers</div>
-                    <div style="font-size:30px;font-weight:800;line-height:1;color:#1e293b;margin-top:8px;">{{ number_format($stats['total']) }}</div>
+                    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Customers</div>
+                    <div class="mt-1 text-2xl font-black leading-none text-slate-900">{{ number_format($stats['total']) }}</div>
+                    <div class="mt-1 text-xs text-slate-500">Registered client accounts.</div>
                 </div>
-                <div style="width:48px;height:48px;border-radius:14px;background:#E1F5EE;color:#1D9E75;display:flex;align-items:center;justify-content:center;font-size:20px;">
+                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
                     <i class="fas fa-users"></i>
                 </div>
             </div>
-            <div style="font-size:12px;color:#64748b;margin-top:10px;">Registered client accounts in the system.</div>
         </div>
-
-        <div style="background:white;border:1px solid #e2e8f0;border-radius:18px;padding:18px 20px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
                 <div>
-                    <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Verified Customers</div>
-                    <div style="font-size:30px;font-weight:800;line-height:1;color:#1e293b;margin-top:8px;">{{ number_format($stats['verified']) }}</div>
+                    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Verified</div>
+                    <div class="mt-1 text-2xl font-black leading-none text-slate-900">{{ number_format($stats['verified']) }}</div>
+                    <div class="mt-1 text-xs text-slate-500">Ready client accounts.</div>
                 </div>
-                <div style="width:48px;height:48px;border-radius:14px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:20px;">
+                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-green-50 text-green-700">
                     <i class="fas fa-circle-check"></i>
                 </div>
             </div>
-            <div style="font-size:12px;color:#64748b;margin-top:10px;">Accounts ready for verified client access.</div>
         </div>
-
-        <div style="background:white;border:1px solid #e2e8f0;border-radius:18px;padding:18px 20px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
                 <div>
-                    <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Customers With Bookings</div>
-                    <div style="font-size:30px;font-weight:800;line-height:1;color:#1e293b;margin-top:8px;">{{ number_format($stats['with_bookings']) }}</div>
+                    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">With Bookings</div>
+                    <div class="mt-1 text-2xl font-black leading-none text-slate-900">{{ number_format($stats['with_bookings']) }}</div>
+                    <div class="mt-1 text-xs text-slate-500">Have service records.</div>
                 </div>
-                <div style="width:48px;height:48px;border-radius:14px;background:#eff6ff;color:#185FA5;display:flex;align-items:center;justify-content:center;font-size:20px;">
+                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
                     <i class="fas fa-calendar-check"></i>
                 </div>
             </div>
-            <div style="font-size:12px;color:#64748b;margin-top:10px;">Customers with recorded service requests.</div>
         </div>
-
-        <div style="background:white;border:1px solid #e2e8f0;border-radius:18px;padding:18px 20px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
                 <div>
-                    <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">New This Month</div>
-                    <div style="font-size:30px;font-weight:800;line-height:1;color:#1e293b;margin-top:8px;">{{ number_format($stats['new_this_month']) }}</div>
+                    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">New This Month</div>
+                    <div class="mt-1 text-2xl font-black leading-none text-slate-900">{{ number_format($stats['new_this_month']) }}</div>
+                    <div class="mt-1 text-xs text-slate-500">Since {{ now()->startOfMonth()->format('M d') }}.</div>
                 </div>
-                <div style="width:48px;height:48px;border-radius:14px;background:#fef3c7;color:#b45309;display:flex;align-items:center;justify-content:center;font-size:20px;">
+                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
                     <i class="fas fa-user-plus"></i>
                 </div>
             </div>
-            <div style="font-size:12px;color:#64748b;margin-top:10px;">New registrations since {{ now()->startOfMonth()->format('M d') }}.</div>
         </div>
     </div>
 
-    <div style="background:white;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 1px 4px rgba(0,0,0,0.05);overflow:hidden;">
-        <div style="padding:20px 22px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start;">
+    <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-                <div style="font-size:18px;font-weight:800;color:#1e293b;">Search and Filter Customers</div>
-                <div style="font-size:13px;color:#64748b;margin-top:4px;">Search customer records and refine the list by barangay, booking activity, verification status, and registration month.</div>
+                <h3 class="text-base font-extrabold text-slate-900">Search and Filter Customers</h3>
+                <p class="mt-1 text-xs text-slate-500">Search records and narrow the list by location, activity, verification, or month.</p>
             </div>
-            <div style="font-size:12px;color:#94a3b8;">
+            <div class="text-xs font-semibold text-slate-400">
                 {{ number_format($filteredCount) }} result{{ $filteredCount === 1 ? '' : 's' }}
                 @if($stats['total'])
                     of {{ number_format($stats['total']) }}
@@ -144,54 +140,43 @@
             </div>
         </div>
 
-        <form method="GET" action="{{ route('admin.customers') }}" style="padding:20px 22px;">
-            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.8fr)_repeat(4,minmax(0,1fr))]">
+        <form method="GET" action="{{ route('admin.customers') }}" class="space-y-4 px-5 py-4">
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(280px,1.5fr)_repeat(4,minmax(150px,1fr))]">
                 <div>
-                    <label for="customer-search" style="display:block;font-size:12px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:#64748b;">Search Customers</label>
-                    <div style="position:relative;margin-top:8px;">
-                        <i class="fas fa-search" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#94a3b8;"></i>
-                        <input
-                            id="customer-search"
-                            type="text"
-                            name="search"
-                            value="{{ $search }}"
-                            placeholder="Name, email, phone, or barangay"
-                            style="width:100%;border:1px solid #dbe3ed;border-radius:12px;padding:12px 14px 12px 40px;font-size:14px;outline:none;background:#fff;"
-                        >
+                    <label for="customer-search" class="mb-1.5 block text-xs font-extrabold uppercase tracking-wide text-slate-500">Search</label>
+                    <div class="relative">
+                        <i class="fas fa-search pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input id="customer-search" type="text" name="search" value="{{ $search }}" placeholder="Name, email, phone, or barangay" class="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-11 pr-4 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
                     </div>
                 </div>
-
                 <div>
-                    <label for="customer-barangay" style="display:block;font-size:12px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:#64748b;">Barangay</label>
-                    <select id="customer-barangay" name="barangay" style="width:100%;margin-top:8px;border:1px solid #dbe3ed;border-radius:12px;padding:12px 14px;font-size:14px;outline:none;background:#fff;">
+                    <label for="customer-barangay" class="mb-1.5 block text-xs font-extrabold uppercase tracking-wide text-slate-500">Barangay</label>
+                    <select id="customer-barangay" name="barangay" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
                         <option value="">All barangays</option>
                         @foreach($barangays as $value => $label)
                             <option value="{{ $value }}" {{ $filters['barangay'] === $value ? 'selected' : '' }}>{{ $label }}</option>
                         @endforeach
                     </select>
                 </div>
-
                 <div>
-                    <label for="customer-booking-activity" style="display:block;font-size:12px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:#64748b;">Booking Activity</label>
-                    <select id="customer-booking-activity" name="booking_activity" style="width:100%;margin-top:8px;border:1px solid #dbe3ed;border-radius:12px;padding:12px 14px;font-size:14px;outline:none;background:#fff;">
+                    <label for="customer-booking-activity" class="mb-1.5 block text-xs font-extrabold uppercase tracking-wide text-slate-500">Activity</label>
+                    <select id="customer-booking-activity" name="booking_activity" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
                         <option value="">Any booking activity</option>
                         <option value="with_bookings" {{ $filters['booking_activity'] === 'with_bookings' ? 'selected' : '' }}>With bookings</option>
                         <option value="without_bookings" {{ $filters['booking_activity'] === 'without_bookings' ? 'selected' : '' }}>Without bookings</option>
                     </select>
                 </div>
-
                 <div>
-                    <label for="customer-verification" style="display:block;font-size:12px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:#64748b;">Verification Status</label>
-                    <select id="customer-verification" name="verification" style="width:100%;margin-top:8px;border:1px solid #dbe3ed;border-radius:12px;padding:12px 14px;font-size:14px;outline:none;background:#fff;">
+                    <label for="customer-verification" class="mb-1.5 block text-xs font-extrabold uppercase tracking-wide text-slate-500">Verification</label>
+                    <select id="customer-verification" name="verification" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
                         <option value="">Any verification status</option>
                         <option value="verified" {{ $filters['verification'] === 'verified' ? 'selected' : '' }}>Verified</option>
                         <option value="pending" {{ $filters['verification'] === 'pending' ? 'selected' : '' }}>Pending verification</option>
                     </select>
                 </div>
-
                 <div>
-                    <label for="customer-registration-month" style="display:block;font-size:12px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:#64748b;">Registration Month</label>
-                    <select id="customer-registration-month" name="registration_month" style="width:100%;margin-top:8px;border:1px solid #dbe3ed;border-radius:12px;padding:12px 14px;font-size:14px;outline:none;background:#fff;">
+                    <label for="customer-registration-month" class="mb-1.5 block text-xs font-extrabold uppercase tracking-wide text-slate-500">Month</label>
+                    <select id="customer-registration-month" name="registration_month" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
                         <option value="">Any registration month</option>
                         @foreach($registrationMonthOptions as $value => $label)
                             <option value="{{ $value }}" {{ $filters['registration_month'] === $value ? 'selected' : '' }}>{{ $label }}</option>
@@ -200,295 +185,338 @@
                 </div>
             </div>
 
-            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-top:16px;">
-                <div style="font-size:12px;color:#64748b;">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                <div class="hidden text-sm text-slate-500">
                     Use these filters to surface customers by location, verification readiness, booking activity, and registration month.
                 </div>
-                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <div class="flex flex-wrap gap-3">
                     @if($hasActiveFilters)
-                        <a href="{{ route('admin.customers') }}" style="display:inline-flex;align-items:center;gap:8px;border:1px solid #dbe3ed;background:#f8fafc;color:#475569;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;text-decoration:none;">
+                        <a href="{{ route('admin.customers') }}" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100">
                             <i class="fas fa-rotate-left"></i>
                             Clear Filters
                         </a>
                     @endif
-                    <button type="submit" style="display:inline-flex;align-items:center;gap:8px;border:none;background:#1D9E75;color:white;border-radius:12px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;">
+                    <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700">
                         <i class="fas fa-filter"></i>
                         Apply Filters
                     </button>
                 </div>
             </div>
         </form>
-    </div>
+    </section>
 
-    <div style="background:white;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 1px 4px rgba(0,0,0,0.05);overflow:hidden;">
-        <div style="padding:20px 22px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start;">
+    <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-                <div style="font-size:18px;font-weight:800;color:#1e293b;">Registered Customers</div>
-                <div style="font-size:13px;color:#64748b;margin-top:4px;">A clearer operational view of customer identity, verification readiness, and booking history.</div>
+                <h3 class="text-base font-extrabold text-slate-900">Registered Customers</h3>
+                <p class="mt-1 text-xs text-slate-500">Review account details, verification, bookings, and account actions.</p>
             </div>
-            <div style="font-size:12px;color:#94a3b8;">
-                @if($customers->count())
-                    Showing {{ number_format($customers->firstItem()) }}-{{ number_format($customers->lastItem()) }} of {{ number_format($customers->total()) }}
-                @else
-                    No records to display
-                @endif
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                {{ number_format($customers->total()) }} total account{{ $customers->total() === 1 ? '' : 's' }}
             </div>
         </div>
 
-        <div style="overflow-x:auto;">
-            <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:13px;min-width:1120px;">
-                <thead>
-                    <tr style="background:#f8fafc;">
-                        <th style="padding:12px 18px;text-align:left;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Customer</th>
-                        <th style="padding:12px 18px;text-align:left;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Contact</th>
-                        <th style="padding:12px 18px;text-align:left;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Location</th>
-                        <th style="padding:12px 18px;text-align:left;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Verification</th>
-                        <th style="padding:12px 18px;text-align:left;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Bookings</th>
-                        <th style="padding:12px 18px;text-align:left;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Last Booking</th>
-                        <th style="padding:12px 18px;text-align:left;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Joined</th>
-                        <th style="padding:12px 18px;text-align:right;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($customers as $customer)
-                        @php
-                            $isVerified = !is_null($customer->email_verified_at);
-                            $verificationStyle = $verificationStyles[$isVerified ? 'verified' : 'unverified'];
-                            $latestBookingDate = $customer->latest_booking_date ? \Carbon\Carbon::parse($customer->latest_booking_date) : null;
-                            $latestBookingStatusStyle = $customer->latest_booking_status
-                                ? ($bookingStatusStyles[$customer->latest_booking_status] ?? 'background:#f1f5f9;color:#64748b;')
-                                : 'background:#f8fafc;color:#94a3b8;';
-                            $fullInitials = strtoupper(substr($customer->first_name, 0, 1) . substr($customer->last_name, 0, 1));
-                            $streetPreview = $customer->street
-                                ? \Illuminate\Support\Str::limit($customer->street, 26)
-                                : '--';
-                        @endphp
-                        <tr style="border-top:1px solid #f8fafc;transition:background 0.15s ease;" onmouseover="this.style.background='#fbfdff'" onmouseout="this.style.background='white'">
-                            <td style="padding:12px 18px;vertical-align:middle;border-top:1px solid #f8fafc;">
-                                <div style="display:flex;gap:10px;align-items:center;">
-                                    <div style="width:34px;height:34px;border-radius:12px;background:linear-gradient(135deg,#0F6E56,#1D9E75);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;">
-                                        {{ $fullInitials }}
-                                    </div>
-                                    <div style="min-width:0;">
-                                        <div style="font-size:13px;font-weight:800;color:#1e293b;line-height:1.25;">{{ $customer->full_name }}</div>
-                                        <div style="font-size:11px;color:#64748b;margin-top:3px;">
-                                            {{ $customer->username ? '@' . $customer->username : 'Email-only login' }}
+        @if($customers->count())
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[1080px] table-fixed divide-y divide-slate-200 text-sm">
+                    <thead class="bg-slate-50/90">
+                        <tr>
+                            <th class="w-[260px] px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wide text-slate-500">Customer</th>
+                            <th class="w-[260px] px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wide text-slate-500">Contact</th>
+                            <th class="hidden px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wide text-slate-500">Location</th>
+                            <th class="w-[170px] px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wide text-slate-500">Verification</th>
+                            <th class="w-[110px] px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wide text-slate-500">Bookings</th>
+                            <th class="w-[160px] px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wide text-slate-500">Last Booking</th>
+                            <th class="w-[120px] px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-wide text-slate-500">Joined</th>
+                            <th class="w-[160px] px-4 py-3 text-right text-[11px] font-extrabold uppercase tracking-wide text-slate-500">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @foreach($customers as $customer)
+                            @php
+                                $isVerified = !is_null($customer->email_verified_at);
+                                $latestBookingDate = $customer->latest_booking_date ? \Carbon\Carbon::parse($customer->latest_booking_date) : null;
+                                $latestBookingStatusClass = $customer->latest_booking_status ? ($bookingStatusClasses[$customer->latest_booking_status] ?? 'bg-slate-100 text-slate-600') : 'bg-slate-100 text-slate-500';
+                                $verificationClass = $verificationClasses[$isVerified ? 'verified' : 'unverified'];
+                                $fullInitials = strtoupper(substr($customer->first_name, 0, 1) . substr($customer->last_name, 0, 1));
+                                $streetPreview = $customer->street ? \Illuminate\Support\Str::limit($customer->street, 26) : '--';
+                            @endphp
+                            <tr class="align-top transition hover:bg-slate-50/80">
+                                <td class="px-4 py-3">
+                                    <div class="flex items-start gap-3">
+                                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-sm font-black text-white shadow-sm">
+                                            {{ $fullInitials }}
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="truncate font-bold text-slate-900">{{ $customer->full_name }}</div>
+                                            <div class="mt-1 text-xs text-slate-500">
+                                                {{ $customer->username ? '@' . $customer->username : 'Email-only login' }}
+                                            </div>
+                                            <div class="mt-2 inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                                                <i class="fas fa-id-badge text-[10px]"></i>
+                                                ID #{{ $customer->id }}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </td>
-                            <td style="padding:12px 18px;vertical-align:middle;border-top:1px solid #f8fafc;">
-                                <div style="font-size:12px;font-weight:700;color:#1e293b;line-height:1.3;">{{ $customer->email }}</div>
-                                <div style="font-size:11px;color:#64748b;margin-top:3px;">{{ $customer->phone ?: '--' }}</div>
-                            </td>
-                            <td style="padding:12px 18px;vertical-align:middle;border-top:1px solid #f8fafc;">
-                                <div style="font-size:12px;font-weight:700;color:#1e293b;line-height:1.3;">{{ $customer->barangay_name }}</div>
-                                <div style="font-size:11px;color:#94a3b8;margin-top:3px;">{{ $streetPreview }}</div>
-                            </td>
-                            <td style="padding:12px 18px;vertical-align:middle;border-top:1px solid #f8fafc;">
-                                <span style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 9px;font-size:10.5px;font-weight:800;white-space:nowrap;{{ $verificationStyle }}">
-                                    <i class="fas {{ $isVerified ? 'fa-check-circle' : 'fa-clock' }}"></i>
-                                    {{ $isVerified ? 'Verified' : 'Pending' }}
-                                </span>
-                            </td>
-                            <td style="padding:12px 18px;vertical-align:middle;border-top:1px solid #f8fafc;">
-                                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                    <span title="Total bookings" style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 9px;background:#f8fafc;color:#1e293b;font-size:10.5px;font-weight:800;border:1px solid #e2e8f0;white-space:nowrap;">
-                                        <i class="fas fa-calendar-days" style="color:#1D9E75;"></i>
-                                        {{ $customer->bookings_count }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="space-y-1.5">
+                                        <div class="flex items-center gap-2 text-sm text-slate-700">
+                                            <i class="fas fa-envelope text-xs text-slate-400"></i>
+                                            <span class="break-all leading-snug">{{ $customer->email }}</span>
+                                        </div>
+                                        <div class="flex items-center gap-2 text-sm text-slate-600">
+                                            <i class="fas fa-phone text-xs text-slate-400"></i>
+                                            <span>{{ $customer->phone ?: 'No phone provided' }}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="hidden px-4 py-3">
+                                    <div class="space-y-1 text-sm text-slate-600">
+                                        <div class="font-semibold text-slate-800">{{ $customer->barangay_name }}</div>
+                                        <div>{{ $streetPreview }}</div>
+                                        <div>{{ $customer->city ?: 'Puerto Princesa City' }}{{ $customer->zip_code ? ' - ' . $customer->zip_code : '' }}</div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold {{ $verificationClass }}">
+                                        <i class="fas {{ $isVerified ? 'fa-circle-check' : 'fa-clock' }}"></i>
+                                        {{ $isVerified ? 'Verified' : 'Pending verification' }}
                                     </span>
-                                    @if($customer->latest_booking_status)
-                                        <span style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 9px;font-size:10.5px;font-weight:800;white-space:nowrap;{{ $latestBookingStatusStyle }}">
-                                            {{ ucwords(str_replace('_', ' ', $customer->latest_booking_status)) }}
+                                    <div class="mt-2 text-xs text-slate-500">
+                                        {{ $isVerified ? optional($customer->email_verified_at)->format('M d, Y h:i A') : 'Awaiting email verification' }}
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="text-xl font-black leading-none text-slate-900">{{ $customer->bookings_count }}</div>
+                                    <div class="mt-1.5 text-xs text-slate-500">
+                                        {{ $customer->bookings_count === 1 ? 'booking record' : 'booking records' }}
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    @if($customer->latest_booking_id)
+                                        <div class="space-y-1.5">
+                                            <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold {{ $latestBookingStatusClass }}">
+                                                <i class="fas fa-calendar-check"></i>
+                                                {{ ucwords(str_replace('_', ' ', $customer->latest_booking_status)) }}
+                                            </span>
+                                            <div class="text-xs text-slate-500">
+                                                {{ $latestBookingDate?->format('M d, Y') ?? 'No bookings yet' }}
+                                            </div>
+                                        </div>
+                                    @else
+                                        <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+                                            <i class="fas fa-calendar-xmark"></i>
+                                            No bookings yet
                                         </span>
                                     @endif
-                                </div>
-                            </td>
-                            <td style="padding:12px 18px;vertical-align:middle;border-top:1px solid #f8fafc;">
-                                @if($latestBookingDate)
-                                    <div style="font-size:12px;font-weight:700;color:#1e293b;">{{ $latestBookingDate->format('M d, Y') }}</div>
-                                @else
-                                    <div style="font-size:12px;color:#94a3b8;">--</div>
-                                @endif
-                            </td>
-                            <td style="padding:12px 18px;vertical-align:middle;border-top:1px solid #f8fafc;">
-                                <div style="font-size:12px;font-weight:700;color:#1e293b;">{{ $customer->created_at->format('M d, Y') }}</div>
-                            </td>
-                            <td style="padding:12px 18px;vertical-align:middle;border-top:1px solid #f8fafc;text-align:right;">
-                                <div data-customer-action-wrap style="display:inline-flex;justify-content:flex-end;gap:6px;align-items:center;position:relative;">
-                                    <button type="button" onclick="openCustomerModal({{ $customer->id }})" style="display:inline-flex;align-items:center;gap:6px;background:#f8fafc;color:#475569;border:1px solid #e2e8f0;border-radius:9px;padding:7px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">
-                                        <i class="fas fa-eye"></i>
-                                        View
-                                    </button>
-                                    <button type="button" onclick="toggleCustomerActions({{ $customer->id }}, event)" title="More actions" style="width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;background:white;color:#475569;border:1px solid #e2e8f0;border-radius:9px;cursor:pointer;">
-                                        <i class="fas fa-ellipsis"></i>
-                                    </button>
-                                    <div id="customer-actions-{{ $customer->id }}" data-customer-actions style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:196px;background:white;border:1px solid #e2e8f0;border-radius:12px;padding:6px;box-shadow:0 14px 30px rgba(15,23,42,0.12);z-index:6;text-align:left;">
-                                        <a href="{{ route('admin.customers.verification.edit', $customer) }}" onclick="closeCustomerActionMenus()" style="display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:9px;color:#0F6E56;text-decoration:none;font-size:12px;font-weight:700;background:#E1F5EE;">
-                                            <i class="fas fa-shield-halved"></i>
-                                            Manage Verification
-                                        </a>
-                                        @if($customer->bookings_count === 0)
-                                            <button type="button" onclick="openDeleteModal({{ $customer->id }})" style="width:100%;margin-top:6px;display:flex;align-items:center;gap:8px;padding:9px 10px;border:none;border-radius:9px;color:#dc2626;background:#fff5f5;font-size:12px;font-weight:700;cursor:pointer;">
-                                                <i class="fas fa-trash"></i>
-                                                Delete account
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="font-semibold text-slate-800">{{ optional($customer->created_at)->format('M d, Y') }}</div>
+                                    <div class="mt-1 text-xs text-slate-500">{{ optional($customer->created_at)->diffForHumans() }}</div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="flex flex-nowrap items-start justify-end gap-2">
+                                        <button type="button" onclick="openCustomerModal({{ $customer->id }})" class="inline-flex whitespace-nowrap items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-100">
+                                            <i class="fas fa-eye"></i>
+                                            Overview
+                                        </button>
+
+                                        <div class="relative" data-customer-action-wrap>
+                                            <button type="button" onclick="toggleCustomerActions({{ $customer->id }}, event)" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-100" aria-label="Customer actions">
+                                                <i class="fas fa-ellipsis"></i>
                                             </button>
-                                        @else
-                                            <div style="margin-top:6px;display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:9px;color:#185FA5;background:#eff6ff;font-size:12px;font-weight:700;">
-                                                <i class="fas fa-shield-halved"></i>
-                                                Protected record
+                                            <div id="customer-actions-{{ $customer->id }}" data-customer-actions class="absolute right-0 top-12 z-20 hidden w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.14)]">
+                                                <button type="button" onclick="openCustomerModal({{ $customer->id }})" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
+                                                    <i class="fas fa-circle-info text-slate-400"></i>
+                                                    Account overview
+                                                </button>
+                                                <a href="{{ route('admin.customers.verification.edit', $customer) }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
+                                                    <i class="fas fa-shield-halved text-slate-400"></i>
+                                                    Manage verification
+                                                </a>
+                                                @if($customer->bookings_count === 0)
+                                                    <button type="button" onclick="openDeleteModal({{ $customer->id }})" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50">
+                                                        <i class="fas fa-trash-can text-red-400"></i>
+                                                        Delete customer
+                                                    </button>
+                                                @else
+                                                    <div class="rounded-xl bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-500">
+                                                        Protected from deletion because booking history already exists.
+                                                    </div>
+                                                @endif
                                             </div>
-                                        @endif
+                                        </div>
                                     </div>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="8" style="padding:52px 24px;text-align:center;border-top:1px solid #f8fafc;">
-                                <div style="width:72px;height:72px;border-radius:18px;background:#f8fafc;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 18px;">
-                                    <i class="fas fa-user-slash"></i>
-                                </div>
-                                @if($hasActiveFilters)
-                                    <div style="font-size:20px;font-weight:800;color:#1e293b;">No customers match the current filters</div>
-                                    <div style="font-size:13px;color:#64748b;max-width:460px;margin:8px auto 0;">
-                                        Try broadening the search terms or clearing one or more filters to see more customer records.
-                                    </div>
-                                    <a href="{{ route('admin.customers') }}" style="display:inline-flex;align-items:center;gap:8px;background:#1D9E75;color:white;border-radius:12px;padding:11px 16px;font-size:13px;font-weight:700;text-decoration:none;margin-top:18px;">
-                                        <i class="fas fa-rotate-left"></i>
-                                        Clear Filters
-                                    </a>
-                                @else
-                                    <div style="font-size:20px;font-weight:800;color:#1e293b;">No customers have registered yet</div>
-                                    <div style="font-size:13px;color:#64748b;max-width:460px;margin:8px auto 0;">
-                                        Customer records will appear here after users create client accounts through the registration page.
-                                    </div>
-                                @endif
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="border-t border-slate-100 px-6 py-4">
+                {{ $customers->links() }}
+            </div>
+        @else
+            <div class="px-6 py-16 text-center">
+                <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 text-slate-400">
+                    <i class="fas fa-user-slash text-2xl"></i>
+                </div>
+                <h4 class="mt-5 text-lg font-extrabold text-slate-900">
+                    {{ $hasActiveFilters ? 'No customers match the current filters' : 'No customers yet' }}
+                </h4>
+                <p class="mx-auto mt-2 max-w-xl text-sm leading-7 text-slate-500">
+                    {{ $hasActiveFilters
+                        ? 'Try broadening the search terms or clearing filters to bring more customer records back into view.'
+                        : 'Customer accounts will appear here after new clients register and begin using the platform.' }}
+                </p>
+                @if($hasActiveFilters)
+                    <a href="{{ route('admin.customers') }}" class="mt-6 inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700">
+                        <i class="fas fa-rotate-left"></i>
+                        Clear Filters
+                    </a>
+                @endif
+            </div>
+        @endif
+    </section>
+</div>
+
+<div id="customerDetailModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
+    <div class="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-[32px] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.24)]">
+        <div class="border-b border-slate-100 px-6 py-5 sm:px-8">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex items-start gap-4">
+                    <div id="detail-avatar" class="flex h-14 w-14 items-center justify-center rounded-3xl bg-primary-600 text-lg font-black text-white shadow-sm">--</div>
+                    <div>
+                        <div class="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-400">Customer Overview</div>
+                        <h3 id="detail-name" class="mt-1 text-2xl font-black text-slate-900">Customer Name</h3>
+                        <div id="detail-email" class="mt-1 text-sm text-slate-500">customer@email.com</div>
+                    </div>
+                </div>
+                <button type="button" onclick="closeCustomerModal()" class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100" aria-label="Close customer overview">
+                    <i class="fas fa-xmark"></i>
+                </button>
+            </div>
         </div>
 
-        <div style="padding:16px 22px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;">
-            <div style="font-size:12px;color:#64748b;">
-                {{ $customers->total() }} customer record{{ $customers->total() === 1 ? '' : 's' }} available.
+        <div class="grid gap-6 px-6 py-6 sm:px-8 xl:grid-cols-[minmax(0,1fr)_300px]">
+            <div class="space-y-6">
+                <section class="rounded-[28px] border border-slate-200 bg-slate-50 px-5 py-5">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <span id="detail-verification-label" class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Verified</span>
+                        <span id="detail-bookings-count" class="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">0 bookings</span>
+                    </div>
+                    <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                        <div class="rounded-2xl border border-white bg-white px-4 py-3">
+                            <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Verified At</div>
+                            <div id="detail-verification-date" class="mt-2 text-sm font-semibold text-slate-800">Email not yet verified</div>
+                        </div>
+                        <div class="rounded-2xl border border-white bg-white px-4 py-3">
+                            <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Last Booking</div>
+                            <div id="detail-last-booking-date" class="mt-2 text-sm font-semibold text-slate-800">No bookings yet</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="rounded-[28px] border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    <div class="border-b border-slate-100 px-5 py-4">
+                        <h4 class="text-base font-extrabold text-slate-900">Account Information</h4>
+                    </div>
+                    <div class="grid gap-4 px-5 py-5 sm:grid-cols-2">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Login Identifier</div>
+                            <div id="detail-username" class="mt-2 text-sm font-semibold text-slate-800">Email only</div>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Phone</div>
+                            <div id="detail-phone" class="mt-2 text-sm font-semibold text-slate-800">Not provided</div>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Gender</div>
+                            <div id="detail-gender" class="mt-2 text-sm font-semibold text-slate-800">Not specified</div>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Joined</div>
+                            <div id="detail-joined-date" class="mt-2 text-sm font-semibold text-slate-800">--</div>
+                            <div id="detail-joined-relative" class="mt-1 text-xs text-slate-500">--</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="rounded-[28px] border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    <div class="border-b border-slate-100 px-5 py-4">
+                        <h4 class="text-base font-extrabold text-slate-900">Address Details</h4>
+                    </div>
+                    <div class="grid gap-4 px-5 py-5 sm:grid-cols-2">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Barangay</div>
+                            <div id="detail-barangay" class="mt-2 text-sm font-semibold text-slate-800">--</div>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Street</div>
+                            <div id="detail-street" class="mt-2 text-sm font-semibold text-slate-800">--</div>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 sm:col-span-2">
+                            <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">City and ZIP Code</div>
+                            <div id="detail-city-zip" class="mt-2 text-sm font-semibold text-slate-800">--</div>
+                        </div>
+                    </div>
+                </section>
             </div>
-            @if($customers->hasPages())
+
+            <aside class="space-y-4">
+                <section class="rounded-[28px] border border-slate-200 bg-white px-5 py-5 shadow-sm">
+                    <h4 class="text-base font-extrabold text-slate-900">Actions</h4>
+                    <p class="mt-1 text-sm text-slate-500">Jump into the related admin workflows for this customer.</p>
+                    <div class="mt-5 flex flex-col gap-3">
+                        <a id="detail-verification-link" href="#" class="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700">
+                            <i class="fas fa-shield-halved"></i>
+                            Manage Verification
+                        </a>
+                        <a id="detail-last-booking-link" href="#" class="hidden items-center justify-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-700 transition hover:bg-blue-100">
+                            <i class="fas fa-arrow-up-right-from-square"></i>
+                            Open Latest Booking
+                        </a>
+                    </div>
+                </section>
+
+                <section class="rounded-[28px] border border-slate-200 bg-white px-5 py-5 shadow-sm">
+                    <h4 class="text-base font-extrabold text-slate-900">Admin Note</h4>
+                    <p class="mt-3 text-sm leading-7 text-slate-500">
+                        Profiles with booking history stay protected so operational records, analytics, and proof of service remain complete and defense-ready.
+                    </p>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>
+
+<div id="deleteCustomerModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
+    <div class="w-full max-w-lg rounded-[30px] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.24)]">
+        <div class="border-b border-slate-100 px-6 py-5">
+            <div class="flex items-center gap-3">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                    <i class="fas fa-triangle-exclamation"></i>
+                </div>
                 <div>
-                    {{ $customers->links('pagination::tailwind') }}
+                    <h3 class="text-lg font-extrabold text-slate-900">Delete Customer</h3>
+                    <p class="mt-1 text-sm text-slate-500">This action permanently removes the account if it has no booking history.</p>
                 </div>
-            @endif
-        </div>
-    </div>
-</div>
-
-<div id="customer-detail-modal" class="hidden" style="position:fixed;inset:0;z-index:80;">
-    <div onclick="closeCustomerModal()" style="position:absolute;inset:0;background:rgba(15,23,42,0.58);backdrop-filter:blur(2px);"></div>
-    <div style="position:relative;max-width:720px;margin:40px auto;background:white;border-radius:20px;box-shadow:0 20px 50px rgba(15,23,42,0.28);overflow:hidden;">
-        <div style="padding:20px 22px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
-            <div>
-                <div style="font-size:12px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Customer Overview</div>
-                <div id="detail-name" style="font-size:24px;font-weight:800;color:#1e293b;margin-top:4px;">Customer Name</div>
-                <div id="detail-email" style="font-size:13px;color:#64748b;margin-top:4px;">email@example.com</div>
-            </div>
-            <button type="button" onclick="closeCustomerModal()" style="border:none;background:#f8fafc;color:#475569;border-radius:12px;width:40px;height:40px;cursor:pointer;">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div style="padding:20px 22px;display:grid;gap:18px;">
-            <div class="grid gap-4 md:grid-cols-3">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;">
-                    <div style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Verification</div>
-                    <div id="detail-verification-label" style="font-size:16px;font-weight:800;color:#1e293b;margin-top:8px;">Verified</div>
-                    <div id="detail-verification-date" style="font-size:12px;color:#64748b;margin-top:4px;">Verified date</div>
-                </div>
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;">
-                    <div style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Bookings</div>
-                    <div id="detail-bookings-count" style="font-size:16px;font-weight:800;color:#1e293b;margin-top:8px;">0 bookings</div>
-                    <div id="detail-last-booking-date" style="font-size:12px;color:#64748b;margin-top:4px;">No bookings yet</div>
-                </div>
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;">
-                    <div style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Joined</div>
-                    <div id="detail-joined-date" style="font-size:16px;font-weight:800;color:#1e293b;margin-top:8px;">M d, Y</div>
-                    <div id="detail-joined-relative" style="font-size:12px;color:#64748b;margin-top:4px;">recently</div>
-                </div>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-2">
-                <div style="border:1px solid #f1f5f9;border-radius:16px;padding:16px;">
-                    <div style="font-size:14px;font-weight:800;color:#1e293b;margin-bottom:12px;">Profile Details</div>
-                    <div class="grid gap-3">
-                        <div>
-                            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;">Login Method</div>
-                            <div id="detail-username" style="font-size:14px;color:#1e293b;margin-top:4px;">Email only</div>
-                        </div>
-                        <div>
-                            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;">Phone</div>
-                            <div id="detail-phone" style="font-size:14px;color:#1e293b;margin-top:4px;">phone</div>
-                        </div>
-                        <div>
-                            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;">Gender</div>
-                            <div id="detail-gender" style="font-size:14px;color:#1e293b;margin-top:4px;">gender</div>
-                        </div>
-                    </div>
-                </div>
-                <div style="border:1px solid #f1f5f9;border-radius:16px;padding:16px;">
-                    <div style="font-size:14px;font-weight:800;color:#1e293b;margin-bottom:12px;">Address Details</div>
-                    <div class="grid gap-3">
-                        <div>
-                            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;">Barangay</div>
-                            <div id="detail-barangay" style="font-size:14px;color:#1e293b;margin-top:4px;">barangay</div>
-                        </div>
-                        <div>
-                            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;">Street</div>
-                            <div id="detail-street" style="font-size:14px;color:#1e293b;margin-top:4px;">street</div>
-                        </div>
-                        <div>
-                            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;">City and ZIP Code</div>
-                            <div id="detail-city-zip" style="font-size:14px;color:#1e293b;margin-top:4px;">city</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;">
-                <a id="detail-last-booking-link" href="#" class="hidden" style="display:none;align-items:center;gap:8px;background:#eff6ff;color:#185FA5;border:1px solid #bfdbfe;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;text-decoration:none;">
-                    <i class="fas fa-arrow-up-right-from-square"></i>
-                    Open Latest Booking
-                </a>
-                <a id="detail-verification-link" href="#" style="display:inline-flex;align-items:center;gap:8px;background:#1D9E75;color:white;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;text-decoration:none;">
-                    <i class="fas fa-shield-halved"></i>
-                    Verification Status
-                </a>
             </div>
         </div>
-    </div>
-</div>
-
-<div id="customer-delete-modal" class="hidden" style="position:fixed;inset:0;z-index:81;">
-    <div onclick="closeDeleteModal()" style="position:absolute;inset:0;background:rgba(15,23,42,0.62);backdrop-filter:blur(2px);"></div>
-    <div style="position:relative;max-width:540px;margin:80px auto;background:white;border-radius:20px;box-shadow:0 20px 50px rgba(15,23,42,0.28);overflow:hidden;">
-        <div style="padding:22px;">
-            <div style="width:54px;height:54px;border-radius:16px;background:#fee2e2;color:#dc2626;display:flex;align-items:center;justify-content:center;font-size:22px;">
-                <i class="fas fa-trash"></i>
-            </div>
-            <div style="font-size:24px;font-weight:800;color:#1e293b;margin-top:18px;">Delete customer account?</div>
-            <div id="delete-message" style="font-size:13px;line-height:1.6;color:#64748b;margin-top:8px;">
-                This action permanently removes the selected customer account.
-            </div>
-            <div style="background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:14px;padding:12px 14px;font-size:12px;line-height:1.6;margin-top:16px;">
-                Only customers without booking history can be deleted. Historical records should be retained for operations, reports, and defense presentation.
-            </div>
-            <form id="delete-customer-form" method="POST" style="margin-top:18px;display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;">
+        <div class="px-6 py-6">
+            <p id="deleteCustomerMessage" class="text-sm leading-7 text-slate-600">Are you sure you want to delete this customer?</p>
+            <form id="deleteCustomerForm" method="POST" action="#" class="mt-6 flex flex-wrap justify-end gap-3">
                 @csrf
                 @method('DELETE')
-                <button type="button" onclick="closeDeleteModal()" style="border:1px solid #dbe3ed;background:#f8fafc;color:#475569;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;">
+                <button type="button" onclick="closeDeleteModal()" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-5 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100">
+                    <i class="fas fa-xmark"></i>
                     Cancel
                 </button>
-                <button type="submit" style="border:none;background:#dc2626;color:white;border-radius:12px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;">
-                    Delete Permanently
+                <button type="submit" class="inline-flex items-center gap-2 rounded-full bg-red-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-red-700">
+                    <i class="fas fa-trash-can"></i>
+                    Delete Customer
                 </button>
             </form>
         </div>
@@ -498,142 +526,154 @@
 
 @push('scripts')
 <script>
-const customerDirectory = @json($customerDirectory);
+    const customerDirectory = @json($customerDirectory);
 
-function closeCustomerActionMenus() {
-    document.querySelectorAll('[data-customer-actions]').forEach(function (menu) {
-        menu.style.display = 'none';
-    });
-}
+    const customerDetailModal = document.getElementById('customerDetailModal');
+    const deleteCustomerModal = document.getElementById('deleteCustomerModal');
+    const deleteCustomerForm = document.getElementById('deleteCustomerForm');
+    const deleteCustomerMessage = document.getElementById('deleteCustomerMessage');
 
-function toggleCustomerActions(customerId, event) {
-    if (event) {
+    function openModal(modal) {
+        if (!modal) {
+            return;
+        }
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function closeModal(modal) {
+        if (!modal) {
+            return;
+        }
+
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+
+        const hasOpenModal = [customerDetailModal, deleteCustomerModal].some((item) => item && !item.classList.contains('hidden'));
+        if (!hasOpenModal) {
+            document.body.classList.remove('overflow-hidden');
+        }
+    }
+
+    function closeCustomerActionMenus() {
+        document.querySelectorAll('[data-customer-actions]').forEach((menu) => menu.classList.add('hidden'));
+    }
+
+    function toggleCustomerActions(customerId, event) {
         event.stopPropagation();
+
+        const menu = document.getElementById(`customer-actions-${customerId}`);
+        const shouldOpen = menu.classList.contains('hidden');
+
+        closeCustomerActionMenus();
+
+        if (shouldOpen) {
+            menu.classList.remove('hidden');
+        }
     }
 
-    const menu = document.getElementById(`customer-actions-${customerId}`);
-    if (!menu) {
-        return;
-    }
+    function openCustomerModal(customerId) {
+        closeCustomerActionMenus();
 
-    const isVisible = menu.style.display === 'block';
-    closeCustomerActionMenus();
-    menu.style.display = isVisible ? 'none' : 'block';
-}
+        const customer = customerDirectory[customerId];
+        if (!customer) {
+            return;
+        }
 
-function legacyCustomerModal(customerId) {
-    const customer = customerDirectory[customerId];
-    if (!customer) {
-        return;
-    }
+        const initials = customer.name
+            .split(' ')
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part) => part.charAt(0))
+            .join('')
+            .toUpperCase();
 
-    closeCustomerActionMenus();
-
-    document.getElementById('detail-name').textContent = customer.name;
-    document.getElementById('detail-email').textContent = customer.email;
-    document.getElementById('detail-verification-label').textContent = customer.verification_label;
-    document.getElementById('detail-verification-date').textContent = customer.verification_date;
-    document.getElementById('detail-bookings-count').textContent = `${customer.bookings_count} booking${customer.bookings_count === 1 ? '' : 's'}`;
-    document.getElementById('detail-last-booking-date').textContent = customer.bookings_count > 0
-        ? `${customer.last_booking_date} • ${customer.last_booking_status}`
-        : customer.last_booking_date;
-    if (customer.bookings_count > 0) {
+        document.getElementById('detail-avatar').textContent = initials || '--';
+        document.getElementById('detail-name').textContent = customer.name;
+        document.getElementById('detail-email').textContent = customer.email;
+        document.getElementById('detail-verification-label').innerHTML = customer.verification_label === 'Verified'
+            ? '<i class="fas fa-circle-check"></i> Verified'
+            : '<i class="fas fa-clock"></i> Pending verification';
+        document.getElementById('detail-verification-label').className = customer.verification_label === 'Verified'
+            ? 'inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700'
+            : 'inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700';
+        document.getElementById('detail-verification-date').textContent = customer.verification_date;
+        document.getElementById('detail-bookings-count').innerHTML = `<i class="fas fa-calendar-check"></i> ${customer.bookings_count} booking${customer.bookings_count === 1 ? '' : 's'}`;
         document.getElementById('detail-last-booking-date').textContent = `${customer.last_booking_date} - ${customer.last_booking_status}`;
+        document.getElementById('detail-joined-date').textContent = customer.joined_date;
+        document.getElementById('detail-joined-relative').textContent = customer.joined_relative;
+        document.getElementById('detail-username').textContent = customer.login_identifier;
+        document.getElementById('detail-phone').textContent = customer.phone;
+        document.getElementById('detail-gender').textContent = customer.gender;
+        document.getElementById('detail-barangay').textContent = customer.barangay || '--';
+        document.getElementById('detail-street').textContent = customer.street || '--';
+        document.getElementById('detail-city-zip').textContent = [customer.city || 'Puerto Princesa City', customer.zip_code || ''].filter(Boolean).join(' - ');
+
+        const verificationLink = document.getElementById('detail-verification-link');
+        verificationLink.href = customer.verification_url;
+
+        const lastBookingLink = document.getElementById('detail-last-booking-link');
+        if (customer.last_booking_url) {
+            lastBookingLink.href = customer.last_booking_url;
+            lastBookingLink.classList.remove('hidden');
+            lastBookingLink.classList.add('inline-flex');
+        } else {
+            lastBookingLink.href = '#';
+            lastBookingLink.classList.add('hidden');
+            lastBookingLink.classList.remove('inline-flex');
+        }
+
+        openModal(customerDetailModal);
     }
 
-    document.getElementById('detail-joined-date').textContent = customer.joined_date;
-    document.getElementById('detail-joined-relative').textContent = customer.joined_relative;
-    document.getElementById('detail-username').textContent = customer.login_identifier;
-    document.getElementById('detail-phone').textContent = customer.phone;
-    document.getElementById('detail-gender').textContent = customer.gender;
-    document.getElementById('detail-barangay').textContent = customer.barangay;
-    document.getElementById('detail-street').textContent = customer.street;
-    document.getElementById('detail-city-zip').textContent = `${customer.city}, ${customer.zip_code}`;
-    document.getElementById('detail-verification-link').href = customer.verification_url;
-
-    const latestBookingLink = document.getElementById('detail-last-booking-link');
-    if (customer.last_booking_url) {
-        latestBookingLink.href = customer.last_booking_url;
-        latestBookingLink.style.display = 'inline-flex';
-    } else {
-        latestBookingLink.href = '#';
-        latestBookingLink.style.display = 'none';
+    function closeCustomerModal() {
+        closeModal(customerDetailModal);
     }
 
-    document.getElementById('customer-detail-modal').classList.remove('hidden');
-}
-
-function openCustomerModal(customerId) {
-    const customer = customerDirectory[customerId];
-    if (!customer) {
-        return;
-    }
-
-    closeCustomerActionMenus();
-
-    document.getElementById('detail-name').textContent = customer.name;
-    document.getElementById('detail-email').textContent = customer.email;
-    document.getElementById('detail-verification-label').textContent = customer.verification_label;
-    document.getElementById('detail-verification-date').textContent = customer.verification_date;
-    document.getElementById('detail-bookings-count').textContent = `${customer.bookings_count} booking${customer.bookings_count === 1 ? '' : 's'}`;
-    document.getElementById('detail-last-booking-date').textContent = customer.bookings_count > 0
-        ? `${customer.last_booking_date} - ${customer.last_booking_status}`
-        : customer.last_booking_date;
-    document.getElementById('detail-joined-date').textContent = customer.joined_date;
-    document.getElementById('detail-joined-relative').textContent = customer.joined_relative;
-    document.getElementById('detail-username').textContent = customer.login_identifier;
-    document.getElementById('detail-phone').textContent = customer.phone;
-    document.getElementById('detail-gender').textContent = customer.gender;
-    document.getElementById('detail-barangay').textContent = customer.barangay;
-    document.getElementById('detail-street').textContent = customer.street;
-    document.getElementById('detail-city-zip').textContent = `${customer.city}, ${customer.zip_code}`;
-    document.getElementById('detail-verification-link').href = customer.verification_url;
-
-    const latestBookingLink = document.getElementById('detail-last-booking-link');
-    if (customer.last_booking_url) {
-        latestBookingLink.href = customer.last_booking_url;
-        latestBookingLink.style.display = 'inline-flex';
-    } else {
-        latestBookingLink.href = '#';
-        latestBookingLink.style.display = 'none';
-    }
-
-    document.getElementById('customer-detail-modal').classList.remove('hidden');
-}
-
-function closeCustomerModal() {
-    document.getElementById('customer-detail-modal').classList.add('hidden');
-}
-
-function openDeleteModal(customerId) {
-    const customer = customerDirectory[customerId];
-    if (!customer || !customer.can_delete) {
-        return;
-    }
-
-    closeCustomerActionMenus();
-
-    document.getElementById('delete-customer-form').action = customer.delete_url;
-    document.getElementById('delete-message').textContent = `You are about to permanently remove ${customer.name}. This should only be used for duplicate, test, or unused accounts with no booking history.`;
-    document.getElementById('customer-delete-modal').classList.remove('hidden');
-}
-
-function closeDeleteModal() {
-    document.getElementById('customer-delete-modal').classList.add('hidden');
-}
-
-document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape') {
+    function openDeleteModal(customerId) {
         closeCustomerActionMenus();
-        closeCustomerModal();
-        closeDeleteModal();
-    }
-});
 
-document.addEventListener('click', function (event) {
-    if (!event.target.closest('[data-customer-action-wrap]')) {
-        closeCustomerActionMenus();
+        const customer = customerDirectory[customerId];
+        if (!customer || !customer.can_delete) {
+            return;
+        }
+
+        deleteCustomerForm.action = customer.delete_url;
+        deleteCustomerMessage.textContent = `Delete ${customer.name}? This permanently removes the account because it has no booking history yet.`;
+
+        openModal(deleteCustomerModal);
     }
-});
+
+    function closeDeleteModal() {
+        closeModal(deleteCustomerModal);
+    }
+
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('[data-customer-action-wrap]')) {
+            closeCustomerActionMenus();
+        }
+    });
+
+    [customerDetailModal, deleteCustomerModal].forEach((modal) => {
+        if (!modal) {
+            return;
+        }
+
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeModal(modal);
+            }
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeCustomerActionMenus();
+            closeCustomerModal();
+            closeDeleteModal();
+        }
+    });
 </script>
 @endpush

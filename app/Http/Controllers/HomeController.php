@@ -13,6 +13,8 @@ class HomeController extends Controller
         $services = Service::where('is_active', true)
             ->orderBy('price')
             ->get();
+        $pricingConfig = Booking::pricingConfiguration();
+        $servicePackages = Service::packageCatalog();
 
         $serviceAreas = config('cleanflow.service_areas', []);
 
@@ -30,6 +32,8 @@ class HomeController extends Controller
         $topServiceSlug = $serviceBookingCounts->sortDesc()->keys()->first();
 
         return view('home.index', compact(
+            'pricingConfig',
+            'servicePackages',
             'serviceBookingCounts',
             'services',
             'stats',

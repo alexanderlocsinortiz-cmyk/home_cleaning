@@ -2,196 +2,334 @@
 @section('title', 'Edit Profile - Home Cleaning Service')
 
 @section('content')
-<style>
-    .form-input { transition: all 0.15s ease; }
-    .form-input:focus { border-color: #1D9E75 !important; box-shadow: 0 0 0 3px rgba(37,99,235,0.1) !important; outline: none !important; }
-    .save-btn { transition: all 0.2s ease; }
-    .save-btn:hover { background: #0F6E56 !important; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(37,99,235,0.35) !important; }
-    .cancel-btn { transition: all 0.15s ease; }
-    .cancel-btn:hover { background: #e2e8f0 !important; color: #1e293b !important; }
-</style>
-<style>
-@media (max-width: 767px) {
-    .profile-padding { padding: 1rem !important; }
-    .profile-grid { grid-template-columns: 1fr !important; }
-    .profile-form-grid { grid-template-columns: 1fr !important; }
-    .profile-addr-grid { grid-template-columns: 1fr !important; }
-    .profile-actions { flex-direction: column !important; }
-    .profile-actions a, .profile-actions button { width: 100%; justify-content: center; }
-}
-</style>
+@php
+    $user = auth()->user();
+    $initials = $user->initials;
+    $barangayLabel = $user->barangay ? ucfirst(str_replace('_', ' ', $user->barangay)) : 'Not set';
+    $summaryItems = [
+        ['icon' => 'fa-phone', 'label' => 'Phone', 'value' => $user->phone ?: 'Not set'],
+        ['icon' => 'fa-location-dot', 'label' => 'Barangay', 'value' => $barangayLabel],
+        ['icon' => 'fa-road', 'label' => 'Street', 'value' => $user->street ?: 'Not set'],
+        ['icon' => 'fa-envelope', 'label' => 'ZIP Code', 'value' => $user->zip_code ?: 'Not set'],
+    ];
+    $tips = [
+        'Keep your address updated for accurate service delivery.',
+        'A valid phone number helps our team reach you quickly when a cleaner is assigned.',
+        'Complete profile details help speed up booking confirmation and manual review.',
+    ];
+@endphp
 
-<div class="profile-padding" style='background: #f1f5f9; min-height: calc(100vh - 73px); padding: 1.75rem 2rem; font-family: DM Sans, sans-serif;'>
-<div style='max-width: 900px; margin: 0 auto;'>
-
-    @if(session('success'))
-    <div style='background: #dcfce7; border: 1px solid #86efac; color: #16a34a; border-radius: 10px; padding: 12px 16px; margin-bottom: 1.25rem; font-size: 14px; display: flex; align-items: center; gap: 8px;'>✅ {{ session('success') }}</div>
-    @endif
-
-    @php
-        $user = auth()->user();
-        $initials = strtoupper(substr($user->first_name,0,1).substr($user->last_name,0,1));
-        $barangayLabel = $user->barangay ? ucfirst(str_replace('_', ' ', $user->barangay)) : 'Not set';
-    @endphp
-
-    {{-- HEADER --}}
-    <div style='margin-bottom: 1.25rem; padding-top: 0.5rem;'>
-        <div style='display: flex; align-items: center; gap: 8px; margin-bottom: 8px;'>
-            <a href="{{ route('client.dashboard') }}" style='background: white; color: #64748b; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; text-decoration: none; transition: all 0.15s;'>← Back</a>
-            <span style='color: #94a3b8; font-size: 13px;'>/</span>
-            <span style='color: #94a3b8; font-size: 13px;'>Edit Profile</span>
-        </div>
-        <h1 style='font-size: 26px; font-weight: 800; color: #1e293b; margin-bottom: 4px;'>✏️ Edit Profile</h1>
-        <p style='font-size: 13px; color: #94a3b8;'>Update your personal and contact information</p>
-    </div>
-
-    <div class="profile-grid" style='display: grid; grid-template-columns: 1fr 300px; gap: 1.25rem;'>
-
-        {{-- FORM --}}
-        <div style='display: flex; flex-direction: column; gap: 1.25rem;'>
-
-            <form action="{{ route('client.profile.update') }}" method="POST">
-            @csrf @method('PUT')
-
-            {{-- PERSONAL INFO --}}
-            <div style='background: #ffffff; border-radius: 16px; padding: 1.75rem; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid #f1f5f9;'>
-                <div style='display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid #f8fafc;'>
-                    <div style='width: 36px; height: 36px; border-radius: 10px; background: #E1F5EE; display: flex; align-items: center; justify-content: center; font-size: 18px;'>👤</div>
-                    <div>
-                        <div style='font-size: 15px; font-weight: 700; color: #1e293b;'>Personal Information</div>
-                        <div style='font-size: 12px; color: #94a3b8;'>Your basic profile details</div>
-                    </div>
-                </div>
-
-                <div class="profile-form-grid" style='display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem;'>
-                    <div>
-                        <label style='font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 6px;'>First Name <span style='color: #ef4444;'>*</span></label>
-                        <input type='text' name='first_name' class='form-input' value='{{ old("first_name", $user->first_name) }}' placeholder='First name' style='width: 100%; border: 1.5px solid #dde3ed; border-radius: 10px; padding: 11px 14px; font-size: 14px; box-sizing: border-box;' required>
-                        @error('first_name')<p style='color: #dc2626; font-size: 12px; margin-top: 4px;'>{{ $message }}</p>@enderror
-                    </div>
-                    <div>
-                        <label style='font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 6px;'>Last Name <span style='color: #ef4444;'>*</span></label>
-                        <input type='text' name='last_name' class='form-input' value='{{ old("last_name", $user->last_name) }}' placeholder='Last name' style='width: 100%; border: 1.5px solid #dde3ed; border-radius: 10px; padding: 11px 14px; font-size: 14px; box-sizing: border-box;' required>
-                        @error('last_name')<p style='color: #dc2626; font-size: 12px; margin-top: 4px;'>{{ $message }}</p>@enderror
-                    </div>
-                </div>
-
-                <div class="profile-form-grid" style='display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;'>
-                    <div>
-                        <label style='font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 6px;'>📱 Phone Number <span style='color: #ef4444;'>*</span></label>
-                        <input type='text' name='phone' class='form-input' value='{{ old("phone", $user->phone) }}' placeholder='09XXXXXXXXX' style='width: 100%; border: 1.5px solid #dde3ed; border-radius: 10px; padding: 11px 14px; font-size: 14px; box-sizing: border-box;' required>
-                        @error('phone')<p style='color: #dc2626; font-size: 12px; margin-top: 4px;'>{{ $message }}</p>@enderror
-                    </div>
-                    <div>
-                        <label style='font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 6px;'>📧 Email Address</label>
-                        <input type='email' value='{{ $user->email }}' disabled style='width: 100%; border: 1.5px solid #dde3ed; border-radius: 10px; padding: 11px 14px; font-size: 14px; box-sizing: border-box; background: #f8fafc; color: #94a3b8; cursor: not-allowed;'>
-                        <p style='font-size: 11px; color: #94a3b8; margin-top: 4px;'>Email cannot be changed</p>
-                    </div>
+<div class="cleanflow-page-shell min-h-[calc(100vh-81px)] px-4 py-6 sm:px-6 sm:py-8">
+    <div class="mx-auto max-w-6xl space-y-6">
+        @if (session('success'))
+            <div class="cleanflow-alert cleanflow-alert--success flex items-start gap-3">
+                <i class="fas fa-circle-check mt-0.5 text-base"></i>
+                <div>
+                    <p class="text-sm font-semibold">Profile updated successfully.</p>
+                    <p class="mt-1 text-sm text-emerald-800/80">{{ session('success') }}</p>
                 </div>
             </div>
+        @endif
 
-            {{-- ADDRESS INFO --}}
-            <div style='background: #ffffff; border-radius: 16px; padding: 1.75rem; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid #f1f5f9;'>
-                <div style='display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid #f8fafc;'>
-                    <div style='width: 36px; height: 36px; border-radius: 10px; background: #fefce8; display: flex; align-items: center; justify-content: center; font-size: 18px;'>📍</div>
+        @if ($errors->any())
+            <div class="cleanflow-alert cleanflow-alert--error">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-circle-exclamation mt-0.5 text-base"></i>
                     <div>
-                        <div style='font-size: 15px; font-weight: 700; color: #1e293b;'>Address Information</div>
-                        <div style='font-size: 12px; color: #94a3b8;'>Your service location details</div>
-                    </div>
-                </div>
-
-                <div style='margin-bottom: 1.25rem;'>
-                    <label style='font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 6px;'>Street Address <span style='color: #ef4444;'>*</span></label>
-                    <input type='text' name='street' class='form-input' value='{{ old("street", $user->street) }}' placeholder='e.g. 123 Rizal Street' style='width: 100%; border: 1.5px solid #dde3ed; border-radius: 10px; padding: 11px 14px; font-size: 14px; box-sizing: border-box;' required>
-                    @error('street')<p style='color: #dc2626; font-size: 12px; margin-top: 4px;'>{{ $message }}</p>@enderror
-                </div>
-
-                <div class="profile-addr-grid" style='display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;'>
-                    <div>
-                        <label style='font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 6px;'>Barangay <span style='color: #ef4444;'>*</span></label>
-                        <select name='barangay' class='form-input' style='width: 100%; border: 1.5px solid #dde3ed; border-radius: 10px; padding: 11px 14px; font-size: 14px; background: white; appearance: none; cursor: pointer; box-sizing: border-box;' required>
-                            <option value=''>Select barangay</option>
-                            @foreach($barangays as $b)
-                            <option value='{{ $b }}' {{ old('barangay', $user->barangay) === $b ? 'selected' : '' }}>{{ $b }}</option>
+                        <p class="text-sm font-semibold">Please review your profile details.</p>
+                        <ul class="mt-2 space-y-1 text-sm text-red-700/90">
+                            @foreach ($errors->all() as $error)
+                                <li class="flex items-start gap-2">
+                                    <span class="mt-1 h-1.5 w-1.5 rounded-full bg-red-400"></span>
+                                    <span>{{ $error }}</span>
+                                </li>
                             @endforeach
-                        </select>
-                        @error('barangay')<p style='color: #dc2626; font-size: 12px; margin-top: 4px;'>{{ $message }}</p>@enderror
-                    </div>
-                    <div>
-                        <label style='font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 6px;'>ZIP Code <span style='color: #ef4444;'>*</span></label>
-                        <input type='text' name='zip_code' class='form-input' value='{{ old("zip_code", $user->zip_code) }}' placeholder='8504' maxlength='4' style='width: 100%; border: 1.5px solid #dde3ed; border-radius: 10px; padding: 11px 14px; font-size: 14px; box-sizing: border-box;' required>
-                        @error('zip_code')<p style='color: #dc2626; font-size: 12px; margin-top: 4px;'>{{ $message }}</p>@enderror
+                        </ul>
                     </div>
                 </div>
             </div>
+        @endif
 
-            {{-- SUBMIT BUTTONS --}}
-            <div class="profile-actions" style='display: flex; gap: 10px;'>
-                <button type='submit' class='save-btn' style='background: #1D9E75; color: white; border: none; border-radius: 12px; padding: 13px 32px; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(37,99,235,0.25);'>
-                    💾 Save Changes
-                </button>
-                <a href="{{ route('client.dashboard') }}" class='cancel-btn' style='background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; border-radius: 12px; padding: 13px 24px; font-size: 15px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 6px;'>
-                    ← Cancel
+        <section class="cleanflow-hero overflow-hidden px-6 py-7 text-white sm:px-8">
+            <div class="cleanflow-hero-content flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+                <div class="max-w-3xl space-y-4">
+                    <span class="cleanflow-kicker">
+                        <i class="fas fa-id-card text-[0.75rem]"></i>
+                        Client account
+                    </span>
+                    <div class="space-y-3">
+                        <h1 class="max-w-2xl text-3xl font-black tracking-tight sm:text-4xl">
+                            Keep your profile booking-ready
+                        </h1>
+                        <p class="max-w-2xl text-sm leading-7 text-white/80 sm:text-base">
+                            Update your contact and address details so confirmations, cleaner assignments, and support
+                            updates always reach the right place.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap gap-3 text-sm text-white/85">
+                        <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                            <i class="fas fa-phone-volume text-xs"></i>
+                            Faster client support
+                        </span>
+                        <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                            <i class="fas fa-location-dot text-xs"></i>
+                            Accurate service visits
+                        </span>
+                        <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                            <i class="fas fa-shield-heart text-xs"></i>
+                            Smoother booking review
+                        </span>
+                    </div>
+                </div>
+
+                <a href="{{ route('client.dashboard') }}" class="cleanflow-ghost-button self-start xl:self-auto">
+                    <i class="fas fa-arrow-left text-xs"></i>
+                    Back to dashboard
                 </a>
             </div>
+        </section>
 
+        <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <form action="{{ route('client.profile.update') }}" method="POST" class="space-y-6">
+                @csrf
+                @method('PUT')
+
+                <section class="cleanflow-panel p-6 md:p-7">
+                    <div class="mb-6 flex flex-col gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="flex items-start gap-4">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                                <i class="fas fa-user text-lg"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-900">Personal information</h2>
+                                <p class="mt-1 text-sm text-slate-500">These details are used for contact, verification, and age checks.</p>
+                            </div>
+                        </div>
+                        <div class="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                            Required
+                        </div>
+                    </div>
+
+                    <div class="grid gap-5 md:grid-cols-2">
+                        <div class="space-y-2">
+                            <label for="first_name" class="text-sm font-semibold text-slate-700">First name</label>
+                            <input
+                                id="first_name"
+                                type="text"
+                                name="first_name"
+                                class="client-profile-input"
+                                value="{{ old('first_name', $user->first_name) }}"
+                                placeholder="First name"
+                                required
+                            >
+                            @error('first_name')
+                                <p class="text-xs font-medium text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="space-y-2">
+                            <label for="last_name" class="text-sm font-semibold text-slate-700">Last name</label>
+                            <input
+                                id="last_name"
+                                type="text"
+                                name="last_name"
+                                class="client-profile-input"
+                                value="{{ old('last_name', $user->last_name) }}"
+                                placeholder="Last name"
+                                required
+                            >
+                            @error('last_name')
+                                <p class="text-xs font-medium text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="space-y-2">
+                            <label for="phone" class="text-sm font-semibold text-slate-700">Phone number</label>
+                            <input
+                                id="phone"
+                                type="text"
+                                name="phone"
+                                class="client-profile-input"
+                                value="{{ old('phone', $user->phone) }}"
+                                placeholder="09XXXXXXXXX"
+                                required
+                            >
+                            @error('phone')
+                                <p class="text-xs font-medium text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="space-y-2">
+                            <label for="email_preview" class="text-sm font-semibold text-slate-700">Email address</label>
+                            <input
+                                id="email_preview"
+                                type="email"
+                                class="client-profile-input"
+                                value="{{ $user->email }}"
+                                disabled
+                            >
+                            <p class="text-xs text-slate-500">Email is locked to protect account access.</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 space-y-2">
+                        <label for="date_of_birth" class="text-sm font-semibold text-slate-700">Date of birth</label>
+                        <input
+                            id="date_of_birth"
+                            type="date"
+                            name="date_of_birth"
+                            class="client-profile-input"
+                            value="{{ old('date_of_birth', optional($user->date_of_birth)->format('Y-m-d')) }}"
+                            required
+                        >
+                        @error('date_of_birth')
+                            <p class="text-xs font-medium text-red-600">{{ $message }}</p>
+                        @enderror
+                        <p class="text-xs text-slate-500">Clients must be at least 18 years old to book services.</p>
+                    </div>
+                </section>
+
+                <section class="cleanflow-panel p-6 md:p-7">
+                    <div class="mb-6 flex items-start gap-4 border-b border-slate-100 pb-5">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
+                            <i class="fas fa-location-dot text-lg"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-900">Address information</h2>
+                            <p class="mt-1 text-sm text-slate-500">This is the address we use for service scheduling and arrival guidance.</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-5">
+                        <div class="space-y-2">
+                            <label for="street" class="text-sm font-semibold text-slate-700">Street address</label>
+                            <input
+                                id="street"
+                                type="text"
+                                name="street"
+                                class="client-profile-input"
+                                value="{{ old('street', $user->street) }}"
+                                placeholder="e.g. 123 Rizal Street"
+                                required
+                            >
+                            @error('street')
+                                <p class="text-xs font-medium text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="grid gap-5 md:grid-cols-2">
+                            <div class="space-y-2">
+                                <label for="barangay" class="text-sm font-semibold text-slate-700">Barangay</label>
+                                <select id="barangay" name="barangay" class="client-profile-input" required>
+                                    <option value="">Select barangay</option>
+                                    @foreach ($barangays as $b)
+                                        <option value="{{ $b }}" {{ old('barangay', $user->barangay) === $b ? 'selected' : '' }}>
+                                            {{ $b }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('barangay')
+                                    <p class="text-xs font-medium text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div class="space-y-2">
+                                <label for="zip_code" class="text-sm font-semibold text-slate-700">ZIP code</label>
+                                <input
+                                    id="zip_code"
+                                    type="text"
+                                    name="zip_code"
+                                    maxlength="4"
+                                    class="client-profile-input"
+                                    value="{{ old('zip_code', $user->zip_code) }}"
+                                    placeholder="8504"
+                                    required
+                                >
+                                @error('zip_code')
+                                    <p class="text-xs font-medium text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="flex flex-col gap-3 sm:flex-row">
+                    <button
+                        type="submit"
+                        class="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-200/70 transition hover:-translate-y-0.5 hover:bg-primary-dark"
+                    >
+                        <i class="fas fa-floppy-disk text-xs"></i>
+                        Save changes
+                    </button>
+                    <a
+                        href="{{ route('client.dashboard') }}"
+                        class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                    >
+                        <i class="fas fa-xmark text-xs"></i>
+                        Cancel
+                    </a>
+                </div>
             </form>
-        </div>
 
-        {{-- RIGHT SIDEBAR - CURRENT INFO --}}
-        <div style='display: flex; flex-direction: column; gap: 1.25rem;'>
+            <aside class="space-y-6 xl:sticky xl:top-28">
+                <section class="cleanflow-panel p-6">
+                    <div class="mb-5 flex items-center gap-3">
+                        <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-600 text-sm font-bold text-white shadow-md">
+                            {{ $initials }}
+                        </div>
+                        <div>
+                            <h2 class="text-base font-bold text-slate-900">Current profile</h2>
+                            <p class="text-sm text-slate-500">A quick view of the details clients and staff rely on.</p>
+                        </div>
+                    </div>
 
-            {{-- PROFILE PREVIEW --}}
-            <div style='background: #ffffff; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid #f1f5f9;'>
-                <div style='font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 1rem;'>👤 Current Profile</div>
-                <div style='text-align: center; padding: 1rem 0; border-bottom: 1px solid #f8fafc; margin-bottom: 1rem;'>
-                    <div style='width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, #1D9E75, #1D9E75); display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 24px; margin: 0 auto 10px;'>{{ $initials }}</div>
-                    <div style='font-size: 16px; font-weight: 700; color: #1e293b;'>{{ $user->first_name }} {{ $user->last_name }}</div>
-                    <div style='font-size: 12px; color: #94a3b8; margin-top: 2px;'>{{ $user->email }}</div>
-                </div>
-                <div style='display: flex; flex-direction: column; gap: 10px;'>
-                    <div style='display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #f8fafc; border-radius: 8px;'>
-                        <span style='font-size: 12px; color: #94a3b8;'>📱 Phone</span>
-                        <span style='font-size: 13px; color: #1e293b; font-weight: 600;'>{{ $user->phone ?? 'Not set' }}</span>
+                    <div class="rounded-[1.4rem] border border-slate-100 bg-slate-50/80 p-5 text-center">
+                        <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary-600 text-2xl font-black text-white shadow-lg">
+                            {{ $initials }}
+                        </div>
+                        <div class="mt-3 text-base font-bold text-slate-900">{{ $user->display_name }}</div>
+                        <div class="mt-1 text-sm text-slate-500">{{ $user->email }}</div>
                     </div>
-                    <div style='display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #f8fafc; border-radius: 8px;'>
-                        <span style='font-size: 12px; color: #94a3b8;'>📍 Barangay</span>
-                        <span style='font-size: 13px; color: #1e293b; font-weight: 600;'>{{ $barangayLabel }}</span>
-                    </div>
-                    <div style='display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #f8fafc; border-radius: 8px;'>
-                        <span style='font-size: 12px; color: #94a3b8;'>🏠 Street</span>
-                        <span style='font-size: 13px; color: #1e293b; font-weight: 600;'>{{ $user->street ?? 'Not set' }}</span>
-                    </div>
-                    <div style='display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #f8fafc; border-radius: 8px;'>
-                        <span style='font-size: 12px; color: #94a3b8;'>📮 ZIP Code</span>
-                        <span style='font-size: 13px; color: #1e293b; font-weight: 600;'>{{ $user->zip_code ?? 'Not set' }}</span>
-                    </div>
-                </div>
-            </div>
 
-            {{-- TIPS --}}
-            <div style='background: #e8f0fe; border-radius: 16px; padding: 1.5rem; border: 1px solid #b8d0fb;'>
-                <div style='font-size: 15px; font-weight: 700; color: #0F6E56; margin-bottom: 10px;'>💡 Tips</div>
-                <div style='display: flex; flex-direction: column; gap: 8px;'>
-                    <div style='display: flex; align-items: flex-start; gap: 8px;'>
-                        <span style='color: #1D9E75; font-size: 14px; flex-shrink: 0;'>✓</span>
-                        <span style='font-size: 12px; color: #0F6E56; line-height: 1.5;'>Keep your address updated for accurate service delivery</span>
+                    <div class="mt-5 space-y-3">
+                        @foreach ($summaryItems as $item)
+                            <div class="client-profile-summary-row">
+                                <div class="flex items-center gap-3">
+                                    <span class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm">
+                                        <i class="fas {{ $item['icon'] }} text-sm"></i>
+                                    </span>
+                                    <span class="text-sm font-medium text-slate-500">{{ $item['label'] }}</span>
+                                </div>
+                                <span class="client-profile-summary-value text-sm">{{ $item['value'] }}</span>
+                            </div>
+                        @endforeach
                     </div>
-                    <div style='display: flex; align-items: flex-start; gap: 8px;'>
-                        <span style='color: #1D9E75; font-size: 14px; flex-shrink: 0;'>✓</span>
-                        <span style='font-size: 12px; color: #0F6E56; line-height: 1.5;'>A valid phone number helps our staff contact you</span>
-                    </div>
-                    <div style='display: flex; align-items: flex-start; gap: 8px;'>
-                        <span style='color: #1D9E75; font-size: 14px; flex-shrink: 0;'>✓</span>
-                        <span style='font-size: 12px; color: #0F6E56; line-height: 1.5;'>Complete profiles get faster booking confirmations</span>
-                    </div>
-                </div>
-            </div>
+                </section>
 
+                <section class="cleanflow-panel border border-accent-100 bg-accent-50/80 p-6">
+                    <div class="mb-4 flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-accent-600 shadow-sm">
+                            <i class="fas fa-lightbulb text-base"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-base font-bold text-slate-900">Quick tips</h2>
+                            <p class="text-sm text-slate-500">Small updates here can save time later in the booking flow.</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        @foreach ($tips as $tip)
+                            <div class="client-profile-tip">
+                                <span class="client-profile-tip-icon">
+                                    <i class="fas fa-check text-xs"></i>
+                                </span>
+                                <p class="text-sm leading-6 text-slate-600">{{ $tip }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
+            </aside>
         </div>
     </div>
-
-</div>
 </div>
 @endsection
-

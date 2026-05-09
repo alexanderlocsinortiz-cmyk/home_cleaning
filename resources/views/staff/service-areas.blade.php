@@ -4,7 +4,7 @@
 @section('page-subtitle', 'Coverage map for Valencia City, Bukidnon')
 
 @push('styles')
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}" />
 @endpush
 
 @section('content')
@@ -20,7 +20,7 @@
         <div class="order-2 flex flex-col gap-4 overflow-y-auto rounded-xl bg-white p-4 shadow-md lg:order-1 lg:col-span-1">
             <div class="relative">
                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                <input type="text" id="barangaySearch" placeholder="Search barangay..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-emerald-500">
+                <input type="text" id="barangaySearch" placeholder="Search barangay..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-hidden focus:border-emerald-500">
             </div>
 
             <div>
@@ -55,7 +55,7 @@
                     @foreach($barangays as $b)
                     <li class="flex items-center gap-2 p-2 rounded-lg cursor-pointer text-sm hover:bg-emerald-50 justify-between" data-type="{{ $b['type'] }}" data-lat="{{ $b['lat'] }}" data-lng="{{ $b['lng'] }}" data-name="{{ $b['name'] }}">
                         <div class="flex items-center gap-2">
-                            <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 {{ $b['type'] == 'service_center' ? 'bg-red-500' : ($b['type'] == 'residential' ? 'bg-emerald-600' : ($b['type'] == 'commercial' ? 'bg-orange-500' : 'bg-green-500')) }}"></span>
+                            <span class="w-2.5 h-2.5 rounded-full shrink-0 {{ $b['type'] == 'service_center' ? 'bg-red-500' : ($b['type'] == 'residential' ? 'bg-emerald-600' : ($b['type'] == 'commercial' ? 'bg-orange-500' : 'bg-green-500')) }}"></span>
                             {{ $b['name'] }}
                         </div>
                         <small class="text-gray-500 text-xs">{{ ucfirst(str_replace('_', ' ', $b['type'])) }}</small>
@@ -96,7 +96,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script>
     window.cleanflowMapConfig = @json(config('cleanflow.map'));
     window.barangayData = @json($barangays);

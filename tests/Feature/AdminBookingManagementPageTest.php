@@ -28,10 +28,27 @@ class AdminBookingManagementPageTest extends TestCase
         $response->assertOk();
         $response->assertSee('Active Booking Queue');
         $response->assertSee('Completed Bookings');
-        $response->assertSee('CF-' . str_pad($pending->id, 5, '0', STR_PAD_LEFT));
-        $response->assertSee('CF-' . str_pad($confirmed->id, 5, '0', STR_PAD_LEFT));
-        $response->assertSee('CF-' . str_pad($inProgress->id, 5, '0', STR_PAD_LEFT));
-        $response->assertDontSee('CF-' . str_pad($completed->id, 5, '0', STR_PAD_LEFT));
+        $response->assertSee('CF-'.str_pad($pending->id, 5, '0', STR_PAD_LEFT));
+        $response->assertSee('CF-'.str_pad($confirmed->id, 5, '0', STR_PAD_LEFT));
+        $response->assertSee('CF-'.str_pad($inProgress->id, 5, '0', STR_PAD_LEFT));
+        $response->assertDontSee('CF-'.str_pad($completed->id, 5, '0', STR_PAD_LEFT));
+    }
+
+    public function test_admin_bookings_page_can_filter_unassigned_active_queue(): void
+    {
+        $admin = $this->createUser('admin', 'admin-unassigned-filter@example.com', 'adminunassignedfilter');
+        $client = $this->createUser('client', 'client-unassigned-filter@example.com', 'clientunassignedfilter');
+        $staff = $this->createUser('staff', 'staff-unassigned-filter@example.com', 'staffunassignedfilter');
+
+        $unassigned = $this->createBooking($client, null, 'pending', now()->addDay()->toDateString(), '09:00');
+        $assigned = $this->createBooking($client, $staff, 'confirmed', now()->addDays(2)->toDateString(), '10:00');
+
+        $response = $this->actingAs($admin)->get(route('admin.bookings', ['tab' => 'active', 'filter' => 'unassigned']));
+
+        $response->assertOk();
+        $response->assertSee('Unassigned');
+        $response->assertSee('CF-'.str_pad($unassigned->id, 5, '0', STR_PAD_LEFT));
+        $response->assertDontSee('CF-'.str_pad($assigned->id, 5, '0', STR_PAD_LEFT));
     }
 
     public function test_admin_can_open_completed_history_tab_without_operational_controls(): void
@@ -47,12 +64,63 @@ class AdminBookingManagementPageTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Completed Booking History');
-        $response->assertSee('CF-' . str_pad($completed->id, 5, '0', STR_PAD_LEFT));
-        $response->assertSee('CF-' . str_pad($cancelled->id, 5, '0', STR_PAD_LEFT));
+        $response->assertSee('CF-'.str_pad($completed->id, 5, '0', STR_PAD_LEFT));
+        $response->assertSee('CF-'.str_pad($cancelled->id, 5, '0', STR_PAD_LEFT));
         $response->assertSee('View Details');
         $response->assertSee('No rating yet');
         $response->assertDontSee('Current staff:');
         $response->assertDontSee('Active Booking Queue');
+    }
+
+    public function test_admin_bookings_page_shows_requested_cleaner_details_when_present(): void
+    {
+        $admin = $this->createUser('admin', 'admin-requested-cleaner@example.com', 'adminrequestedcleaner');
+        $client = $this->createUser('client', 'client-requested-cleaner@example.com', 'clientrequestedcleaner');
+        $requestedCleaner = $this->createUser('staff', 'requested-cleaner@example.com', 'requestedcleaner');
+        $requestedCleaner->update([
+            'first_name' => 'Preferred',
+            'last_name' => 'Cleaner',
+        ]);
+
+        $booking = $this->createBooking($client, null, 'pending', now()->addDay()->toDateString(), '09:00');
+        $booking->forceFill([
+            'preferred_staff_id' => $requestedCleaner->id,
+            'preferred_staff_status' => 'requested',
+        ])->save();
+
+        $response = $this->actingAs($admin)->get(route('admin.bookings'));
+
+        $response->assertOk();
+        $response->assertSee('Preferred cleaner');
+        $response->assertSee($requestedCleaner->full_name);
+        $response->assertSee('Requested');
+    }
+
+    public function test_admin_bookings_page_shows_payment_and_subscription_details_when_present(): void
+    {
+        $admin = $this->createUser('admin', 'admin-payment-queue@example.com', 'adminpaymentqueue');
+        $client = $this->createUser('client', 'client-payment-queue@example.com', 'clientpaymentqueue');
+        $booking = $this->createBooking($client, null, 'pending', now()->addDays(2)->toDateString(), '09:00');
+
+        $booking->forceFill([
+            'payment_method' => 'gcash',
+            'payment_status' => 'paid',
+            'payment_reference' => 'GCASH-QUEUE-12345',
+            'paid_at' => now(),
+            'service_plan' => 'subscription',
+            'subscription_frequency' => 'weekly',
+            'subscription_occurrences' => 4,
+            'subscription_group_id' => 'queue-group',
+            'subscription_sequence' => 2,
+        ])->save();
+
+        $response = $this->actingAs($admin)->get(route('admin.bookings'));
+
+        $response->assertOk();
+        $response->assertSee('GCash');
+        $response->assertSee('Paid');
+        $response->assertSee('Weekly');
+        $response->assertSee('Visit 2');
     }
 
     private function createUser(string $role, string $email, string $username): User

@@ -2,116 +2,201 @@
 @section('title', 'Edit Profile')
 
 @section('content')
-<section class="form-section" style="padding-top:2rem;">
-    <div class="form-container" style="max-width:900px;">
-        <div class="form-header">
-            <div class="form-header-icon"><i class="fas fa-user-cog"></i></div>
-            <h2>Edit Profile</h2>
-            <p>Keep your contact and address details up to date.</p>
-        </div>
+@php
+    $currentBarangay = old('barangay', $user->barangay);
+    $currentGender = old('gender', $user->gender);
+@endphp
 
+<div class="cleanflow-page-shell px-4 py-8 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-6xl space-y-6">
         @if ($errors->any())
-            <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i>
-                <ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+            <div class="cleanflow-alert cleanflow-alert--error">
+                <div class="text-sm font-bold">Please review your profile details.</div>
+                <div class="mt-2 space-y-1 text-sm">
+                    @foreach ($errors->all() as $error)
+                        <div class="flex items-start gap-2">
+                            <i class="fas fa-circle mt-1 text-[7px]"></i>
+                            <span>{{ $error }}</span>
+                        </div>
+                    @endforeach
+                </div>
             </div>
         @endif
 
-        <form action="{{ route('profile.update') }}" method="POST">
-            @csrf
-            @method('PUT')
+        <section class="cleanflow-hero overflow-hidden px-6 py-7 text-white sm:px-8">
+            <div class="cleanflow-hero-content flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+                <div class="max-w-3xl">
+                    <span class="cleanflow-kicker">
+                        <i class="fas fa-user-cog"></i>
+                        Edit Profile
+                    </span>
+                    <h1 class="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Keep your contact and location details booking-ready.</h1>
+                    <p class="mt-3 max-w-2xl text-sm leading-7 text-white/82 sm:text-base">
+                        Update the information used for confirmations, service addresses, and account recovery without leaving the main profile workflow.
+                    </p>
+                </div>
+                <div class="flex flex-col gap-3 rounded-3xl border border-white/18 bg-white/10 px-5 py-4 shadow-[0_18px_40px_rgba(15,23,42,0.15)] backdrop-blur xl:min-w-[280px]">
+                    <div class="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Account Email</div>
+                    <div class="text-sm font-semibold text-white break-all">{{ $user->email }}</div>
+                    <a href="{{ route('profile.show') }}" class="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50">
+                        <i class="fas fa-arrow-left"></i>
+                        Back to Profile
+                    </a>
+                </div>
+            </div>
+        </section>
 
-            <div class="form-section-title"><i class="fas fa-user"></i> Personal Information</div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>First Name <span class="required">*</span></label>
-                    <input type="text" name="first_name" class="form-control" value="{{ old('first_name', $user->first_name) }}" required>
-                    @error('first_name')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
+        <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <section class="cleanflow-panel overflow-hidden">
+                <div class="border-b border-slate-100 px-6 py-5">
+                    <h2 class="text-lg font-extrabold text-slate-900">Profile Form</h2>
+                    <p class="mt-1 text-sm text-slate-500">Edit the account details used across booking, contact, and service coordination flows.</p>
                 </div>
-                <div class="form-group">
-                    <label>Last Name <span class="required">*</span></label>
-                    <input type="text" name="last_name" class="form-control" value="{{ old('last_name', $user->last_name) }}" required>
-                    @error('last_name')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Phone</label>
-                    <input type="text" name="phone" class="form-control" value="{{ old('phone', $user->phone) }}" placeholder="09XXXXXXXXX">
-                    @error('phone')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
-                </div>
-                <div class="form-group">
-                    <label>Birthday</label>
-                    <input type="date" name="date_of_birth" class="form-control" value="{{ old('date_of_birth', optional($user->date_of_birth)->format('Y-m-d')) }}">
-                    @error('date_of_birth')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Gender</label>
-                <select name="gender" class="form-control">
-                    <option value="">Select gender</option>
-                    <option value="male" {{ old('gender', $user->gender) == 'male' ? 'selected' : '' }}>Male</option>
-                    <option value="female" {{ old('gender', $user->gender) == 'female' ? 'selected' : '' }}>Female</option>
-                    <option value="prefer_not_to_say" {{ old('gender', $user->gender) == 'prefer_not_to_say' ? 'selected' : '' }}>Prefer not to say</option>
-                </select>
-                @error('gender')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
-            </div>
 
-            <div class="form-section-title"><i class="fas fa-map-marker-alt"></i> Address</div>
-            <div class="form-group">
-                <label>Street <span class="required">*</span></label>
-                <input type="text" name="street" class="form-control" value="{{ old('street', $user->street) }}" required>
-                @error('street')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Barangay <span class="required">*</span></label>
-                    <select name="barangay" class="form-control" required>
-                        <option value="">Select barangay</option>
-                        @foreach($barangays as $value => $label)
-                            <option value="{{ $value }}" {{ old('barangay', $user->barangay) === $value ? 'selected' : '' }}>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                    @error('barangay')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
-                </div>
-                <div class="form-group">
-                    <label>ZIP Code <span class="required">*</span></label>
-                    <input type="text" name="zip_code" class="form-control" value="{{ old('zip_code', $user->zip_code) }}" required>
-                    @error('zip_code')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
-                </div>
-            </div>
+                <form action="{{ route('profile.update') }}" method="POST" class="space-y-6 px-6 py-6">
+                    @csrf
+                    @method('PUT')
 
-            <div class="form-section-title"><i class="fas fa-lock"></i> Account</div>
-            <div class="form-group">
-                <label>Email (read only)</label>
-                <input type="email" class="form-control" value="{{ $user->email }}" disabled>
-            </div>
+                    <div>
+                        <div class="mb-4 flex items-center gap-3">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div>
+                                <div class="text-base font-extrabold text-slate-900">Personal Information</div>
+                                <div class="text-sm text-slate-500">Core identity and contact details.</div>
+                            </div>
+                        </div>
 
-            <div class="form-section-title"><i class="fas fa-key"></i> Change Password (optional)</div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Current Password</label>
-                    <input type="password" name="current_password" class="form-control">
-                    @error('current_password')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
-                </div>
-                <div class="form-group">
-                    <label>New Password</label>
-                    <input type="password" name="new_password" class="form-control">
-                    @error('new_password')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Confirm New Password</label>
-                <input type="password" name="new_password_confirmation" class="form-control">
-                @error('new_password_confirmation')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
-            </div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">First Name</label>
+                                <input type="text" name="first_name" value="{{ old('first_name', $user->first_name) }}" required class="client-profile-input">
+                            </div>
+                            <div>
+                                <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Last Name</label>
+                                <input type="text" name="last_name" value="{{ old('last_name', $user->last_name) }}" required class="client-profile-input">
+                            </div>
+                            <div>
+                                <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Phone</label>
+                                <input type="text" name="phone" value="{{ old('phone', $user->phone) }}" placeholder="09XXXXXXXXX" class="client-profile-input">
+                            </div>
+                            <div>
+                                <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Birthday</label>
+                                <input type="date" name="date_of_birth" value="{{ old('date_of_birth', optional($user->date_of_birth)->format('Y-m-d')) }}" class="client-profile-input">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Gender</label>
+                                <select name="gender" class="client-profile-input">
+                                    <option value="">Select gender</option>
+                                    <option value="male" {{ $currentGender === 'male' ? 'selected' : '' }}>Male</option>
+                                    <option value="female" {{ $currentGender === 'female' ? 'selected' : '' }}>Female</option>
+                                    <option value="prefer_not_to_say" {{ $currentGender === 'prefer_not_to_say' ? 'selected' : '' }}>Prefer not to say</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
 
-            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:1rem;">
-                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
-                <a href="{{ route('profile.show') }}" class="btn" style="background:#eee;color:var(--text-dark);"><i class="fas fa-arrow-left"></i> Cancel</a>
-            </div>
-        </form>
+                    <div class="border-t border-slate-100 pt-6">
+                        <div class="mb-4 flex items-center gap-3">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-700">
+                                <i class="fas fa-map-marker-alt"></i>
+                            </div>
+                            <div>
+                                <div class="text-base font-extrabold text-slate-900">Address</div>
+                                <div class="text-sm text-slate-500">The location used for booking coordination and service dispatch.</div>
+                            </div>
+                        </div>
+
+                        <div class="grid gap-4">
+                            <div>
+                                <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Street</label>
+                                <input type="text" name="street" value="{{ old('street', $user->street) }}" required class="client-profile-input">
+                            </div>
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Barangay</label>
+                                    <select name="barangay" required class="client-profile-input">
+                                        <option value="">Select barangay</option>
+                                        @foreach($barangays as $value => $label)
+                                            <option value="{{ $value }}" {{ $currentBarangay === $value ? 'selected' : '' }}>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">ZIP Code</label>
+                                    <input type="text" name="zip_code" value="{{ old('zip_code', $user->zip_code) }}" required class="client-profile-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-100 pt-6">
+                        <div class="mb-4 flex items-center gap-3">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                                <i class="fas fa-lock"></i>
+                            </div>
+                            <div>
+                                <div class="text-base font-extrabold text-slate-900">Account</div>
+                                <div class="text-sm text-slate-500">Email stays read-only. Password changes are optional.</div>
+                            </div>
+                        </div>
+
+                        <div class="grid gap-4">
+                            <div>
+                                <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Email</label>
+                                <input type="email" value="{{ $user->email }}" disabled class="client-profile-input">
+                            </div>
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Current Password</label>
+                                    <input type="password" name="current_password" class="client-profile-input">
+                                </div>
+                                <div>
+                                    <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">New Password</label>
+                                    <input type="password" name="new_password" class="client-profile-input">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Confirm New Password</label>
+                                <input type="password" name="new_password_confirmation" class="client-profile-input">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-5">
+                        <a href="{{ route('profile.show') }}" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-5 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100">
+                            <i class="fas fa-arrow-left"></i>
+                            Cancel
+                        </a>
+                        <button type="submit" class="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700">
+                            <i class="fas fa-save"></i>
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <aside class="space-y-4">
+                <section class="cleanflow-panel px-5 py-5">
+                    <h2 class="text-base font-extrabold text-slate-900">Update Tips</h2>
+                    <div class="mt-4 space-y-3">
+                        <div class="client-profile-tip">
+                            <span class="client-profile-tip-icon"><i class="fas fa-phone"></i></span>
+                            <p class="text-sm leading-7 text-slate-500">Keep your phone number current so the team can reach you quickly for schedule confirmations.</p>
+                        </div>
+                        <div class="client-profile-tip">
+                            <span class="client-profile-tip-icon"><i class="fas fa-location-dot"></i></span>
+                            <p class="text-sm leading-7 text-slate-500">Accurate address details help prevent booking delays, especially for first-time service visits.</p>
+                        </div>
+                        <div class="client-profile-tip">
+                            <span class="client-profile-tip-icon"><i class="fas fa-key"></i></span>
+                            <p class="text-sm leading-7 text-slate-500">Only fill in the password fields when you actually want to change your current password.</p>
+                        </div>
+                    </div>
+                </section>
+            </aside>
+        </div>
     </div>
-</section>
+</div>
 @endsection
-

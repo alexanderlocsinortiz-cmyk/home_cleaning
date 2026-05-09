@@ -19,6 +19,7 @@ class StaffController extends Controller
             $ratings = $s->assignedBookings->pluck('rating')->filter();
             $s->avg_rating = $ratings->count() > 0 ? round($ratings->avg('stars'), 1) : null;
             $s->total_ratings = $ratings->count();
+
             return $s;
         });
 
@@ -40,28 +41,28 @@ class StaffController extends Controller
     {
         $request->validate([
             'first_name' => 'required|string|max:255',
-            'last_name'  => 'required|string|max:255',
-            'email'      => 'required|email|unique:users,email',
-            'phone'      => 'required|string|max:20',
-            'username'   => 'required|string|unique:users,username',
-            'password'   => 'required|string|min:6',
-            'barangay'   => 'required|string',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'phone' => 'required|string|max:20',
+            'username' => 'required|string|unique:users,username',
+            'password' => 'required|string|min:8',
+            'barangay' => 'required|string',
         ]);
 
         User::create([
-            'first_name'    => $request->first_name,
-            'last_name'     => $request->last_name,
-            'email'         => $request->email,
-            'phone'         => $request->phone,
-            'username'      => $request->username,
-            'password'      => bcrypt($request->password),
-            'role'          => 'staff',
-            'barangay'      => $request->barangay,
-            'street'        => '123 Default St.',
-            'city'          => 'Valencia City',
-            'zip_code'      => '8709',
-            'gender'        => 'prefer_not_to_say',
-            'date_of_birth' => '1990-01-01',
+            'first_name' => $request->first_name,
+            'last_name' => $request->last_name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'username' => $request->username,
+            'password' => bcrypt($request->password),
+            'role' => 'staff',
+            'barangay' => $request->barangay,
+            'street' => null,
+            'city' => 'Valencia City',
+            'zip_code' => null,
+            'gender' => null,
+            'date_of_birth' => null,
         ]);
 
         return redirect()->route('admin.staff.index')
@@ -86,23 +87,23 @@ class StaffController extends Controller
 
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:100'],
-            'last_name'  => ['required', 'string', 'max:100'],
-            'email'      => ['required', 'email', 'max:150', Rule::unique('users','email')->ignore($staff->id)],
-            'phone'      => ['nullable', 'string', 'max:30'],
-            'barangay'   => ['required', Rule::in($barangays)],
-            'username'   => ['required', 'string', 'min:5', 'max:20', Rule::unique('users','username')->ignore($staff->id)],
-            'password'   => ['nullable', 'string', 'min:8'],
+            'last_name' => ['required', 'string', 'max:100'],
+            'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($staff->id)],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'barangay' => ['required', Rule::in($barangays)],
+            'username' => ['required', 'string', 'min:5', 'max:20', Rule::unique('users', 'username')->ignore($staff->id)],
+            'password' => ['nullable', 'string', 'min:8'],
         ]);
 
         $staff->update([
             'first_name' => $validated['first_name'],
-            'last_name'  => $validated['last_name'],
-            'email'      => $validated['email'],
-            'phone'      => $validated['phone'],
-            'barangay'   => $validated['barangay'],
-            'username'   => $validated['username'],
-            'role'       => 'staff',
-            'password'   => $validated['password'] ?? $staff->password,
+            'last_name' => $validated['last_name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'],
+            'barangay' => $validated['barangay'],
+            'username' => $validated['username'],
+            'role' => 'staff',
+            'password' => $validated['password'] ?? $staff->password,
         ]);
 
         return redirect()->route('admin.staff.index')->with('success', 'Staff member updated successfully.');
@@ -111,6 +112,11 @@ class StaffController extends Controller
     public function destroy(User $staff)
     {
         abort_if($staff->role !== 'staff', 404);
+
+        if ($staff->assignedBookings()->exists()) {
+            return redirect()->route('admin.staff.index')
+                ->with('error', 'Staff members with booking history are protected from deletion.');
+        }
 
         $staff->delete();
 

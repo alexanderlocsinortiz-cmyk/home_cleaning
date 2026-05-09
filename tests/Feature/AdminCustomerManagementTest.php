@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Booking;
+use App\Models\Service;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -32,6 +35,58 @@ class AdminCustomerManagementTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHas('success', 'Customer deleted successfully.');
         $this->assertDatabaseMissing('users', ['id' => $client->id]);
+    }
+
+    public function test_admin_customer_list_shows_latest_booking_activity(): void
+    {
+        $admin = $this->createUser('admin', 'admin-customer-list@example.com', 'admincustomerlist');
+        $client = $this->createUser('client', 'client-booking-list@example.com', 'clientbookinglist');
+
+        Service::create([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $olderBooking = Booking::create([
+            'user_id' => $client->id,
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 2,
+            'bathrooms' => 1,
+            'floor_area' => 35,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Rizal Street',
+            'scheduled_date' => now()->addDay()->toDateString(),
+            'scheduled_time' => '09:00',
+            'price' => 570,
+            'status' => 'pending',
+        ]);
+
+        $latestBooking = Booking::create([
+            'user_id' => $client->id,
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 2,
+            'bathrooms' => 1,
+            'floor_area' => 35,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Rizal Street',
+            'scheduled_date' => now()->addDays(3)->toDateString(),
+            'scheduled_time' => '10:00',
+            'price' => 570,
+            'status' => 'confirmed',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.customers'));
+
+        $response->assertOk();
+        $response->assertSee('Confirmed');
+        $response->assertSee(Carbon::parse($latestBooking->scheduled_date)->format('M d, Y'));
+        $response->assertSee('bookings\/'.$latestBooking->id, false);
+        $this->assertNotEquals($olderBooking->id, $latestBooking->id);
     }
 
     private function createUser(string $role, string $email, string $username): User

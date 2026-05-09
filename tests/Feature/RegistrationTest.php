@@ -20,6 +20,8 @@ class RegistrationTest extends TestCase
             'first_name' => 'Jane',
             'last_name' => 'Doe',
             'email' => 'jane@example.com',
+            'phone' => '09171234567',
+            'date_of_birth' => '2000-01-01',
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ]);
@@ -33,7 +35,8 @@ class RegistrationTest extends TestCase
         $this->assertAuthenticatedAs($user);
         $this->assertSame('client', $user->role);
         $this->assertNull($user->username);
-        $this->assertNull($user->phone);
+        $this->assertSame('09171234567', $user->phone);
+        $this->assertSame('2000-01-01', optional($user->date_of_birth)->toDateString());
         $this->assertNotNull($user->email_verification_code);
         $this->assertNotNull($user->email_verification_code_expires_at);
 
@@ -42,5 +45,24 @@ class RegistrationTest extends TestCase
             CustomVerifyEmail::class,
             fn (CustomVerifyEmail $notification): bool => preg_match('/^\d{6}$/', $notification->code) === 1
         );
+    }
+
+    public function test_underage_user_cannot_register_as_a_client(): void
+    {
+        Notification::fake();
+
+        $response = $this->from(route('register'))->post(route('register.store'), [
+            'first_name' => 'Young',
+            'last_name' => 'Client',
+            'email' => 'young@example.com',
+            'phone' => '09171234568',
+            'date_of_birth' => now()->subYears(17)->addDay()->toDateString(),
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertRedirect(route('register'));
+        $response->assertSessionHasErrors('date_of_birth');
+        $this->assertDatabaseMissing('users', ['email' => 'young@example.com']);
     }
 }

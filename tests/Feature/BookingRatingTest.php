@@ -27,7 +27,7 @@ class BookingRatingTest extends TestCase
             ]);
 
         $response->assertRedirect(route('bookings.show', $booking->id));
-        $response->assertSessionHas('success', 'Thank you for your feedback. Your rating has been submitted.');
+        $response->assertSessionHas('success', 'Thanks for sharing your feedback. Your rating has been saved.');
         $this->assertDatabaseHas('ratings', [
             'booking_id' => $booking->id,
             'client_id' => $client->id,

@@ -49,6 +49,14 @@ foreach ($serviceAreas as $serviceArea) {
 
 return [
     'attendance_timezone' => env('ATTENDANCE_TIMEZONE', 'Asia/Manila'),
+    'marketing' => [
+        'show_early_launch_banner' => env('SHOW_EARLY_LAUNCH_BANNER', false),
+        'business_start_year' => (int) env('BUSINESS_START_YEAR', 2024),
+    ],
+    'iot' => [
+        'require_signed_requests' => env('IOT_REQUIRE_SIGNED_REQUESTS', true),
+        'max_clock_skew_seconds' => (int) env('IOT_MAX_CLOCK_SKEW_SECONDS', 300),
+    ],
     'barangays' => $barangays,
     'barangay_centers' => $barangayCenters,
     'service_areas' => $serviceAreas,

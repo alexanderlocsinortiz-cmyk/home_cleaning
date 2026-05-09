@@ -4,36 +4,66 @@
 @section('page-subtitle', 'Coverage across all barangays of Valencia City')
 
 @push('styles')
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}"/>
+<style>
+    .admin-service-area-page {
+        padding: 1.5rem;
+    }
+
+    .admin-service-area-grid {
+        align-items: flex-start;
+    }
+
+    .admin-service-area-map {
+        height: 560px;
+        min-height: 360px;
+    }
+
+    .admin-service-area-directory {
+        min-height: 0;
+    }
+
+    .admin-service-area-list {
+        max-height: 380px;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    @media (max-width: 1279px) {
+        .admin-service-area-map {
+            height: 420px;
+        }
+
+        .admin-service-area-list {
+            max-height: 360px;
+        }
+    }
+</style>
 @endpush
 
 @section('content')
-<div class="admin-page-content" style="padding: 1.5rem 2rem;">
+<div class="admin-page-content admin-service-area-page">
     <div class="mx-auto flex max-w-6xl flex-col gap-6">
-        <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-            <div>
-                <h2 class="text-2xl font-bold text-slate-800">Service Coverage Map</h2>
-                <p class="text-sm text-slate-500">All {{ count($barangays) }} configured barangays now use the shared coordinate list.</p>
-            </div>
-            <span class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                Shared map data active
-            </span>
-        </div>
 
-        <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div id="map" class="min-h-[360px] rounded-xl md:min-h-[560px]"></div>
+        <div class="admin-service-area-grid grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+            <div class="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
+                <div id="map" class="admin-service-area-map rounded-xl" style="height: 560px; min-height: 360px;"></div>
             </div>
 
-            <div class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="admin-service-area-directory flex min-h-0 flex-col gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                <div>
+                    <h3 class="text-lg font-extrabold text-slate-900">Coverage Directory</h3>
+                    <p class="mt-1 text-sm text-slate-500">Search barangays, filter area types, and jump the map to the exact coverage point you need to review.</p>
+                </div>
+
                 <div class="relative">
                     <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400"></i>
                     <input
                         type="text"
                         id="barangaySearch"
                         placeholder="Search barangay..."
-                        class="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-emerald-500"
+                        class="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-hidden transition focus:border-emerald-500"
                     >
                 </div>
 
@@ -46,7 +76,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-4">
+                <div class="grid grid-cols-2 gap-3 rounded-2xl bg-slate-50 p-4">
                     <div class="rounded-lg bg-white p-3 text-center shadow-sm">
                         <div class="text-lg font-bold text-slate-800">{{ count($barangays) }}</div>
                         <div class="text-xs text-slate-500">Barangays</div>
@@ -57,7 +87,7 @@
                     </div>
                 </div>
 
-                <div class="min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-100">
+                <div class="admin-service-area-list rounded-xl border border-slate-100" style="max-height: 380px; min-height: 0; overflow-y: auto; overscroll-behavior: contain;">
                     <ul id="barangayList" class="divide-y divide-slate-100">
                         @foreach($barangays as $barangay)
                         <li
@@ -69,7 +99,6 @@
                         >
                             <div>
                                 <div class="font-semibold text-slate-800">{{ $barangay['name'] }}</div>
-                                <div class="text-xs text-slate-500">{{ implode(', ', $barangay['services']) }}</div>
                             </div>
                             <span class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">
                                 {{ ucfirst(str_replace('_', ' ', $barangay['type'])) }}
@@ -85,7 +114,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script>
 window.cleanflowMapConfig = @json(config('cleanflow.map'));
 window.barangayData = @json($barangays);

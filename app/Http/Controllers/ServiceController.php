@@ -11,21 +11,34 @@ class ServiceController extends Controller
     public function index()
     {
         $services = Service::orderBy('created_at', 'desc')->get();
-        return view('admin.services.index', compact('services'));
+        $packageCatalog = Service::packageCatalog();
+        $missingPackages = collect($packageCatalog)
+            ->reject(fn (array $metadata, string $slug) => $services->contains('slug', $slug))
+            ->map(fn (array $metadata, string $slug) => Service::packageMetadataFor($slug))
+            ->values();
+
+        return view('admin.services.index', compact('services', 'packageCatalog', 'missingPackages'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        return view('admin.services.create');
+        $packageCatalog = Service::packageCatalog();
+        $selectedTemplate = $request->query('template');
+        $selectedTemplate = is_string($selectedTemplate) && array_key_exists($selectedTemplate, $packageCatalog)
+            ? $selectedTemplate
+            : null;
+        $selectedPackage = $selectedTemplate ? Service::packageMetadataFor($selectedTemplate) : null;
+
+        return view('admin.services.create', compact('packageCatalog', 'selectedPackage', 'selectedTemplate'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'name'        => 'required|string|max:100',
+            'name' => 'required|string|max:100',
             'description' => 'nullable|string',
-            'price'       => 'required|numeric|min:1',
-            'is_active'   => 'nullable|boolean',
+            'price' => 'required|numeric|min:1',
+            'is_active' => 'nullable|boolean',
         ]);
 
         $slug = Service::canonicalSlugForName($request->name);
@@ -36,12 +49,16 @@ class ServiceController extends Controller
             ]);
         }
 
+        $packageMetadata = Service::packageMetadataFor($slug);
+
         Service::create([
-            'name'        => $request->name,
-            'slug'        => $slug,
-            'description' => $request->description,
-            'price'       => $request->price,
-            'is_active'   => $request->has('is_active') ? 1 : 0,
+            'name' => $request->name,
+            'slug' => $slug,
+            'description' => filled($request->description)
+                ? $request->description
+                : ($packageMetadata['default_description'] ?? null),
+            'price' => $request->price,
+            'is_active' => $request->has('is_active') ? 1 : 0,
         ]);
 
         return redirect()->route('admin.services.index')
@@ -51,7 +68,9 @@ class ServiceController extends Controller
     public function edit($id)
     {
         $service = Service::findOrFail($id);
-        return view('admin.services.edit', compact('service'));
+        $servicePackage = Service::packageMetadataFor($service->slug);
+
+        return view('admin.services.edit', compact('service', 'servicePackage'));
     }
 
     public function update(Request $request, $id)
@@ -59,10 +78,10 @@ class ServiceController extends Controller
         $service = Service::findOrFail($id);
 
         $request->validate([
-            'name'        => 'required|string|max:100',
+            'name' => 'required|string|max:100',
             'description' => 'nullable|string',
-            'price'       => 'required|numeric|min:1',
-            'is_active'   => 'nullable|boolean',
+            'price' => 'required|numeric|min:1',
+            'is_active' => 'nullable|boolean',
         ]);
 
         $slug = Service::canonicalSlugForName($request->name);
@@ -73,12 +92,16 @@ class ServiceController extends Controller
             ]);
         }
 
+        $packageMetadata = Service::packageMetadataFor($slug);
+
         $service->update([
-            'name'        => $request->name,
-            'slug'        => $slug,
-            'description' => $request->description,
-            'price'       => $request->price,
-            'is_active'   => $request->has('is_active') ? 1 : 0,
+            'name' => $request->name,
+            'slug' => $slug,
+            'description' => filled($request->description)
+                ? $request->description
+                : ($packageMetadata['default_description'] ?? null),
+            'price' => $request->price,
+            'is_active' => $request->has('is_active') ? 1 : 0,
         ]);
 
         return redirect()->route('admin.services.index')
@@ -87,8 +110,11 @@ class ServiceController extends Controller
 
     public function destroy($id)
     {
-        Service::findOrFail($id)->delete();
+        $service = Service::findOrFail($id);
+
+        $service->update(['is_active' => false]);
+
         return redirect()->route('admin.services.index')
-            ->with('success', 'Service removed successfully.');
+            ->with('success', 'Service archived successfully. Existing booking history remains intact.');
     }
 }

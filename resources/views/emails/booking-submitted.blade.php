@@ -1,70 +1,76 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 30px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: #1D9E75; color: white; padding: 30px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .body { padding: 30px; }
-        .booking-box { background: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0; }
-        .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
-        .label { color: #64748b; font-size: 14px; }
-        .value { font-weight: bold; color: #1e293b; font-size: 14px; }
-        .badge { background: #fef3c7; color: #d97706; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-        .footer { background: #f8fafc; padding: 20px; text-align: center; color: #94a3b8; font-size: 12px; }
-        .btn { display: inline-block; background: #1D9E75; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 20px 0; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🧹 Home Cleaning Service</h1>
-            <p style="margin:5px 0 0 0; opacity:0.9;">Booking Submitted Successfully</p>
-        </div>
-        <div class="body">
-            <p>Hi <strong>{{ $booking->user->first_name }}</strong>,</p>
-            <p>Your booking has been submitted successfully! We will review and confirm your booking shortly.</p>
-            
-            <div class="booking-box">
-                <div class="row">
-                    <span class="label">Booking #</span>
-                    <span class="value">CF-{{ str_pad($booking->id, 5, '0', STR_PAD_LEFT) }}</span>
-                </div>
-                <div class="row">
-                    <span class="label">Service Type</span>
-                    <span class="value">{{ $booking->service_label }}</span>
-                </div>
-                <div class="row">
-                    <span class="label">Address</span>
-                    <span class="value">{{ $booking->street_address }}, {{ ucfirst($booking->barangay) }}</span>
-                </div>
-                <div class="row">
-                    <span class="label">Scheduled Date</span>
-                    <span class="value">{{ \Carbon\Carbon::parse($booking->scheduled_date)->format('F d, Y') }}</span>
-                </div>
-                <div class="row">
-                    <span class="label">Scheduled Time</span>
-                    <span class="value">{{ \Carbon\Carbon::parse($booking->scheduled_time)->format('h:i A') }}</span>
-                </div>
-                <div class="row">
-                    <span class="label">Price</span>
-                    <span class="value">₱{{ number_format($booking->price, 2) }}</span>
-                </div>
-                <div class="row" style="border:0;">
-                    <span class="label">Status</span>
-                    <span class="badge">Pending</span>
-                </div>
-            </div>
-            
-            <p style="color:#64748b; font-size:14px;">You will receive another email once your booking is confirmed by our admin.</p>
-        </div>
-        <div class="footer">
-            <p>© {{ date('Y') }} Home Cleaning Service — Valencia City, Bukidnon</p>
-            <p>This is an automated email. Please do not reply.</p>
-        </div>
-    </div>
-</body>
-</html>
+@extends('layouts.email')
 
+@section('email-tone', 'emerald')
+@section('email-title', 'Booking Submitted')
+@section('email-subtitle', 'We received your request and will review it shortly.')
+
+@section('content')
+@php
+    $formattedBarangay = \Illuminate\Support\Str::of($booking->barangay)->replace('_', ' ')->title();
+    $rows = [
+        ['label' => 'Booking #', 'value' => 'CF-' . str_pad($booking->id, 5, '0', STR_PAD_LEFT)],
+        ['label' => 'Service', 'value' => e($booking->service_label)],
+        ['label' => 'Address', 'value' => e($booking->street_address . ', ' . $formattedBarangay)],
+        ['label' => 'Scheduled Date', 'value' => e(\Carbon\Carbon::parse($booking->scheduled_date)->format('F d, Y'))],
+        ['label' => 'Scheduled Time', 'value' => e(\Carbon\Carbon::parse($booking->scheduled_time)->format('h:i A'))],
+        ['label' => 'Price', 'value' => '&#8369;' . number_format($booking->price, 2)],
+        ['label' => 'Payment Method', 'value' => e(\App\Models\Booking::paymentMethodLabel($booking->payment_method))],
+        ['label' => 'Payment Status', 'value' => e(\App\Models\Booking::paymentStatusLabel($booking->payment_status))],
+        ['label' => 'Service Plan', 'value' => e(\App\Models\Booking::servicePlanLabel($booking->service_plan))],
+    ];
+
+    if ($booking->preferredStaff) {
+        array_splice($rows, 5, 0, [[
+            'label' => 'Preferred Cleaner',
+            'value' => e($booking->preferredStaff->full_name),
+        ]]);
+    }
+
+    if ($booking->payment_reference) {
+        $rows[] = ['label' => 'Payment Reference', 'value' => e($booking->payment_reference)];
+    }
+
+    if ($booking->isSubscription()) {
+        $rows[] = ['label' => 'Recurring Schedule', 'value' => e($booking->subscriptionSummary())];
+    }
+@endphp
+
+<p>Hi <strong>{{ $booking->user->first_name }}</strong>,</p>
+<p>Your booking request is now in the queue. The admin team will review your schedule, confirm staffing, and send a follow-up update once everything is finalized.</p>
+
+@include('emails.partials.booking-summary', [
+    'rows' => $rows,
+    'statusLabel' => 'Pending',
+    'statusTone' => 'pending',
+])
+
+@if($booking->preferredStaff && $booking->preferred_staff_status === 'requested')
+    <div class="callout callout--info">
+        We noted your preferred cleaner request for <strong>{{ $booking->preferredStaff->full_name }}</strong>. If that cleaner is still available at your selected time, we will prioritize the request during confirmation.
+    </div>
+@elseif($booking->preferredStaff && $booking->preferred_staff_status === 'unavailable')
+    <div class="callout callout--warning">
+        Your preferred cleaner <strong>{{ $booking->preferredStaff->full_name }}</strong> is already booked at that time, so we will assign another available cleaner during confirmation.
+    </div>
+@endif
+
+@if($booking->isSubscription())
+    <div class="callout callout--info">
+        This booking is part of your <strong>{{ strtolower($booking->subscriptionSummary()) }}</strong> plan. Future visits will be grouped under the same subscription schedule.
+    </div>
+@endif
+
+<p class="muted-note">
+    @if($booking->payment_method === 'on_site_cash')
+        Cash payment stays pending until the visit is completed and recorded by the admin team.
+    @else
+        Your digital payment has been recorded{{ $booking->payment_reference ? ' under reference ' . $booking->payment_reference : '' }}.
+    @endif
+</p>
+
+@include('emails.partials.cta-button', [
+    'url' => url('/bookings/' . $booking->id),
+    'label' => 'Open Booking',
+    'tone' => 'emerald',
+])
+@endsection

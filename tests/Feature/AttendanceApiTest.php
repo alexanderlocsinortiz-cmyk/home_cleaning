@@ -7,6 +7,7 @@ use App\Models\Device;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AttendanceApiTest extends TestCase
@@ -19,7 +20,11 @@ class AttendanceApiTest extends TestCase
         $device = $this->createDevice();
 
         $response = $this->withHeaders([
-            'X-Device-Token' => $device->api_token,
+            ...$this->signedDeviceHeaders($device, 'POST', '/api/iot/attendance/punch', [
+                'employee_code' => $staff->username,
+                'punch_type' => 'in',
+                'timestamp' => '2026-03-31 08:15:00',
+            ]),
         ])->postJson('/api/iot/attendance/punch', [
             'employee_code' => $staff->username,
             'punch_type' => 'in',
@@ -51,7 +56,11 @@ class AttendanceApiTest extends TestCase
         $device = $this->createDevice('ESP32-02', str_repeat('b', 64));
 
         $first = $this->withHeaders([
-            'X-Device-Token' => $device->api_token,
+            ...$this->signedDeviceHeaders($device, 'POST', '/api/iot/attendance/punch', [
+                'employee_code' => $staff->username,
+                'punch_type' => 'auto',
+                'timestamp' => '2026-03-31 07:55:00',
+            ]),
         ])->postJson('/api/iot/attendance/punch', [
             'employee_code' => $staff->username,
             'punch_type' => 'auto',
@@ -59,7 +68,11 @@ class AttendanceApiTest extends TestCase
         ]);
 
         $second = $this->withHeaders([
-            'X-Device-Token' => $device->api_token,
+            ...$this->signedDeviceHeaders($device, 'POST', '/api/iot/attendance/punch', [
+                'employee_code' => $staff->username,
+                'punch_type' => 'auto',
+                'timestamp' => '2026-03-31 17:10:00',
+            ]),
         ])->postJson('/api/iot/attendance/punch', [
             'employee_code' => $staff->username,
             'punch_type' => 'auto',
@@ -94,7 +107,7 @@ class AttendanceApiTest extends TestCase
         $device = $this->createDevice('ESP32-03', str_repeat('c', 64));
 
         $response = $this->withHeaders([
-            'X-Device-Token' => $device->api_token,
+            ...$this->signedDeviceHeaders($device, 'POST', '/api/iot/device/heartbeat'),
         ])->postJson('/api/iot/device/heartbeat');
 
         $response->assertOk()
@@ -130,7 +143,7 @@ class AttendanceApiTest extends TestCase
         return User::create([
             'first_name' => 'Test',
             'last_name' => 'Staff',
-            'email' => $username . '@example.com',
+            'email' => $username.'@example.com',
             'phone' => '09171234567',
             'date_of_birth' => '2000-01-01',
             'gender' => 'male',
@@ -153,5 +166,27 @@ class AttendanceApiTest extends TestCase
             'location' => 'Front Desk',
             'is_active' => true,
         ]);
+    }
+
+    private function signedDeviceHeaders(Device $device, string $method, string $path, array $payload = []): array
+    {
+        $timestamp = (string) now()->timestamp;
+        $nonce = Str::lower(Str::random(24));
+        $requestBody = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $bodyHash = hash('sha256', $requestBody ?: '');
+        $canonicalString = implode("\n", [
+            strtoupper($method),
+            ltrim($path, '/'),
+            $timestamp,
+            $nonce,
+            $bodyHash,
+        ]);
+
+        return [
+            'X-Device-Token' => $device->api_token,
+            'X-IoT-Timestamp' => $timestamp,
+            'X-IoT-Nonce' => $nonce,
+            'X-IoT-Signature' => hash_hmac('sha256', $canonicalString, $device->api_token),
+        ];
     }
 }

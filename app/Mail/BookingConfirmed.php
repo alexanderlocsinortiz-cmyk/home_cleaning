@@ -17,7 +17,7 @@ class BookingConfirmed extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Booking Confirmed - Home Cleaning Service #CF-' . str_pad($this->booking->id, 5, '0', STR_PAD_LEFT));
+        return new Envelope(subject: 'Booking Confirmed - Home Cleaning Service #CF-'.str_pad($this->booking->id, 5, '0', STR_PAD_LEFT));
     }
 
     public function content(): Content

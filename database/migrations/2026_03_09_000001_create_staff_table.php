@@ -10,12 +10,12 @@ return new class extends Migration
     {
         Schema::create('staff', function (Blueprint $table) {
             $table->id();
-            $table->string('first_name');
-            $table->string('last_name');
-            $table->string('role');
-            $table->string('phone')->nullable();
-            $table->string('barangay');
-            $table->string('status')->default('active');
+            $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('cascade');
+            $table->string('employee_id')->unique();
+            $table->decimal('hourly_rate', 8, 2);
+            $table->text('bio')->nullable();
+            $table->integer('years_of_experience')->default(0);
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }

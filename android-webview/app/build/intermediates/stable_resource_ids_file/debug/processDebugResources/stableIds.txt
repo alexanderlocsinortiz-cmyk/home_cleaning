@@ -1,0 +1,3 @@
+com.cleanflow.mobile:xml/network_security_config = 0x7f030000
+com.cleanflow.mobile:style/AppTheme = 0x7f020000
+com.cleanflow.mobile:string/app_name = 0x7f010000

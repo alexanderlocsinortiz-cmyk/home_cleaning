@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -6,22 +7,31 @@ use App\Models\AttendanceLog;
 use App\Models\Device;
 use App\Models\DeviceEnrollmentRequest;
 use App\Models\User;
-use Illuminate\Http\Request;
+use App\Services\DeviceTokenService;
 use Carbon\Carbon;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AttendanceController extends Controller
 {
+    private DeviceTokenService $tokenService;
+
+    public function __construct(DeviceTokenService $tokenService)
+    {
+        $this->tokenService = $tokenService;
+    }
     public function punch(Request $request)
     {
         $device = $this->authenticateDevice($request);
 
         $request->validate([
             'employee_code' => 'nullable|string|required_without:template_id',
-            'template_id'   => 'nullable|integer|min:1|required_without:employee_code',
-            'punch_type'    => 'required|in:in,out,auto',
-            'timestamp'     => 'nullable|date',
+            'template_id' => 'nullable|integer|min:1|required_without:employee_code',
+            'punch_type' => 'required|in:in,out,auto',
+            'timestamp' => 'nullable|date',
         ]);
 
         $staff = User::where('role', 'staff')
@@ -32,7 +42,7 @@ class AttendanceController extends Controller
             )
             ->first();
 
-        if (!$staff) {
+        if (! $staff) {
             return response()->json([
                 'error' => $request->filled('template_id')
                     ? 'Fingerprint template is not assigned to any staff member.'
@@ -53,25 +63,25 @@ class AttendanceController extends Controller
         $status = $this->resolveAttendanceStatus($loggedAtLocal, $punchType);
 
         $log = AttendanceLog::create([
-            'user_id'     => $staff->id,
-            'device_id'   => $device->id,
-            'punch_type'  => $punchType,
-            'logged_at'   => $loggedAtUtc,
-            'status'      => $status,
-            'source'      => 'device',
+            'user_id' => $staff->id,
+            'device_id' => $device->id,
+            'punch_type' => $punchType,
+            'logged_at' => $loggedAtUtc,
+            'status' => $status,
+            'source' => 'device',
             'raw_payload' => $request->all(),
         ]);
 
         return response()->json([
-            'success'      => true,
-            'staff_name'   => $staff->first_name . ' ' . $staff->last_name,
+            'success' => true,
+            'staff_name' => $staff->first_name.' '.$staff->last_name,
             'requested_punch_type' => $request->punch_type,
-            'punch_type'   => $punchType,
-            'status'       => $status,
-            'logged_at'    => $loggedAtLocal->format('Y-m-d H:i:s'),
-            'message'      => $punchType === 'in'
-                ? 'Time-in recorded for ' . $staff->first_name . ' ' . $staff->last_name . '.'
-                : 'Time-out recorded for ' . $staff->first_name . ' ' . $staff->last_name . '.',
+            'punch_type' => $punchType,
+            'status' => $status,
+            'logged_at' => $loggedAtLocal->format('Y-m-d H:i:s'),
+            'message' => $punchType === 'in'
+                ? 'Time-in recorded for '.$staff->first_name.' '.$staff->last_name.'.'
+                : 'Time-out recorded for '.$staff->first_name.' '.$staff->last_name.'.',
         ]);
     }
 
@@ -216,13 +226,13 @@ class AttendanceController extends Controller
                 ->first();
 
             return [
-                'id'         => $s->id,
-                'name'       => $s->first_name . ' ' . $s->last_name,
-                'status'     => $timeIn
+                'id' => $s->id,
+                'name' => $s->first_name.' '.$s->last_name,
+                'status' => $timeIn
                     ? $this->resolveAttendanceStatus($timeIn->logged_at->copy()->timezone($this->attendanceTimezone()), 'in')
                     : 'absent',
-                'time_in'    => $timeIn ? $timeIn->logged_at->copy()->timezone($this->attendanceTimezone())->format('h:i A') : null,
-                'time_out'   => $timeOut ? $timeOut->logged_at->copy()->timezone($this->attendanceTimezone())->format('h:i A') : null,
+                'time_in' => $timeIn ? $timeIn->logged_at->copy()->timezone($this->attendanceTimezone())->format('h:i A') : null,
+                'time_out' => $timeOut ? $timeOut->logged_at->copy()->timezone($this->attendanceTimezone())->format('h:i A') : null,
                 'is_present' => $timeIn !== null,
             ];
         });
@@ -232,23 +242,97 @@ class AttendanceController extends Controller
 
     private function authenticateDevice(Request $request): Device
     {
-        $deviceToken = $request->header('X-Device-Token');
+        // Get security headers
+        $signature = $request->header('X-Signature');
+        $timestamp = $request->header('X-Timestamp');
+        $deviceSerial = $request->header('X-Device-Serial');
 
-        if (! $deviceToken) {
-            throw new HttpResponseException(response()->json(['error' => 'Missing device token.'], 401));
+        // Validate headers present
+        if (!$signature || !$timestamp || !$deviceSerial) {
+            Log::warning('Missing security headers in IoT request', [
+                'ip' => $request->ip(),
+                'path' => $request->path(),
+            ]);
+            throw new HttpResponseException(response()->json([
+                'error' => 'Missing required security headers.',
+            ], 401));
         }
 
-        $device = Device::where('api_token', $deviceToken)
-            ->where('is_active', true)
-            ->first();
+        // Find device by serial number
+        $device = Device::where('serial_number', $deviceSerial)->first();
 
-        if (! $device) {
-            throw new HttpResponseException(response()->json(['error' => 'Invalid or inactive device.'], 401));
+        if (!$device) {
+            Log::warning('IoT device not found', [
+                'serial_number' => $deviceSerial,
+                'ip' => $request->ip(),
+            ]);
+            throw new HttpResponseException(response()->json([
+                'error' => 'Device not found.',
+            ], 401));
         }
 
+        // Check device is active
+        if (!$device->is_active) {
+            Log::warning('Inactive device attempted access', [
+                'device_id' => $device->id,
+                'ip' => $request->ip(),
+            ]);
+            throw new HttpResponseException(response()->json([
+                'error' => 'Device is inactive.',
+            ], 403));
+        }
+
+        // Check token not expired
+        if ($device->isTokenExpired()) {
+            Log::warning('Expired device token attempted', [
+                'device_id' => $device->id,
+                'expired_at' => $device->token_expires_at,
+                'ip' => $request->ip(),
+            ]);
+            throw new HttpResponseException(response()->json([
+                'error' => 'Device token has expired. Please rotate token from admin panel.',
+            ], 401));
+        }
+
+        // Validate signature
+        $body = $request->getContent();
+        
+        if (!$this->tokenService->validateSignature($device, $timestamp, $signature, $body)) {
+            Log::warning('Invalid signature in IoT request', [
+                'device_id' => $device->id,
+                'ip' => $request->ip(),
+            ]);
+
+            // Alert admin on repeated failures
+            $this->checkForRepeatedFailures($request->ip());
+
+            throw new HttpResponseException(response()->json([
+                'error' => 'Invalid request signature.',
+            ], 401));
+        }
+
+        // Update last seen
         $device->update(['last_seen_at' => now()]);
 
         return $device->fresh();
+    }
+
+    /**
+     * Check for repeated authentication failures (potential attack)
+     */
+    private function checkForRepeatedFailures(string $ip): void
+    {
+        $failureKey = "auth_failures:iot:$ip";
+        $failures = cache()->increment($failureKey, 1, now()->addHours(1));
+
+        if ($failures === 50) {
+            Log::critical('Repeated IoT authentication failures detected', [
+                'ip' => $ip,
+                'failures' => $failures,
+            ]);
+
+            // Could send alert to admins here
+        }
     }
 
     private function resolvePunchType(int $staffId, Carbon $loggedAtLocal): string

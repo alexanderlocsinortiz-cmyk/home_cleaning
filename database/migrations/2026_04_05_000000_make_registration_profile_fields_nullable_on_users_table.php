@@ -9,6 +9,21 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement(<<<'SQL'
+                ALTER TABLE users
+                    ALTER COLUMN phone DROP NOT NULL,
+                    ALTER COLUMN date_of_birth DROP NOT NULL,
+                    ALTER COLUMN gender DROP NOT NULL,
+                    ALTER COLUMN street DROP NOT NULL,
+                    ALTER COLUMN barangay DROP NOT NULL,
+                    ALTER COLUMN zip_code DROP NOT NULL,
+                    ALTER COLUMN username DROP NOT NULL
+            SQL);
+
+            return;
+        }
+
         Schema::table('users', function (Blueprint $table) {
             $table->string('phone')->nullable()->change();
             $table->date('date_of_birth')->nullable()->change();
@@ -37,8 +52,23 @@ return new class extends Migration
             ->each(function ($user): void {
                 DB::table('users')
                     ->where('id', $user->id)
-                    ->update(['username' => 'user' . $user->id]);
+                    ->update(['username' => 'user'.$user->id]);
             });
+
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement(<<<'SQL'
+                ALTER TABLE users
+                    ALTER COLUMN phone SET NOT NULL,
+                    ALTER COLUMN date_of_birth SET NOT NULL,
+                    ALTER COLUMN gender SET NOT NULL,
+                    ALTER COLUMN street SET NOT NULL,
+                    ALTER COLUMN barangay SET NOT NULL,
+                    ALTER COLUMN zip_code SET NOT NULL,
+                    ALTER COLUMN username SET NOT NULL
+            SQL);
+
+            return;
+        }
 
         Schema::table('users', function (Blueprint $table) {
             $table->string('phone')->nullable(false)->change();

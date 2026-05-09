@@ -1,0 +1,21 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.cleanflow.mobile'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.cleanflow.mobile'
+        minSdk 23
+        targetSdk 36
+        versionCode 1
+        versionName '1.0'
+        buildConfigField 'String', 'CLEANFLOW_URL', "\"${project.findProperty('cleanflowUrl') ?: 'http://10.0.2.2:8000'}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}

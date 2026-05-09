@@ -12,6 +12,12 @@ class Staff extends Model
     protected $table = 'staff';
 
     protected $fillable = [
+        'user_id',
+        'employee_id',
+        'hourly_rate',
+        'bio',
+        'years_of_experience',
+        'is_active',
         'first_name',
         'last_name',
         'role',
@@ -19,6 +25,11 @@ class Staff extends Model
         'barangay',
         'status',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function getFullNameAttribute(): string
     {

@@ -2,10 +2,18 @@
 @section('title', 'Register')
 
 @section('content')
-@php
-    $inputBase = 'w-full rounded-2xl border px-4 py-3 text-sm text-slate-700 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-400';
-    $defaultInput = $inputBase . ' border-slate-200 bg-slate-50';
-    $features = [
+<script>
+    // Redirect to unified login page with register tab
+    window.location.href = "{{ route('login') }}?tab=signup";
+</script>
+
+<div class="flex items-center justify-center min-h-screen bg-slate-950">
+    <div class="text-center">
+        <p class="text-white/80 mb-2">Redirecting to registration...</p>
+        <a href="{{ route('login') }}" class="text-primary-600 hover:text-primary-700 text-sm">Click here if not redirected</a>
+    </div>
+</div>
+@endsection
         [
             'icon' => 'fa-calendar-check',
             'title' => 'Easy Online Booking',
@@ -29,12 +37,7 @@
     ];
 @endphp
 
-<div class="relative min-h-screen overflow-hidden bg-[linear-gradient(135deg,#0F6E56_0%,#1D9E75_52%,#0891B2_100%)]">
-    <div class="pointer-events-none absolute -left-16 top-0 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
-    <div class="pointer-events-none absolute right-0 top-1/4 h-72 w-72 rounded-full bg-teal-200/10 blur-3xl"></div>
-    <div class="pointer-events-none absolute bottom-0 left-1/3 h-56 w-56 rounded-full bg-white/10 blur-3xl"></div>
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.10),transparent_38%)]"></div>
-
+<div class="min-h-screen bg-slate-950">
     <div class="relative mx-auto flex min-h-screen max-w-7xl items-center px-4 py-5 sm:px-6 lg:overflow-hidden lg:px-8 lg:py-4">
         <div class="grid w-full gap-4 lg:h-[calc(100vh-2rem)] lg:grid-cols-[minmax(0,1.08fr)_460px]">
             <aside class="hidden h-full min-h-0 flex-col justify-between overflow-hidden rounded-[32px] border border-white/15 bg-white/10 p-8 text-white shadow-[0_28px_80px_rgba(15,23,42,0.22)] backdrop-blur-md lg:flex">
@@ -80,8 +83,8 @@
                     <div class="flex items-start justify-between gap-3">
                         <div>
                             <div class="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">Account Setup</div>
-                            <div class="mt-2 text-lg font-semibold text-white">Simple signup, fuller profile later.</div>
-                            <div class="mt-1 text-xs leading-5 text-white/75">Start with your basic details now and complete contact and address information after signing in.</div>
+                            <div class="mt-2 text-lg font-semibold text-white">Start with trusted contact details.</div>
+                            <div class="mt-1 text-xs leading-5 text-white/75">Client registration now includes your phone number and birth date so bookings can be reviewed more reliably.</div>
                         </div>
                         <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
                             <i class="fas fa-user-check"></i>
@@ -106,15 +109,15 @@
 
                     <div class="rounded-[30px] border border-white/80 bg-white/95 p-6 shadow-[0_26px_70px_rgba(15,23,42,0.20)] ring-1 ring-black/5 backdrop-blur-sm sm:p-7">
                         <div class="flex justify-center">
-                            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-green-600 to-teal-500 text-lg text-white shadow-sm">
+                            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-600 text-lg text-white shadow-sm">
                                 <i class="fas fa-user-plus"></i>
                             </div>
                         </div>
 
                         <div class="mt-5 text-center">
-                            <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-green-600">Client Registration</div>
-                            <h2 class="mt-3 text-2xl font-bold text-slate-800">Create your account</h2>
-                            <p class="mt-2 text-sm leading-6 text-slate-500">
+                            <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-600">Client Registration</div>
+                            <h2 class="mt-3 text-2xl font-bold text-slate-900">Create your account</h2>
+                            <p class="mt-2 text-sm leading-6 text-slate-600">
                                 Sign up to book home cleaning services in Valencia City.
                             </p>
                         </div>
@@ -131,57 +134,70 @@
 
                             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div>
-                                    <label class="mb-1.5 block text-sm font-medium text-slate-700">First Name <span class="text-red-500">*</span></label>
-                                    <input type="text" name="first_name" value="{{ old('first_name') }}" placeholder="First name" required autocomplete="given-name" class="{{ $errors->has('first_name') ? $inputBase . ' border-red-300 bg-red-50' : $defaultInput }}">
-                                    @error('first_name')<p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>@enderror
+                                    <label class="mb-2 block text-sm font-medium text-slate-800">First Name <span class="text-red-500">*</span></label>
+                                    <input type="text" name="first_name" value="{{ old('first_name') }}" placeholder="First name" required autocomplete="given-name" class="{{ $errors->has('first_name') ? $inputBase . ' border-red-400 bg-red-900/20' : $defaultInput }}">
+                                    @error('first_name')<p class="mt-1.5 text-xs text-red-400">{{ $message }}</p>@enderror
                                 </div>
                                 <div>
-                                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Last Name <span class="text-red-500">*</span></label>
-                                    <input type="text" name="last_name" value="{{ old('last_name') }}" placeholder="Last name" required autocomplete="family-name" class="{{ $errors->has('last_name') ? $inputBase . ' border-red-300 bg-red-50' : $defaultInput }}">
-                                    @error('last_name')<p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>@enderror
+                                    <label class="mb-2 block text-sm font-medium text-slate-800">Last Name <span class="text-red-500">*</span></label>
+                                    <input type="text" name="last_name" value="{{ old('last_name') }}" placeholder="Last name" required autocomplete="family-name" class="{{ $errors->has('last_name') ? $inputBase . ' border-red-400 bg-red-900/20' : $defaultInput }}">
+                                    @error('last_name')<p class="mt-1.5 text-xs text-red-400">{{ $message }}</p>@enderror
                                 </div>
                             </div>
 
                             <div>
-                                <label class="mb-1.5 block text-sm font-medium text-slate-700">Email Address <span class="text-red-500">*</span></label>
-                                <input type="email" name="email" value="{{ old('email') }}" placeholder="your@email.com" required autocomplete="email" class="{{ $errors->has('email') ? $inputBase . ' border-red-300 bg-red-50' : $defaultInput }}">
-                                @error('email')<p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>@enderror
+                                <label class="mb-2 block text-sm font-medium text-slate-800">Email Address <span class="text-red-500">*</span></label>
+                                <input type="email" name="email" value="{{ old('email') }}" placeholder="your@email.com" required autocomplete="email" class="{{ $errors->has('email') ? $inputBase . ' border-red-400 bg-red-900/20' : $defaultInput }}">
+                                @error('email')<p class="mt-1.5 text-xs text-red-400">{{ $message }}</p>@enderror
                             </div>
 
                             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div>
-                                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Password <span class="text-red-500">*</span></label>
-                                    <div class="relative">
-                                        <input type="password" name="password" id="pw" placeholder="Minimum 8 characters" required autocomplete="new-password" class="{{ $errors->has('password') ? $inputBase . ' border-red-300 bg-red-50 pr-12' : $defaultInput . ' pr-12' }}">
-                                        <button type="button" onclick="togglePw('pw', this)" class="absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-slate-400 transition hover:text-slate-600" aria-label="Toggle password visibility">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                    </div>
-                                    @error('password')<p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>@enderror
+                                    <label class="mb-2 block text-sm font-medium text-slate-800">Phone Number <span class="text-red-500">*</span></label>
+                                    <input type="text" name="phone" value="{{ old('phone') }}" placeholder="09XXXXXXXXX" required autocomplete="tel" class="{{ $errors->has('phone') ? $inputBase . ' border-red-400 bg-red-900/20' : $defaultInput }}">
+                                    @error('phone')<p class="mt-1.5 text-xs text-red-400">{{ $message }}</p>@enderror
                                 </div>
                                 <div>
-                                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Confirm Password <span class="text-red-500">*</span></label>
+                                    <label class="mb-2 block text-sm font-medium text-slate-800">Date of Birth <span class="text-red-500">*</span></label>
+                                    <input type="date" name="date_of_birth" value="{{ old('date_of_birth') }}" required autocomplete="bday" class="{{ $errors->has('date_of_birth') ? $inputBase . ' border-red-400 bg-red-900/20' : $defaultInput }}">
+                                    @error('date_of_birth')<p class="mt-1.5 text-xs text-red-400">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label class="mb-2 block text-sm font-medium text-slate-800">Password <span class="text-red-500">*</span></label>
+                                    <div class="relative">
+                                        <input type="password" name="password" id="pw" placeholder="Minimum 8 characters" required autocomplete="new-password" class="{{ $errors->has('password') ? $inputBase . ' border-red-400 bg-red-900/20 pr-12' : $defaultInput . ' pr-12' }}">
+                                        <button type="button" onclick="togglePw('pw', this)" class="absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-slate-400 transition hover:text-slate-300" aria-label="Toggle password visibility">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    @error('password')<p class="mt-1.5 text-xs text-red-400">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="mb-2 block text-sm font-medium text-slate-800">Confirm Password <span class="text-red-500">*</span></label>
                                     <div class="relative">
                                         <input type="password" name="password_confirmation" id="pw2" placeholder="Repeat your password" required autocomplete="new-password" class="{{ $defaultInput }} pr-12">
-                                        <button type="button" onclick="togglePw('pw2', this)" class="absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-slate-400 transition hover:text-slate-600" aria-label="Toggle password visibility">
+                                        <button type="button" onclick="togglePw('pw2', this)" class="absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-slate-400 transition hover:text-slate-300" aria-label="Toggle password visibility">
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
-                                Your email will be used for sign in and account updates.
+                            <div class="rounded-2xl border border-slate-600 bg-slate-800 px-4 py-3 text-xs leading-5 text-slate-300">
+                                Your email will be used for sign in and account updates. Clients must be at least 18 years old to register.
                             </div>
 
-                            <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700">
+                            <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-600 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-primary-700">
                                 <i class="fas fa-user-plus"></i>
                                 <span>Create Account</span>
                             </button>
 
-                            <div class="pt-1 text-center text-sm text-slate-500">
+                            <div class="pt-2 text-center text-sm text-slate-600">
                                 Already have an account?
-                                <a href="{{ route('login') }}" class="font-semibold text-green-600 hover:underline">Sign in here</a>
+                                <a href="{{ route('login') }}" class="font-semibold text-primary-600 hover:underline">Sign in here</a>
                             </div>
                         </form>
                     </div>

@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
         service_center: '#e53935',
         residential: '#1D9E75',
         commercial: '#fb8c00',
+        office: '#16a34a',
     };
     const barangayData = Array.isArray(window.barangayData) ? window.barangayData : [];
     const mapConfig = window.cleanflowMapConfig || {};
@@ -45,7 +46,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const markers = [];
     barangayData.forEach(function (barangay) {
         const serviceList = (barangay.services || []).map(function (service) {
-            return `<li>&#10003; ${service}</li>`;
+            return `<li>${service}</li>`;
         }).join('');
         const typeName = (barangay.type || 'residential')
             .replace('_', ' ')
@@ -53,10 +54,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 return char.toUpperCase();
             });
         const popup = `
-            <div style="min-width:180px">
-                <strong style="font-size:1rem">${barangay.name}</strong><br>
-                <span style="color:${colors[barangay.type] || colors.residential};font-size:0.85rem;font-weight:600">${typeName}</span>
-                <ul style="margin-top:8px;padding-left:0;list-style:none;font-size:0.85rem">${serviceList}</ul>
+            <div class="cleanflow-map-popup">
+                <strong class="cleanflow-map-popup__title">${barangay.name}</strong>
+                <span class="cleanflow-map-popup__type" style="--popup-accent:${colors[barangay.type] || colors.residential};">${typeName}</span>
+                <ul class="cleanflow-map-popup__services">${serviceList}</ul>
             </div>`;
         const marker = L.marker([barangay.lat, barangay.lng], { icon: makeIcon(barangay.type) })
             .addTo(map)

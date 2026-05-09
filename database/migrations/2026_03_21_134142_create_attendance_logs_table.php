@@ -13,10 +13,13 @@ return new class extends Migration
     {
         Schema::create('attendance_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('staff_id')->nullable()->constrained('staff')->onDelete('cascade');
+            $table->foreignId('user_id')->nullable()->constrained()->onDelete('cascade');
             $table->foreignId('device_id')->nullable()->constrained()->onDelete('set null');
             $table->enum('punch_type', ['in', 'out']);
-            $table->timestamp('logged_at');
+            $table->timestamp('punched_at')->nullable();
+            $table->timestamp('logged_at')->nullable();
+            $table->string('fingerprint_template_id')->nullable();
             $table->string('status')->default('present')->comment('present, late');
             $table->string('source')->default('device')->comment('device, manual');
             $table->json('raw_payload')->nullable();

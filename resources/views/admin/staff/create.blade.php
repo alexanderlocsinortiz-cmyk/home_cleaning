@@ -4,22 +4,41 @@
 @section('page-subtitle','Create a new staff account for scheduling, attendance, and field operations')
 
 @section('content')
-<div class="space-y-6" style="font-family: 'DM Sans', sans-serif; max-width: 900px;">
+<div class="admin-page-content cleanflow-page-shell max-w-5xl space-y-6 p-6">
     @if($errors->any())
-        <div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:14px;padding:14px 16px;">
-            <div style="font-size:14px;font-weight:700;">Please review the staff form.</div>
-            <div style="font-size:13px;line-height:1.6;margin-top:4px;">The staff profile could not be created because one or more fields need attention.</div>
+        <div class="cleanflow-alert cleanflow-alert--error">
+            <div class="text-sm font-bold">Please review the staff form.</div>
+            <div class="mt-1 text-sm">The staff profile could not be created because one or more fields need attention.</div>
         </div>
     @endif
 
-    <div style="background:white;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 1px 4px rgba(0,0,0,0.05);overflow:hidden;">
-        <div style="padding:20px 22px;border-bottom:1px solid #f1f5f9;">
-            <div style="font-size:18px;font-weight:800;color:#1e293b;">New Staff Profile</div>
-            <div style="font-size:13px;color:#64748b;margin-top:4px;">Enter the staff member's account details and service coverage information.</div>
+    <section class="cleanflow-hero overflow-hidden px-6 py-7 text-white sm:px-8">
+        <div class="cleanflow-hero-content flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div class="max-w-3xl">
+                <span class="cleanflow-kicker">
+                    <i class="fas fa-user-plus"></i>
+                    Staff Onboarding
+                </span>
+                <h2 class="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Create a field-ready staff profile.</h2>
+                <p class="mt-3 max-w-2xl text-sm leading-7 text-white/82 sm:text-base">
+                    Add the account details the operations team needs for staffing, attendance, scheduling, and cleaner assignments.
+                </p>
+            </div>
+            <a href="{{ route('admin.staff.index') }}" class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50">
+                <i class="fas fa-arrow-left"></i>
+                Back to Staff
+            </a>
         </div>
-        <form action="{{ route('admin.staff.store') }}" method="POST" class="space-y-4" style="padding:20px 22px;">
+    </section>
+
+    <section class="rounded-[28px] border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div class="border-b border-slate-100 px-6 py-5">
+            <h3 class="text-lg font-extrabold text-slate-900">New Staff Profile</h3>
+            <p class="mt-1 text-sm text-slate-500">Enter the staff member's account details and service coverage information.</p>
+        </div>
+        <form action="{{ route('admin.staff.store') }}" method="POST" class="space-y-6 px-6 py-6">
             @include('admin.staff._form')
         </form>
-    </div>
+    </section>
 </div>
 @endsection

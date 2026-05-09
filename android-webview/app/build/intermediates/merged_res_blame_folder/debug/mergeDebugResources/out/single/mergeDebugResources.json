@@ -1,0 +1,6 @@
+[
+    {
+        "merged": "com.cleanflow.mobile.app-debug-4:/xml_network_security_config.xml.flat",
+        "source": "com.cleanflow.mobile.app-main-6:/xml/network_security_config.xml"
+    }
+]

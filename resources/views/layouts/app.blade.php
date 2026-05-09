@@ -4,185 +4,87 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @include('partials.pwa-head')
     <title>@yield('title', 'Home Cleaning Service') - Home Cleaning Service</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('vendor/fontawesome/css/all.min.css') }}">
+    @include('partials.ui-theme')
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
     <script>document.documentElement.classList.add('js');</script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-    tailwind.config = {
-        theme: {
-            extend: {
-                colors: {
-                    primary: '#1D9E75',
-                    'primary-dark': '#0F6E56',
-                    secondary: '#E1F5EE',
-                }
-            }
-        }
-    }
-    </script>
-    <style>
-    .nav-mobile-btn { display: none; }
-    .nav-mobile-menu { display: none; }
-    .nav-mobile-menu.open { display: flex; flex-direction: column; }
-    html { scroll-behavior: smooth; }
-    #services, #how-it-works, #pricing, #faq { scroll-margin-top: 96px; }
-    .faq-accordion summary::-webkit-details-marker { display: none; }
-    .faq-accordion[open] .faq-chevron { transform: rotate(180deg); }
-    .js .reveal-on-scroll {
-        opacity: 0;
-        transform: translateY(28px);
-        transition: opacity 0.7s ease, transform 0.7s ease;
-    }
-    .js .reveal-on-scroll.reveal-visible {
-        opacity: 1;
-        transform: translateY(0);
-    }
-
-    /* ===== MOBILE RESPONSIVE - LANDING PAGE ===== */
-    @media (max-width: 767px) {
-
-        /* NAVBAR */
-        .nav-desktop-links { display: none !important; }
-        .nav-mobile-btn { display: flex !important; }
-        .nav-mobile-menu { display: none; }
-        .nav-mobile-menu.open { display: flex !important; flex-direction: column; }
-
-        /* HERO SECTION */
-        .hero-section { padding: 3rem 1rem 2rem !important; text-align: left !important; }
-        .hero-section h1 { font-size: 30px !important; line-height: 1.15 !important; }
-        .hero-section p { font-size: 15px !important; }
-        .hero-buttons { flex-direction: row !important; flex-wrap: wrap !important; align-items: flex-start !important; justify-content: flex-start !important; gap: 10px !important; }
-        .hero-buttons a { width: auto !important; max-width: none !important; text-align: center; justify-content: center !important; }
-        .hero-grid { grid-template-columns: 1fr !important; }
-        .hero-image { display: block !important; }
-        .hero-photo { height: 220px !important; }
-        .hero-benefits { display: grid !important; grid-template-columns: 1fr !important; gap: 0.75rem !important; }
-
-        /* SERVICES SECTION */
-        .services-grid { grid-template-columns: 1fr !important; gap: 1rem !important; }
-        .section-padding { padding: 2.5rem 1rem !important; }
-        .section-title { font-size: 24px !important; }
-        .section-subtitle { font-size: 14px !important; }
-
-        /* STATS / NUMBERS SECTION */
-        .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 1rem !important; }
-        .stat-number { font-size: 32px !important; }
-
-        /* HOW IT WORKS */
-        .steps-grid { grid-template-columns: 1fr !important; gap: 1.5rem !important; }
-        .workflow-arrow { display: none !important; }
-
-        /* MAP SECTION */
-        .map-container { height: 300px !important; }
-        .map-section { padding: 2rem 1rem !important; }
-
-        /* TESTIMONIALS */
-        .testimonials-grid { grid-template-columns: 1fr !important; gap: 1rem !important; }
-
-        /* PRICING */
-        .pricing-grid { grid-template-columns: 1fr !important; gap: 1rem !important; max-width: 380px !important; margin-left: auto !important; margin-right: auto !important; }
-
-        /* FAQ */
-        .faq-grid { grid-template-columns: 1fr !important; }
-        .faq-item { padding: 1rem !important; }
-
-        /* CTA SECTION */
-        .cta-section { padding: 2.5rem 1rem !important; }
-        .cta-section h2 { font-size: 24px !important; }
-        .cta-buttons { flex-direction: column !important; align-items: center !important; gap: 10px !important; }
-        .cta-buttons a { width: 100% !important; max-width: 300px; text-align: center; justify-content: center !important; }
-
-        /* FOOTER */
-        .footer-grid { grid-template-columns: 1fr !important; gap: 2rem !important; text-align: center !important; }
-        .footer-links { justify-content: center !important; }
-        .footer-social { justify-content: center !important; }
-
-        /* GENERAL */
-        .hide-mobile { display: none !important; }
-        .container-pad { padding-left: 1rem !important; padding-right: 1rem !important; }
-    }
-
-    @media (min-width: 768px) and (max-width: 1023px) {
-        /* TABLET */
-        .services-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        .steps-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        .testimonials-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        .pricing-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        .footer-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        .hero-section h1 { font-size: 36px !important; line-height: 1.1 !important; }
-        .section-padding { padding: 3rem 1.5rem !important; }
-    }
-    </style>
 </head>
 <body>
     @php
         $servicesLink = request()->routeIs('home') ? '#services' : route('home') . '#services';
         $howItWorksLink = request()->routeIs('home') ? '#how-it-works' : route('home') . '#how-it-works';
         $pricingLink = request()->routeIs('home') ? '#pricing' : route('home') . '#pricing';
+        $instantQuoteLink = request()->routeIs('home') ? '#instant-quote' : route('home') . '#instant-quote';
         $faqLink = request()->routeIs('home') ? '#faq' : route('home') . '#faq';
         $bookNowLink = match (true) {
             auth()->check() && auth()->user()->role === 'client' => route('bookings.create'),
             auth()->check() && in_array(auth()->user()->role, ['staff', 'admin']) => $pricingLink,
-            default => route('register'),
+            default => $instantQuoteLink,
         };
     @endphp
     @if(!request()->routeIs('login') && !request()->routeIs('register'))
-    <nav style='position: sticky; top: 0; z-index: 50; background: white; border-bottom: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,0.06);'>
-        <div class="container-pad" style='max-width: 1200px; margin: 0 auto; padding: 0 1.25rem;'>
-            <div style='display: flex; align-items: center; justify-content: space-between; height: 64px;'>
+    <nav class="sticky top-0 z-50 border-b border-slate-200 bg-white shadow-sm">
+        <div class="container-pad mx-auto max-w-[1200px] px-5 md:px-6">
+            <div class="flex h-16 items-center justify-between">
 
-                <a href="{{ url('/') }}" style="display: flex; align-items: center; gap: 10px; text-decoration: none;">
-                    <img src="{{ asset('images/logo.png') }}" alt="Home Cleaning Service" style="height: 48px; width: auto;">
-                    <div style="line-height: 1.2;">
-                        <div style="font-size: 15px; font-weight: 800; color: #1e293b;">Home Cleaning</div>
-                        <div style="font-size: 12px; font-weight: 600; color: #1D9E75;">Service</div>
+                <a href="{{ url('/') }}" class="flex items-center gap-2.5 no-underline">
+                    <img src="{{ asset('images/logo.png') }}" alt="Home Cleaning Service" class="h-12 w-auto">
+                    <div class="leading-tight">
+                        <div class="text-[15px] font-extrabold text-slate-800">Home Cleaning</div>
+                        <div class="text-xs font-semibold text-accent-700">Service</div>
                     </div>
                 </a>
 
-                <div class='nav-desktop-links' style='display: flex; align-items: center; gap: 2rem;'>
-                    <a href="{{ $servicesLink }}" style='font-size: 14px; font-weight: 500; color: #475569; text-decoration: none;'>Services</a>
-                    <a href="{{ $howItWorksLink }}" style='font-size: 14px; font-weight: 500; color: #475569; text-decoration: none;'>How It Works</a>
-                    <a href="{{ $pricingLink }}" style='font-size: 14px; font-weight: 500; color: #475569; text-decoration: none;'>Pricing</a>
-                    <a href="{{ route('map') }}" style='font-size: 14px; font-weight: 500; color: #475569; text-decoration: none;'>Service Areas</a>
-                    <a href="{{ $faqLink }}" style='font-size: 14px; font-weight: 500; color: #475569; text-decoration: none;'>FAQ</a>
+                <div class="hidden items-center gap-8 md:flex">
+                    <a href="{{ $servicesLink }}" class="text-sm font-medium text-slate-600 transition hover:text-slate-900">Services</a>
+                    <a href="{{ $howItWorksLink }}" class="text-sm font-medium text-slate-600 transition hover:text-slate-900">How It Works</a>
+                    <a href="{{ $pricingLink }}" class="text-sm font-medium text-slate-600 transition hover:text-slate-900">Pricing</a>
+                    <a href="{{ route('map') }}" class="text-sm font-medium text-slate-600 transition hover:text-slate-900">Service Areas</a>
+                    <a href="{{ $faqLink }}" class="text-sm font-medium text-slate-600 transition hover:text-slate-900">FAQ</a>
                 </div>
 
-                <div class='nav-desktop-links' style='display: flex; align-items: center; gap: 10px;'>
+                <div class="hidden items-center gap-2.5 md:flex">
                     @auth
-                    <a href="{{ route(auth()->user()->role . '.dashboard') }}" style='font-size: 14px; font-weight: 600; color: #475569; text-decoration: none; padding: 8px 14px;'>Dashboard</a>
-                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700">Book Now</a>
+                    <a href="{{ route(auth()->user()->role . '.dashboard') }}" class="px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:text-accent-800">Dashboard</a>
+                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-primary-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-600">Book Now</a>
                     @else
-                    <a href="{{ route('login') }}" style='font-size: 14px; font-weight: 600; color: #475569; text-decoration: none; padding: 8px 16px;'>Login</a>
-                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700">Book Now</a>
+                    <a href="{{ route('login') }}" class="px-4 py-2 text-sm font-semibold text-slate-600 transition hover:text-accent-800">Login</a>
+                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-primary-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-600">Book Now</a>
                     @endauth
                 </div>
 
-                <button class='nav-mobile-btn' id='nav-hamburger' onclick='toggleMobileNav()' style='display: none; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; cursor: pointer;'>
-                    <svg id='hamburger-open' xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24' stroke='#475569' stroke-width='2'>
-                        <path stroke-linecap='round' stroke-linejoin='round' d='M4 6h16M4 12h16M4 18h16'/>
-                    </svg>
-                    <svg id='hamburger-close' xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24' stroke='#475569' stroke-width='2' style='display:none;'>
-                        <path stroke-linecap='round' stroke-linejoin='round' d='M6 18L18 6M6 6l12 12'/>
-                    </svg>
-                </button>
+                <div class="flex items-center gap-2 md:hidden">
+                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-primary-600 px-3.5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-primary-700">Book Now</a>
+                    <button class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" id="nav-hamburger" type="button" aria-expanded="false" aria-controls="mobile-nav-menu" onclick="toggleMobileNav()">
+                        <svg id='hamburger-open' xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24' stroke='#475569' stroke-width='2'>
+                            <path stroke-linecap='round' stroke-linejoin='round' d='M4 6h16M4 12h16M4 18h16'/>
+                        </svg>
+                        <svg id='hamburger-close' xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24' stroke='#475569' stroke-width='2' class="hidden">
+                            <path stroke-linecap='round' stroke-linejoin='round' d='M6 18L18 6M6 6l12 12'/>
+                        </svg>
+                    </button>
+                </div>
             </div>
 
-            <div class='nav-mobile-menu' id='mobile-nav-menu' style='display: none; border-top: 1px solid #f1f5f9; padding: 1rem 0 1.25rem;'>
-                <a href='{{ $servicesLink }}' onclick='closeMobileNav()' style='display: block; padding: 10px 4px; font-size: 15px; font-weight: 500; color: #374151; text-decoration: none; border-bottom: 1px solid #f8fafc;'>Services</a>
-                <a href='{{ $howItWorksLink }}' onclick='closeMobileNav()' style='display: block; padding: 10px 4px; font-size: 15px; font-weight: 500; color: #374151; text-decoration: none; border-bottom: 1px solid #f8fafc;'>How It Works</a>
-                <a href='{{ $pricingLink }}' onclick='closeMobileNav()' style='display: block; padding: 10px 4px; font-size: 15px; font-weight: 500; color: #374151; text-decoration: none; border-bottom: 1px solid #f8fafc;'>Pricing</a>
-                <a href='{{ route("map") }}' onclick='closeMobileNav()' style='display: block; padding: 10px 4px; font-size: 15px; font-weight: 500; color: #374151; text-decoration: none; border-bottom: 1px solid #f8fafc;'>Service Areas</a>
-                <a href='{{ $faqLink }}' onclick='closeMobileNav()' style='display: block; padding: 10px 4px; font-size: 15px; font-weight: 500; color: #374151; text-decoration: none; border-bottom: 1px solid #f8fafc;'>FAQ</a>
-                <div style='display: flex; flex-direction: column; gap: 8px; margin-top: 1rem;'>
+            <div class="hidden border-t border-slate-100 py-4 md:hidden" id="mobile-nav-menu">
+                <a href="{{ $servicesLink }}" onclick="closeMobileNav()" class="block border-b border-slate-50 px-1 py-2.5 text-[15px] font-medium text-gray-700 transition hover:text-gray-900">Services</a>
+                <a href="{{ $howItWorksLink }}" onclick="closeMobileNav()" class="block border-b border-slate-50 px-1 py-2.5 text-[15px] font-medium text-gray-700 transition hover:text-gray-900">How It Works</a>
+                <a href="{{ $pricingLink }}" onclick="closeMobileNav()" class="block border-b border-slate-50 px-1 py-2.5 text-[15px] font-medium text-gray-700 transition hover:text-gray-900">Pricing</a>
+                <a href="{{ route('map') }}" onclick="closeMobileNav()" class="block border-b border-slate-50 px-1 py-2.5 text-[15px] font-medium text-gray-700 transition hover:text-gray-900">Service Areas</a>
+                <a href="{{ $faqLink }}" onclick="closeMobileNav()" class="block border-b border-slate-50 px-1 py-2.5 text-[15px] font-medium text-gray-700 transition hover:text-gray-900">FAQ</a>
+                <div class="mt-4 flex flex-col gap-2">
                     @auth
-                    <a href="{{ route(auth()->user()->role . '.dashboard') }}" style='background: #f1f5f9; color: #374151; border-radius: 10px; padding: 12px; font-size: 15px; font-weight: 600; text-decoration: none; text-align: center;'>Dashboard</a>
-                    <a href="{{ $bookNowLink }}" style='background: #1D9E75; color: white; border-radius: 10px; padding: 12px; font-size: 15px; font-weight: 700; text-decoration: none; text-align: center;'>Book Now</a>
+                    <a href="{{ route(auth()->user()->role . '.dashboard') }}" class="rounded-xl bg-slate-100 px-3 py-3 text-center text-[15px] font-semibold text-gray-700 transition hover:bg-slate-200">Dashboard</a>
+                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-primary-600 px-3 py-3 text-center text-[15px] font-bold text-white transition hover:bg-primary-700">Book Now</a>
                     @else
-                    <a href="{{ route('login') }}" style='background: #f1f5f9; color: #374151; border-radius: 10px; padding: 12px; font-size: 15px; font-weight: 600; text-decoration: none; text-align: center;'>Login</a>
-                    <a href="{{ $bookNowLink }}" style='background: #1D9E75; color: white; border-radius: 10px; padding: 12px; font-size: 15px; font-weight: 700; text-decoration: none; text-align: center;'>Book Now</a>
+                    <a href="{{ route('login') }}" class="rounded-xl bg-slate-100 px-3 py-3 text-center text-[15px] font-semibold text-gray-700 transition hover:bg-slate-200">Login</a>
+                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-primary-500 px-3 py-3 text-center text-[15px] font-bold text-white transition hover:bg-primary-600">Book Now</a>
                     @endauth
                 </div>
             </div>
@@ -193,7 +95,7 @@
     <main>@yield('content')</main>
 
     @if(!request()->routeIs('login') && !request()->routeIs('register'))
-    <footer class="bg-gray-900 text-gray-300 pt-12 pb-0">
+    <footer class="app-footer bg-gray-900 text-gray-300 pt-12 pb-0">
         <div class="container-pad max-w-7xl mx-auto px-4 sm:px-6 lg:px-4">
             <div class="footer-grid grid grid-cols-1 md:grid-cols-3 gap-8 pb-8">
                 <div class="md:col-span-2">
@@ -201,35 +103,35 @@
                         <i class="fas fa-broom"></i><span>Home Cleaning Service</span>
                     </a>
                     <p class="text-sm leading-relaxed">
-                        Home Cleaning Service is a web-based home cleaning platform for Valencia City, combining simple service requests with organized booking and operations management.
+                        Premium home cleaning for Valencia City households, with clear pricing, trusted staff, and a smoother booking experience from quote to clean.
                     </p>
                 </div>
                 <div>
                     <h4 class="text-white mb-4 text-sm font-semibold">Quick Links</h4>
                     <ul class="footer-links space-y-2">
-                        <li><a href="{{ route('home') }}" class="hover:text-emerald-400 transition-colors text-sm">Home</a></li>
-                        <li><a href="{{ $servicesLink }}" class="hover:text-emerald-400 transition-colors text-sm">Services</a></li>
-                        <li><a href="{{ $pricingLink }}" class="hover:text-emerald-400 transition-colors text-sm">Pricing</a></li>
-                        <li><a href="{{ route('map') }}" class="hover:text-emerald-400 transition-colors text-sm">Service Areas</a></li>
-                        <li><a href="{{ $faqLink }}" class="hover:text-emerald-400 transition-colors text-sm">FAQ</a></li>
+                        <li><a href="{{ route('home') }}" class="hover:text-primary-400 transition-colors text-sm">Home</a></li>
+                        <li><a href="{{ $servicesLink }}" class="hover:text-primary-400 transition-colors text-sm">Services</a></li>
+                        <li><a href="{{ $pricingLink }}" class="hover:text-primary-400 transition-colors text-sm">Pricing</a></li>
+                        <li><a href="{{ route('map') }}" class="hover:text-primary-400 transition-colors text-sm">Service Areas</a></li>
+                        <li><a href="{{ $faqLink }}" class="hover:text-primary-400 transition-colors text-sm">FAQ</a></li>
                     </ul>
                 </div>
                 <div>
                     <h4 class="text-white mb-4 text-sm font-semibold">Support</h4>
                     <p class="text-sm mb-2 flex items-center gap-2">
-                        <i class="fas fa-map-marker-alt text-emerald-400 w-4"></i> Valencia City, Bukidnon, Philippines
+                        <i class="fas fa-map-marker-alt text-primary-400 w-4"></i> Valencia City, Bukidnon, Philippines
                     </p>
                     <p class="text-sm mb-2 flex items-center gap-2">
-                        <i class="fas fa-envelope text-emerald-400 w-4"></i> support@homecleaningservice.local
+                        <i class="fas fa-envelope text-primary-400 w-4"></i> support@homecleaningservice.local
                     </p>
                     <p class="text-sm mb-2 flex items-center gap-2">
-                        <i class="fas fa-clock text-emerald-400 w-4"></i> Monday - Saturday, 8:00 AM - 5:00 PM
+                        <i class="fas fa-clock text-primary-400 w-4"></i> Monday - Saturday, 8:00 AM - 5:00 PM
                     </p>
                     <p class="text-sm mb-2 flex items-center gap-2">
-                        <i class="fas fa-circle-check text-emerald-400 w-4"></i> Booking requests are handled through the platform
+                        <i class="fas fa-circle-check text-primary-400 w-4"></i> Quotes and bookings are handled in one place
                     </p>
                     <p class="text-sm flex items-center gap-2">
-                        <i class="fas fa-users text-emerald-400 w-4"></i> Service coordination is managed by the Home Cleaning Service team
+                        <i class="fas fa-users text-primary-400 w-4"></i> Your service is handled by a reviewed local cleaning team
                     </p>
                 </div>
             </div>
@@ -241,36 +143,36 @@
     @endif
 
     <script src="{{ asset('js/main.js') }}"></script>
+    @include('partials.pwa-script')
     @stack('scripts')
     <script>
     function toggleMobileNav() {
         const menu = document.getElementById('mobile-nav-menu');
+        const navToggle = document.getElementById('nav-hamburger');
         const openIcon = document.getElementById('hamburger-open');
         const closeIcon = document.getElementById('hamburger-close');
-        const isOpen = menu.classList.contains('open');
+        const isOpen = !menu.classList.contains('hidden');
 
-        if (isOpen) {
-            menu.classList.remove('open');
-            menu.style.display = 'none';
-            openIcon.style.display = 'block';
-            closeIcon.style.display = 'none';
-        } else {
-            menu.classList.add('open');
-            menu.style.display = 'flex';
-            menu.style.flexDirection = 'column';
-            openIcon.style.display = 'none';
-            closeIcon.style.display = 'block';
-        }
+        menu.classList.toggle('hidden', isOpen);
+        openIcon.classList.toggle('hidden', !isOpen);
+        closeIcon.classList.toggle('hidden', isOpen);
+        navToggle?.setAttribute('aria-expanded', String(!isOpen));
     }
 
     function closeMobileNav() {
         const menu = document.getElementById('mobile-nav-menu');
+        const navToggle = document.getElementById('nav-hamburger');
         const openIcon = document.getElementById('hamburger-open');
         const closeIcon = document.getElementById('hamburger-close');
-        menu.classList.remove('open');
-        menu.style.display = 'none';
-        openIcon.style.display = 'block';
-        closeIcon.style.display = 'none';
+
+        if (!menu || menu.classList.contains('hidden')) {
+            return;
+        }
+
+        menu.classList.add('hidden');
+        openIcon?.classList.remove('hidden');
+        closeIcon?.classList.add('hidden');
+        navToggle?.setAttribute('aria-expanded', 'false');
     }
 
     document.addEventListener('click', function(e) {
@@ -298,6 +200,8 @@
             revealItems.forEach((item) => item.classList.add('reveal-visible'));
             return;
         }
+
+        document.documentElement.classList.add('reveal-enabled');
 
         const observer = new IntersectionObserver((entries) => {
             entries.forEach((entry) => {

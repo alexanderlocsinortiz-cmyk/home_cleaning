@@ -34,18 +34,18 @@ class BookingLocationController extends Controller
         }
 
         // No location shared yet
-        if (!$booking->current_latitude || !$booking->current_longitude) {
+        if (! $booking->current_latitude || ! $booking->current_longitude) {
             return response()->json(['tracking' => false]);
         }
 
         return response()->json([
-            'tracking'   => true,
-            'latitude'   => $booking->current_latitude,
-            'longitude'  => $booking->current_longitude,
+            'tracking' => true,
+            'latitude' => $booking->current_latitude,
+            'longitude' => $booking->current_longitude,
             'updated_at' => $booking->location_updated_at
                 ? \Carbon\Carbon::parse($booking->location_updated_at)->diffForHumans()
                 : null,
-            'is_admin'   => $user->role === 'admin',
+            'is_admin' => $user->role === 'admin',
         ]);
     }
 
@@ -81,26 +81,26 @@ class BookingLocationController extends Controller
         }
 
         // Only allow location sharing during active booking
-        if (!in_array($booking->status, ['confirmed', 'in_progress'])) {
+        if (! in_array($booking->status, ['confirmed', 'in_progress'])) {
             return response()->json(['error' => 'Location sharing is only allowed during active bookings.'], 422);
         }
 
         $request->validate([
-            'latitude'  => 'required|numeric|between:-90,90',
+            'latitude' => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
         ]);
 
         $booking->update([
-            'current_latitude'    => $request->latitude,
-            'current_longitude'   => $request->longitude,
+            'current_latitude' => $request->latitude,
+            'current_longitude' => $request->longitude,
             'location_updated_at' => now(),
         ]);
 
         BookingLocation::create([
             'booking_id' => $id,
-            'staff_id'   => $user->id,
-            'latitude'   => $request->latitude,
-            'longitude'  => $request->longitude,
+            'staff_id' => $user->id,
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
             'captured_at' => now(),
         ]);
 

@@ -13,8 +13,7 @@ class CustomVerifyEmail extends Notification
     public function __construct(
         public string $code,
         public int $expiresInMinutes = 15,
-    ) {
-    }
+    ) {}
 
     public function via(object $notifiable): array
     {

@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Models\Service;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use App\Models\Service;
 
 class DatabaseSeeder extends Seeder
 {
@@ -32,6 +32,24 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Move-in/Move-out Clean',
                 'description' => 'Full property cleaning for moving in or moving out.',
                 'price' => 2000,
+                'is_active' => 1,
+            ],
+            [
+                'name' => 'Post Construction Cleaning',
+                'description' => 'Detailed post-construction cleanup for dust, debris, and renovation residue.',
+                'price' => 1800,
+                'is_active' => 1,
+            ],
+            [
+                'name' => 'Office and Commercial Cleaning',
+                'description' => 'Structured cleaning support for offices, stores, and other commercial spaces.',
+                'price' => 1600,
+                'is_active' => 1,
+            ],
+            [
+                'name' => 'Weekly Maintenance Plan',
+                'description' => 'Recurring weekly cleaning plan for consistent upkeep and readiness.',
+                'price' => 900,
                 'is_active' => 1,
             ],
         ];

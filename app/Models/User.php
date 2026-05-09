@@ -2,12 +2,11 @@
 
 namespace App\Models;
 
+use App\Notifications\CustomVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
-use App\Models\Booking;
-use App\Notifications\CustomVerifyEmail;
 use Illuminate\Support\Facades\Hash;
 
 class User extends Authenticatable implements MustVerifyEmail
@@ -47,11 +46,11 @@ class User extends Authenticatable implements MustVerifyEmail
      * The attributes that should be cast.
      */
     protected $casts = [
-        'date_of_birth'     => 'date',
+        'date_of_birth' => 'date',
         'email_verified_at' => 'datetime',
         'email_verification_code_expires_at' => 'datetime',
         'fingerprint_template_id' => 'integer',
-        'password'          => 'hashed',
+        'password' => 'hashed',
     ];
 
     /**
@@ -59,7 +58,37 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function getFullNameAttribute(): string
     {
-        return "{$this->first_name} {$this->last_name}";
+        return trim(implode(' ', array_filter([
+            $this->first_name,
+            $this->last_name,
+        ])));
+    }
+
+    public function getDisplayNameAttribute(): string
+    {
+        if ($this->full_name !== '') {
+            return $this->full_name;
+        }
+
+        if (filled($this->username)) {
+            return (string) $this->username;
+        }
+
+        return (string) $this->email;
+    }
+
+    public function getInitialsAttribute(): string
+    {
+        if ($this->full_name !== '') {
+            $firstInitial = substr((string) $this->first_name, 0, 1);
+            $lastInitial = substr((string) $this->last_name, 0, 1);
+
+            return strtoupper($firstInitial.($lastInitial ?: $firstInitial));
+        }
+
+        $fallback = $this->username ?: $this->email ?: 'U';
+
+        return strtoupper(substr((string) $fallback, 0, 2));
     }
 
     /**
@@ -89,6 +118,27 @@ class User extends Authenticatable implements MustVerifyEmail
     public function enrollmentRequests()
     {
         return $this->hasMany(DeviceEnrollmentRequest::class);
+    }
+
+    /**
+     * Get notifications sent to this user.
+     */
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class, 'user_id');
+    }
+
+    /**
+     * Get unread notifications for this user.
+     */
+    public function unreadNotifications()
+    {
+        return $this->notifications()->unread();
+    }
+
+    public function bookingMessages()
+    {
+        return $this->hasMany(BookingMessage::class, 'sender_id');
     }
 
     public function sendEmailVerificationNotification(): void

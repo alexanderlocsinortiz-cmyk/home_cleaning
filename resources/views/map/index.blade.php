@@ -2,7 +2,7 @@
 @section('title', 'Service Areas')
 
 @push('styles')
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}" />
 @endpush
 
 @section('content')
@@ -14,13 +14,13 @@
         <p class="text-base text-gray-600 md:text-lg">Interactive map of all 31 barangays served in Valencia City, Bukidnon</p>
     </div>
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-4 lg:min-h-[550px] lg:h-[calc(100vh-280px)]">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-4 lg:min-h-137.5 lg:h-[calc(100vh-280px)]">
         <!-- Sidebar -->
         <div class="order-2 flex flex-col gap-4 overflow-y-auto rounded-xl bg-white p-4 shadow-md lg:order-1 lg:col-span-1">
             <!-- Search -->
             <div class="relative">
                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                <input type="text" id="barangaySearch" placeholder="Search barangay..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-emerald-500">
+                <input type="text" id="barangaySearch" placeholder="Search barangay..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-hidden focus:border-emerald-500">
             </div>
 
             <!-- Filter -->
@@ -54,7 +54,7 @@
                     @foreach($barangays as $b)
                     <li class="flex items-center gap-2 p-2 rounded-lg cursor-pointer text-sm hover:bg-emerald-50 justify-between" data-type="{{ $b['type'] }}" data-lat="{{ $b['lat'] }}" data-lng="{{ $b['lng'] }}" data-name="{{ $b['name'] }}">
                         <div class="flex items-center gap-2">
-                            <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 {{ $b['type'] == 'service_center' ? 'bg-red-500' : ($b['type'] == 'residential' ? 'bg-emerald-600' : ($b['type'] == 'commercial' ? 'bg-orange-500' : 'bg-green-500')) }}"></span>
+                            <span class="w-2.5 h-2.5 rounded-full shrink-0 {{ $b['type'] == 'service_center' ? 'bg-red-500' : ($b['type'] == 'residential' ? 'bg-emerald-600' : ($b['type'] == 'commercial' ? 'bg-orange-500' : 'bg-green-500')) }}"></span>
                             {{ $b['name'] }}
                         </div>
                         <small class="text-gray-500 text-xs">{{ ucfirst(str_replace('_', ' ', $b['type'])) }}</small>
@@ -66,7 +66,7 @@
 
         <!-- Map -->
         <div class="order-1 flex flex-col gap-4 lg:order-2 lg:col-span-3">
-            <div id="map" class="z-10 min-h-[320px] flex-1 rounded-xl shadow-md md:min-h-[400px]"></div>
+            <div id="map" class="z-10 min-h-80 flex-1 rounded-xl shadow-md md:min-h-100"></div>
 
             <!-- Stats Bar -->
             <div class="grid grid-cols-2 gap-4 rounded-xl bg-white p-4 shadow-md md:grid-cols-4 md:p-6">
@@ -96,11 +96,10 @@
 </section>
 @endsection
 @push('scripts')
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script>
     window.cleanflowMapConfig = @json(config('cleanflow.map'));
     window.barangayData = @json($barangays);
 </script>
 <script src="{{ asset('js/map.js') }}"></script>
 @endpush
-

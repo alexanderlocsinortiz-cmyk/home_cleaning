@@ -4,284 +4,345 @@
 @section('page-subtitle', 'Your assignments and tasks')
 
 @section('content')
-<style>
-@media (max-width: 767px) {
+@php
+    $greeting = now()->hour < 12 ? 'Good Morning' : (now()->hour < 17 ? 'Good Afternoon' : 'Good Evening');
+    $initials = $user->initials;
+    $completionRate = $totalBookings > 0 ? round(($completedBookings / $totalBookings) * 100, 1) : 0;
 
-    /* Page padding */
-    .sf-page-wrap { padding: 0.875rem !important; }
+    $stats = [
+        [
+            'label' => 'Total Assigned',
+            'value' => $totalBookings,
+            'icon' => 'fa-clipboard-list',
+            'cardClasses' => 'border-l-4 border-primary-300 bg-primary-50/80',
+            'iconClasses' => 'bg-primary-100 text-primary-700',
+        ],
+        [
+            'label' => 'Completed',
+            'value' => $completedBookings,
+            'icon' => 'fa-circle-check',
+            'cardClasses' => 'border-l-4 border-accent-300 bg-accent-50/80',
+            'iconClasses' => 'bg-accent-100 text-accent-700',
+        ],
+        [
+        'label' => 'In Progress',
+            'value' => $inProgress,
+            'icon' => 'fa-spinner',
+            'cardClasses' => 'border-l-4 border-primary-300 bg-primary-50/80',
+            'iconClasses' => 'bg-primary-100 text-primary-700',
+        ],
+        [
+            'label' => 'Earnings',
+            'value' => 'P' . number_format($totalEarnings, 0),
+            'icon' => 'fa-wallet',
+            'cardClasses' => 'border-l-4 border-amber-300 bg-primary-50/80',
+            'iconClasses' => 'bg-primary-100 text-primary-700',
+        ],
+    ];
 
-    /* Welcome banner - fix stacked stats */
-    .welcome-banner-inner {
-        flex-direction: column !important;
-        gap: 1rem !important;
-        align-items: flex-start !important;
-    }
-    .welcome-banner-stats {
-        display: grid !important;
-        grid-template-columns: 1fr 1fr !important;
-        gap: 8px !important;
-        width: 100% !important;
-    }
-    .welcome-banner-stats > div {
-        flex: unset !important;
-    }
-    .welcome-banner-name {
-        font-size: 20px !important;
-    }
+    $quickActions = [
+        [
+            'label' => 'My Bookings',
+            'description' => 'Manage proof uploads and job progress.',
+            'route' => route('staff.bookings'),
+            'icon' => 'fa-broom',
+            'classes' => 'bg-primary-50 text-primary-700',
+        ],
+        [
+            'label' => 'My Performance',
+            'description' => 'Review ratings and customer feedback.',
+            'route' => route('staff.performance'),
+            'icon' => 'fa-chart-line',
+            'classes' => 'bg-primary-50 text-primary-700',
+        ],
+        [
+            'label' => 'My Schedule',
+            'description' => 'See your upcoming work calendar.',
+            'route' => route('staff.schedule'),
+            'icon' => 'fa-calendar-days',
+            'classes' => 'bg-primary-50 text-primary-700',
+        ],
+    ];
 
-    /* Stat cards - 2 columns */
-    .staff-stat-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 0.875rem !important;
-    }
-    .staff-stat-grid > div {
-        padding: 1rem !important;
-    }
-    .staff-stat-grid .stat-number {
-        font-size: 26px !important;
-    }
+    $statusClasses = [
+        'confirmed' => 'border border-accent-200 bg-accent-50 text-accent-700',
+        'in_progress' => 'border border-primary-200 bg-primary-50 text-primary-700',
+    ];
+@endphp
 
-    /* Info + assignments grid - single column */
-    .staff-info-grid {
-        grid-template-columns: 1fr !important;
-    }
-
-    /* Active assignments table - scrollable */
-    .staff-table-wrap {
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch !important;
-        border-radius: 0 0 14px 14px !important;
-    }
-    .staff-table-wrap table {
-        min-width: 620px !important;
-    }
-
-    /* Quick actions - horizontal row */
-    .staff-quick-actions {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 8px !important;
-    }
-}
-</style>
-<div class="sf-page-wrap" style="padding: 1.5rem 2rem; font-family: DM Sans, sans-serif;">
-    @if(session('success'))
-    <div style="background: #dcfce7; border: 1px solid #86efac; color: #16a34a; border-radius: 10px; padding: 12px 16px; margin-bottom: 1.25rem; font-size: 14px; display: flex; align-items: center; gap: 8px;">
-        <span>&#x2705;</span>
-        <span>{{ session('success') }}</span>
-    </div>
-    @endif
-
-    @if($errors->any())
-    <div style="background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; border-radius: 10px; padding: 12px 16px; margin-bottom: 1.25rem; font-size: 14px;">
-        <div style="font-weight: 700; margin-bottom: 6px;">Please fix the following:</div>
-        @foreach($errors->all() as $error)
-        <div>&bull; {{ $error }}</div>
-        @endforeach
-    </div>
-    @endif
-
-    <div class="welcome-banner-inner" style="background: linear-gradient(135deg, #0F6E56 0%, #1D9E75 50%, #06b6d4 100%); border-radius: 16px; padding: 2rem 2.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; position: relative; overflow: hidden; gap: 1rem; flex-wrap: wrap;">
-        <div style="position: absolute; right: -20px; top: -40px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255, 255, 255, 0.07);"></div>
-        <div style="position: absolute; right: 120px; bottom: -60px; width: 150px; height: 150px; border-radius: 50%; background: rgba(255, 255, 255, 0.05);"></div>
-        <div style="display: flex; align-items: center; gap: 1.25rem; position: relative; z-index: 1;">
-            <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: white;">{{ strtoupper(substr($user->first_name, 0, 1) . substr($user->last_name, 0, 1)) }}</div>
-            <div>
-                <p style="color: rgba(255, 255, 255, 0.75); font-size: 13px; margin-bottom: 4px;">{{ now()->format('l, F d Y') }}</p>
-                <h1 class="welcome-banner-name" style="color: white; font-size: 24px; font-weight: 700; margin-bottom: 4px;">
-                    Good {{ now()->hour < 12 ? 'Morning' : (now()->hour < 17 ? 'Afternoon' : 'Evening') }}, {{ $user->first_name }}!
-                </h1>
-                <p style="color: rgba(255, 255, 255, 0.75); font-size: 13px;">{{ ucfirst($user->barangay) }} &middot; {{ $user->email }}</p>
-            </div>
-        </div>
-        <div class="welcome-banner-stats" style="display: flex; gap: 10px; position: relative; z-index: 1; flex-wrap: wrap;">
-            <div style="background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 12px; padding: 10px 18px; color: white; font-size: 13px; font-weight: 500; text-align: center;">
-                <div style="font-size: 20px; font-weight: 700;">{{ $assignedBookings->count() }}</div>
-                <div style="font-size: 11px; opacity: 0.8;">Active Jobs</div>
-            </div>
-            <div style="background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 12px; padding: 10px 18px; color: white; font-size: 13px; font-weight: 500; text-align: center;">
-                <div style="font-size: 20px; font-weight: 700;">&#8369;{{ number_format($totalEarnings, 0) }}</div>
-                <div style="font-size: 11px; opacity: 0.8;">Earnings</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="staff-stat-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; margin-bottom: 1.25rem;">
-        <div style="background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07); border: 1px solid #f1f5f9; display: flex; align-items: center; gap: 1rem;">
-            <div style="width: 50px; height: 50px; border-radius: 12px; background: #E1F5EE; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">&#x1F4CB;</div>
-            <div>
-                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 4px;">Total Assigned</div>
-                <div class="stat-number" style="font-size: 30px; font-weight: 700; color: #1e293b; line-height: 1;">{{ $totalBookings }}</div>
-            </div>
-        </div>
-        <div style="background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07); border: 1px solid #f1f5f9; display: flex; align-items: center; gap: 1rem;">
-            <div style="width: 50px; height: 50px; border-radius: 12px; background: #f0fdf4; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">&#x2705;</div>
-            <div>
-                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 4px;">Completed</div>
-                <div class="stat-number" style="font-size: 30px; font-weight: 700; color: #1e293b; line-height: 1;">{{ $completedBookings }}</div>
-            </div>
-        </div>
-        <div style="background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07); border: 1px solid #f1f5f9; display: flex; align-items: center; gap: 1rem;">
-            <div style="width: 50px; height: 50px; border-radius: 12px; background: #fdf4ff; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">&#9881;</div>
-            <div>
-                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 4px;">In Progress</div>
-                <div class="stat-number" style="font-size: 30px; font-weight: 700; color: #1e293b; line-height: 1;">{{ $inProgress }}</div>
-            </div>
-        </div>
-        <div style="background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07); border: 1px solid #f1f5f9; display: flex; align-items: center; gap: 1rem;">
-            <div style="width: 50px; height: 50px; border-radius: 12px; background: #f0fdf4; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">&#x1F4B0;</div>
-            <div>
-                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 4px;">Total Earnings</div>
-                <div class="stat-number" style="font-size: 22px; font-weight: 700; color: #16a34a; line-height: 1;">&#8369;{{ number_format($totalEarnings, 0) }}</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="staff-info-grid" style="display: grid; grid-template-columns: 340px 1fr; gap: 1.25rem;">
-        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-            <div style="background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07); border: 1px solid #f1f5f9;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-                    <div style="font-size: 15px; font-weight: 700; color: #1e293b;">My Information</div>
-                    <a href="{{ route('staff.profile') }}" style="font-size: 12px; color: #1D9E75; text-decoration: none; background: #E1F5EE; padding: 5px 12px; border-radius: 8px; font-weight: 500;">Edit</a>
+<div class="cleanflow-page-shell min-h-[calc(100vh-81px)] px-4 py-6 sm:px-6 sm:py-8">
+    <div class="mx-auto max-w-7xl space-y-6">
+        @if (session('success'))
+            <div class="cleanflow-alert cleanflow-alert--success flex items-start gap-3">
+                <i class="fas fa-circle-check mt-0.5 text-base"></i>
+                <div>
+                    <p class="text-sm font-semibold">Staff update saved.</p>
+                    <p class="mt-1 text-sm text-primary-800/80">{{ session('success') }}</p>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 14px;">
-                    <div style="display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #f8fafc;">
-                        <div style="width: 48px; height: 48px; border-radius: 50%; background: #1D9E75; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 16px; flex-shrink: 0;">{{ strtoupper(substr($user->first_name, 0, 1) . substr($user->last_name, 0, 1)) }}</div>
+            </div>
+        @endif
+
+        @if ($errors->any())
+            <div class="cleanflow-alert cleanflow-alert--error">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-circle-exclamation mt-0.5 text-base"></i>
+                    <div>
+                        <p class="text-sm font-semibold">Please fix the following before continuing.</p>
+                        <ul class="mt-2 space-y-1 text-sm text-red-700/90">
+                            @foreach ($errors->all() as $error)
+                                <li class="flex items-start gap-2">
+                                    <span class="mt-1 h-1.5 w-1.5 rounded-full bg-primary-400"></span>
+                                    <span>{{ $error }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        <section class="cleanflow-hero overflow-hidden px-6 py-7 text-white sm:px-8 lg:px-10">
+            <div class="cleanflow-hero-content flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+                <div class="flex max-w-3xl flex-col gap-5">
+                    <span class="cleanflow-kicker">
+                        <i class="fas fa-user-check text-[0.75rem]"></i>
+                        Staff operations
+                    </span>
+
+                    <div class="flex items-start gap-4">
+                        <div class="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/25 bg-white/15 text-xl font-black text-white shadow-lg">
+                            {{ $initials }}
+                        </div>
+                        <div class="space-y-2">
+                            <p class="text-sm text-white/70">{{ now()->format('l, F d Y') }}</p>
+                            <h1 class="text-3xl font-black tracking-tight sm:text-4xl">
+                                {{ $greeting }}, {{ $user->display_name }}!
+                            </h1>
+                            <p class="text-sm leading-7 text-white/80 sm:text-base">
+                                Stay on top of your assignments, monitor live jobs, and keep your staff profile ready
+                                for today’s workload in {{ ucfirst($user->barangay ?? 'your area') }}.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 text-sm text-white/85">
+                        <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                            <i class="fas fa-clipboard-check text-xs"></i>
+                            {{ $assignedBookings->count() }} active job{{ $assignedBookings->count() === 1 ? '' : 's' }}
+                        </span>
+                        <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                            <i class="fas fa-star text-xs"></i>
+                            {{ $avgRating ?? 'No' }} average rating
+                        </span>
+                        <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                            <i class="fas fa-chart-simple text-xs"></i>
+                            {{ $completionRate }}% completion rate
+                        </span>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-3 xl:max-w-sm xl:justify-end">
+                    <div class="rounded-2xl border border-white/15 bg-white/10 px-5 py-4 text-center backdrop-blur-sm">
+                        <div class="text-2xl font-black">{{ $assignedBookings->count() }}</div>
+                        <div class="mt-1 text-xs uppercase tracking-[0.18em] text-white/70">Active jobs</div>
+                    </div>
+                    <div class="rounded-2xl border border-white/15 bg-white/10 px-5 py-4 text-center backdrop-blur-sm">
+                        <div class="text-2xl font-black">P{{ number_format($totalEarnings, 0) }}</div>
+                        <div class="mt-1 text-xs uppercase tracking-[0.18em] text-white/70">Earnings</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            @foreach ($stats as $stat)
+                <section class="cleanflow-panel px-5 py-5 {{ $stat['cardClasses'] }}">
+                    <div class="flex items-start justify-between gap-4">
                         <div>
-                            <div style="font-weight: 600; color: #1e293b; font-size: 15px;">{{ $user->first_name }} {{ $user->last_name }}</div>
-                            <div style="font-size: 12px; color: #94a3b8;">{{ $user->email }}</div>
+                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{{ $stat['label'] }}</p>
+                            <strong class="mt-3 block text-3xl font-black tracking-tight text-slate-900">{{ $stat['value'] }}</strong>
                         </div>
+                        <span class="inline-flex h-11 w-11 items-center justify-center rounded-2xl {{ $stat['iconClasses'] }}">
+                            <i class="fas {{ $stat['icon'] }}"></i>
+                        </span>
                     </div>
-                    @php $rate = $totalBookings > 0 ? round(($completedBookings / $totalBookings) * 100, 1) : 0; @endphp
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <div style="background: #f8fafc; border-radius: 10px; padding: 12px; text-align: center;">
-                            <div style="font-size: 20px; font-weight: 700; color: {{ $rate >= 70 ? '#16a34a' : ($rate >= 40 ? '#d97706' : '#dc2626') }};">{{ $rate }}%</div>
-                            <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Completion Rate</div>
-                        </div>
-                        <div style="background: #f8fafc; border-radius: 10px; padding: 12px; text-align: center;">
-                            <div style="font-size: 20px; font-weight: 700; color: #f59e0b;">{{ $avgRating ?? '-' }}</div>
-                            <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Avg Rating</div>
-                        </div>
-                    </div>
-                    <div>
-                        <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Phone</div>
-                        <div style="font-size: 14px; color: #1e293b; font-weight: 500;">{{ $user->phone ?? 'Not set' }}</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Assigned Barangay</div>
-                        <div style="font-size: 14px; color: #1e293b; font-weight: 500;">{{ ucfirst($user->barangay ?? 'N/A') }}</div>
-                    </div>
-                </div>
-            </div>
-
-            <div style="background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07); border: 1px solid #f1f5f9;">
-                <div style="font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 1rem;">Quick Actions</div>
-                <div class="staff-quick-actions" style="display: flex; flex-direction: column; gap: 8px;">
-                    <a href="{{ route('staff.bookings') }}" style="display: flex; align-items: center; gap: 10px; background: #E1F5EE; border-radius: 10px; padding: 12px; text-decoration: none;">
-                        <span style="font-size: 18px;">&#x1F4CB;</span>
-                        <span style="font-size: 13px; font-weight: 600; color: #0F6E56;">My Bookings</span>
-                    </a>
-                    <a href="{{ route('staff.performance') }}" style="display: flex; align-items: center; gap: 10px; background: #fefce8; border-radius: 10px; padding: 12px; text-decoration: none;">
-                        <span style="font-size: 18px;">&#x1F4CA;</span>
-                        <span style="font-size: 13px; font-weight: 600; color: #a16207;">My Performance</span>
-                    </a>
-                    <a href="{{ route('staff.schedule') }}" style="display: flex; align-items: center; gap: 10px; background: #f0fdf4; border-radius: 10px; padding: 12px; text-decoration: none;">
-                        <span style="font-size: 18px;">&#x1F4C6;</span>
-                        <span style="font-size: 13px; font-weight: 600; color: #15803d;">My Schedule</span>
-                    </a>
-                </div>
-            </div>
+                </section>
+            @endforeach
         </div>
 
-        <div style="background: white; border-radius: 14px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07); border: 1px solid #f1f5f9; overflow: hidden;">
-            <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
-                <div style="font-size: 15px; font-weight: 700; color: #1e293b;">Active Assignments</div>
-                <span style="font-size: 12px; color: #94a3b8; background: #f8fafc; padding: 4px 10px; border-radius: 20px;">{{ $assignedBookings->count() }} booking(s)</span>
-            </div>
-            @if($assignedBookings->count())
-            <div class="staff-table-wrap" style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                    <thead>
-                        <tr style="background: #f8fafc;">
-                            <th style="text-align: left; padding: 10px 16px; color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase;">Booking</th>
-                            <th style="text-align: left; padding: 10px 16px; color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase;">Client</th>
-                            <th style="text-align: left; padding: 10px 16px; color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase;">Service</th>
-                            <th style="text-align: left; padding: 10px 16px; color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase;">Schedule</th>
-                            <th style="text-align: left; padding: 10px 16px; color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase;">Status</th>
-                            <th style="text-align: left; padding: 10px 16px; color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase;">Update</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($assignedBookings as $booking)
-                        @php
-                            $isToday = \Carbon\Carbon::parse($booking->scheduled_date)->isToday();
-                            $colors = [
-                                'confirmed' => '#E1F5EE|#1D9E75',
-                                'in_progress' => '#f3e8ff|#9333ea',
-                            ];
-                            $c = explode('|', $colors[$booking->status] ?? '#f1f5f9|#64748b');
-                        @endphp
-                        <tr style="border-bottom: 1px solid #f8fafc;">
-                            <td style="padding: 14px 16px;">
-                                <span style="font-weight: 700; color: #1D9E75; font-family: monospace;">CF-{{ str_pad($booking->id, 5, '0', STR_PAD_LEFT) }}</span>
-                                @if($isToday)
-                                <span style="background: #dcfce7; color: #16a34a; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-left: 4px;">Today</span>
-                                @endif
-                            </td>
-                            <td style="padding: 14px 16px;">
-                                <div style="font-weight: 600; color: #1e293b;">{{ $booking->user->first_name }} {{ $booking->user->last_name }}</div>
-                                <div style="font-size: 11px; color: #94a3b8;">{{ substr($booking->user->phone ?? '', 0, 4) }}****</div>
-                            </td>
-                            <td style="padding: 14px 16px; color: #374151;">{{ $booking->service_label }}</td>
-                            <td style="padding: 14px 16px;">
-                                <div style="font-weight: 600; color: #1e293b;">{{ \Carbon\Carbon::parse($booking->scheduled_date)->format('M d, Y') }}</div>
-                                <div style="font-size: 11px; color: #94a3b8;">{{ \Carbon\Carbon::parse($booking->scheduled_time)->format('h:i A') }}</div>
-                            </td>
-                            <td style="padding: 14px 16px;">
-                                <span style="background: {{ $c[0] }}; color: {{ $c[1] }}; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;">{{ ucfirst(str_replace('_', ' ', $booking->status)) }}</span>
-                            </td>
-                            <td style="padding: 14px 16px;">
-                                @if($booking->status === 'confirmed')
-                                <form action="{{ route('staff.bookings.status', $booking->id) }}" method="POST">
-                                    @csrf @method('PATCH')
-                                    <input type="hidden" name="status" value="in_progress">
-                                    <button type="submit"
-                                        style="background: #E1F5EE; color: #1D9E75; border: 1px solid #bfdbfe; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer;">
-                                        Start Job
-                                    </button>
-                                </form>
-                                @elseif($booking->status === 'in_progress')
-                                <div style="display: flex; flex-direction: column; gap: 6px;">
-                                    <button onclick="startTracking({{ $booking->id }})"
-                                        id="track-btn-{{ $booking->id }}"
-                                        data-location-update-url="{{ route('booking.location.update', $booking->id) }}"
-                                        style="background: #dcfce7; color: #16a34a; border: 1px solid #86efac; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; width: 100%;">
-                                        Share Location
-                                    </button>
-                                    <form action="{{ route('staff.bookings.status', $booking->id) }}" method="POST">
-                                        @csrf @method('PATCH')
-                                        <input type="hidden" name="status" value="completed">
-                                        <button type="submit"
-                                            onclick="stopTracking({{ $booking->id }})"
-                                            style="background: #f0fdf4; color: #15803d; border: 1px solid #86efac; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; width: 100%;">
-                                            Complete Job
-                                        </button>
-                                    </form>
-                                </div>
-                                @endif
-                            </td>
-                        </tr>
+        <div class="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+            <aside class="space-y-6">
+                <section class="cleanflow-panel p-6">
+                    <div class="mb-5 flex items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-base font-bold text-slate-900">My information</h2>
+                            <p class="text-sm text-slate-500">Your current staff profile and readiness snapshot.</p>
+                        </div>
+                        <a href="{{ route('staff.profile') }}" class="inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700 transition hover:bg-primary-100">
+                            <i class="fas fa-pen text-[10px]"></i>
+                            Edit
+                        </a>
+                    </div>
+
+                    <div class="rounded-3xl border border-slate-100 bg-slate-50/85 p-5 text-center">
+                        <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary-600 text-2xl font-black text-white shadow-lg">
+                            {{ $initials }}
+                        </div>
+                        <div class="mt-4 text-lg font-bold text-slate-900">{{ $user->display_name }}</div>
+                        <div class="mt-1 text-sm text-slate-500">{{ $user->email }}</div>
+                    </div>
+
+                    <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                        <div class="client-profile-summary-row">
+                            <div class="flex items-center gap-3">
+                                <span class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm">
+                                    <i class="fas fa-phone text-sm"></i>
+                                </span>
+                                <span class="text-sm font-medium text-slate-500">Phone</span>
+                            </div>
+                            <span class="client-profile-summary-value text-sm">{{ $user->phone ?? 'Not set' }}</span>
+                        </div>
+
+                        <div class="client-profile-summary-row">
+                            <div class="flex items-center gap-3">
+                                <span class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm">
+                                    <i class="fas fa-location-dot text-sm"></i>
+                                </span>
+                                <span class="text-sm font-medium text-slate-500">Barangay</span>
+                            </div>
+                            <span class="client-profile-summary-value text-sm">{{ ucfirst($user->barangay ?? 'N/A') }}</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                        <div class="rounded-[1.2rem] border {{ $completionRate >= 70 ? 'border-primary-200 bg-primary-50 text-primary-700' : ($completionRate >= 40 ? 'border-amber-200 bg-primary-50 text-primary-700' : 'border-danger-200 bg-danger-50 text-danger-700') }} p-4 text-center">
+                            <div class="text-2xl font-black">{{ $completionRate }}%</div>
+                            <div class="mt-1 text-xs font-semibold uppercase tracking-[0.18em]">Completion rate</div>
+                        </div>
+                        <div class="rounded-[1.2rem] border border-amber-200 bg-primary-50 p-4 text-center text-primary-700">
+                            <div class="text-2xl font-black">{{ $avgRating ?? '-' }}</div>
+                            <div class="mt-1 text-xs font-semibold uppercase tracking-[0.18em]">Average rating</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="cleanflow-panel p-6">
+                    <div class="mb-4">
+                        <h2 class="text-base font-bold text-slate-900">Quick actions</h2>
+                        <p class="mt-1 text-sm text-slate-500">Jump into the parts of the staff portal you use most.</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        @foreach ($quickActions as $action)
+                            <a href="{{ $action['route'] }}" class="flex items-start gap-3 rounded-[1.2rem] border border-slate-100 bg-slate-50/85 px-4 py-4 transition hover:border-slate-200 hover:bg-white hover:shadow-sm">
+                                <span class="inline-flex h-11 w-11 items-center justify-center rounded-2xl {{ $action['classes'] }}">
+                                    <i class="fas {{ $action['icon'] }}"></i>
+                                </span>
+                                <span class="block">
+                                    <span class="block text-sm font-semibold text-slate-900">{{ $action['label'] }}</span>
+                                    <span class="mt-1 block text-sm leading-6 text-slate-500">{{ $action['description'] }}</span>
+                                </span>
+                            </a>
                         @endforeach
-                    </tbody>
-                </table>
-            </div>
-            @else
-            <div style="text-align: center; padding: 3rem 1rem; color: #94a3b8;">
-                <div style="font-size: 48px; margin-bottom: 12px; opacity: 0.3;">&#x1F4CB;</div>
-                <p style="font-size: 15px; font-weight: 500; margin-bottom: 6px; color: #64748b;">No active assignments right now</p>
-                <p style="font-size: 13px;">Confirmed and in-progress bookings will appear here when work is assigned to you.</p>
-            </div>
-            @endif
+                    </div>
+                </section>
+            </aside>
+
+            <section class="cleanflow-panel overflow-hidden">
+                <div class="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Active assignments</h2>
+                        <p class="mt-1 text-sm text-slate-500">Confirmed and in-progress jobs assigned to you right now.</p>
+                    </div>
+                    <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                        {{ $assignedBookings->count() }} booking{{ $assignedBookings->count() === 1 ? '' : 's' }}
+                    </span>
+                </div>
+
+                @if ($assignedBookings->count())
+                    <div class="grid gap-4 px-6 py-6 lg:grid-cols-2">
+                        @foreach ($assignedBookings as $booking)
+                            @php
+                                $isToday = \Carbon\Carbon::parse($booking->scheduled_date)->isToday();
+                            @endphp
+                            <article class="rounded-3xl border border-slate-100 bg-slate-50/75 p-5 transition hover:border-slate-200 hover:bg-white hover:shadow-sm">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <a href="{{ route('bookings.show', $booking->id) }}" class="font-mono text-sm font-bold text-primary-600 hover:underline">
+                                                CF-{{ str_pad($booking->id, 5, '0', STR_PAD_LEFT) }}
+                                            </a>
+                                            @if ($isToday)
+                                                <span class="rounded-full border border-primary-200 bg-primary-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-700">
+                                                    Today
+                                                </span>
+                                            @endif
+                                        </div>
+                                        <h3 class="mt-3 text-base font-bold text-slate-900">{{ $booking->service_label }}</h3>
+                                        <p class="mt-1 text-sm text-slate-500">
+                                            {{ $booking->user->display_name }}
+                                            @if ($booking->user->phone)
+                                                &middot; {{ substr($booking->user->phone, 0, 4) }}****
+                                            @endif
+                                        </p>
+                                    </div>
+                                    <span class="rounded-full px-3 py-1 text-xs font-semibold {{ $statusClasses[$booking->status] ?? 'border border-slate-200 bg-slate-50 text-slate-600' }}">
+                                        {{ ucfirst(str_replace('_', ' ', $booking->status)) }}
+                                    </span>
+                                </div>
+
+                                <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                                    <div class="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                                        <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Schedule</p>
+                                        <p class="mt-2 text-sm font-semibold text-slate-900">{{ \Carbon\Carbon::parse($booking->scheduled_date)->format('M d, Y') }}</p>
+                                        <p class="mt-1 text-sm text-slate-500">{{ \Carbon\Carbon::parse($booking->scheduled_time)->format('h:i A') }}</p>
+                                    </div>
+                                    <div class="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                                        <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Address</p>
+                                        <p class="mt-2 text-sm font-semibold text-slate-900">{{ $booking->street_address }}</p>
+                                        <p class="mt-1 text-sm text-slate-500">{{ ucfirst($booking->barangay) }}</p>
+                                    </div>
+                                </div>
+
+                                <div class="mt-5 flex flex-wrap items-center gap-3">
+                                    <a href="{{ route('bookings.show', $booking->id) }}" class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50">
+                                        <i class="fas fa-arrow-up-right-from-square text-xs"></i>
+                                        Open booking
+                                    </a>
+
+                                    @if ($booking->status === 'in_progress')
+                                        <button
+                                            type="button"
+                                            onclick="startTracking({{ $booking->id }})"
+                                            id="track-btn-{{ $booking->id }}"
+                                            data-location-update-url="{{ route('booking.location.update', $booking->id) }}"
+                                            class="inline-flex items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50 px-4 py-2.5 text-sm font-semibold text-primary-700 transition hover:bg-primary-100"
+                                        >
+                                            <i class="fas fa-location-arrow text-xs"></i>
+                                            Share live location
+                                        </button>
+                                    @else
+                                        <span class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-500">
+                                            <i class="fas fa-circle-info text-xs"></i>
+                                            Start this job from My Bookings
+                                        </span>
+                                    @endif
+                                </div>
+                            </article>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="px-6 py-14 text-center">
+                        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+                            <i class="fas fa-clipboard-list text-xl"></i>
+                        </div>
+                        <h3 class="mt-4 text-lg font-bold text-slate-900">No active assignments right now</h3>
+                        <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+                            Confirmed and in-progress bookings will appear here as soon as work is assigned to you.
+                        </p>
+                    </div>
+                @endif
+            </section>
         </div>
     </div>
 </div>
@@ -289,26 +350,52 @@
 <script>
 const watchIds = {};
 
+function setTrackingButtonState(button, isLive) {
+    if (!button) {
+        return;
+    }
+
+    const icon = button.querySelector('i');
+    if (icon) {
+        icon.className = isLive ? 'fas fa-satellite-dish text-xs' : 'fas fa-location-arrow text-xs';
+    }
+
+    button.classList.remove(
+        'border-primary-200',
+        'bg-primary-50',
+        'text-primary-700',
+        'hover:bg-primary-100',
+        'border-primary-600',
+        'bg-primary-600',
+        'text-white'
+    );
+
+    if (isLive) {
+        button.classList.add('border-primary-600', 'bg-primary-600', 'text-white');
+        button.innerHTML = '<i class="fas fa-satellite-dish text-xs"></i> Location live';
+        button.disabled = true;
+    } else {
+        button.classList.add('border-primary-200', 'bg-primary-50', 'text-primary-700', 'hover:bg-primary-100');
+        button.innerHTML = '<i class="fas fa-location-arrow text-xs"></i> Share live location';
+        button.disabled = false;
+    }
+}
+
 function startTracking(bookingId) {
     if (!navigator.geolocation) {
         alert('Geolocation is not supported on this device.');
         return;
     }
 
-    const btn = document.getElementById('track-btn-' + bookingId);
-    const locationUpdateUrl = btn?.dataset.locationUpdateUrl;
+    const button = document.getElementById('track-btn-' + bookingId);
+    const locationUpdateUrl = button?.dataset.locationUpdateUrl;
 
     if (!locationUpdateUrl) {
         alert('Location sharing is not configured for this booking yet.');
         return;
     }
 
-    if (btn) {
-        btn.innerHTML = 'Tracking Live...';
-        btn.style.background = '#16a34a';
-        btn.style.color = 'white';
-        btn.disabled = true;
-    }
+    setTrackingButtonState(button, true);
 
     watchIds[bookingId] = navigator.geolocation.watchPosition(
         async (position) => {
@@ -327,20 +414,14 @@ function startTracking(bookingId) {
                         heading: position.coords.heading
                     })
                 });
-                console.log('Location sent:', position.coords.latitude, position.coords.longitude);
-            } catch (e) {
-                console.error('Location update failed:', e);
+            } catch (error) {
+                console.error('Location update failed:', error);
             }
         },
         (error) => {
             console.error('GPS error:', error);
             alert('Could not get location. Please allow location access.');
-            if (btn) {
-                btn.innerHTML = 'Share Location';
-                btn.style.background = '#dcfce7';
-                btn.style.color = '#16a34a';
-                btn.disabled = false;
-            }
+            setTrackingButtonState(button, false);
         },
         {
             enableHighAccuracy: true,
@@ -354,9 +435,11 @@ function stopTracking(bookingId) {
     if (watchIds[bookingId] !== undefined) {
         navigator.geolocation.clearWatch(watchIds[bookingId]);
         delete watchIds[bookingId];
-        console.log('Tracking stopped for booking:', bookingId);
     }
 }
+
+window.addEventListener('beforeunload', () => {
+    Object.keys(watchIds).forEach((bookingId) => stopTracking(bookingId));
+});
 </script>
 @endsection
-
