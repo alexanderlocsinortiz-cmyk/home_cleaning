@@ -16,16 +16,6 @@ services:
         value: https://cleanflow-app.onrender.com
       - key: DB_CONNECTION
         value: pgsql
-      - key: DB_HOST
-        value: dpg-xxxx.oregon-postgres.render.com
-      - key: DB_PORT
-        value: 5432
-      - key: DB_DATABASE
-        value: cleanflow_db
-      - key: DB_USERNAME
-        value: cleanflow_user
-      - key: DB_PASSWORD
-        generateValue: true
       - key: CACHE_DRIVER
         value: file
       - key: SESSION_DRIVER
