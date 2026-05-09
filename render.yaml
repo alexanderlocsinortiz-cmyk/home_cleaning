@@ -17,27 +17,15 @@ services:
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
-        fromService:
-          type: psql
-          name: cleanflow-db
-          property: host
+        value: dpg-xxxx.oregon-postgres.render.com
       - key: DB_PORT
         value: 5432
       - key: DB_DATABASE
-        fromService:
-          type: psql
-          name: cleanflow-db
-          property: database
+        value: cleanflow_db
       - key: DB_USERNAME
-        fromService:
-          type: psql
-          name: cleanflow-db
-          property: user
+        value: cleanflow_user
       - key: DB_PASSWORD
-        fromService:
-          type: psql
-          name: cleanflow-db
-          property: password
+        generateValue: true
       - key: CACHE_DRIVER
         value: file
       - key: SESSION_DRIVER
@@ -46,8 +34,3 @@ services:
         value: database
       - key: MAIL_MAILER
         value: log
-
-databases:
-  - name: cleanflow-db
-    databaseName: cleanflow_db
-    user: cleanflow_user
