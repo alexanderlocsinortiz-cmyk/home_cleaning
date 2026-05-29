@@ -1,6 +1,10 @@
 @extends('layouts.client')
 @section('title', 'Book a Service - Home Cleaning Service')
 
+@push('styles')
+<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}" />
+@endpush
+
 @section('content')
 @php
     $serviceBasePrices = $services->mapWithKeys(function ($service) {
@@ -13,6 +17,8 @@
     $propertyFees = $pricingConfig['property_fees'];
     $includedFloorArea = $pricingConfig['included_floor_area'];
     $floorAreaRates = $pricingConfig['floor_area_rates'];
+    $perSquareMeterServices = $pricingConfig['per_square_meter_services'] ?? [];
+    $flatRateRangeServices = $pricingConfig['flat_rate_range_services'] ?? [];
     $addOnCatalog = $pricingConfig['add_ons'];
     $servicePackages = $servicePackages ?? [];
     $paymentMethods = $paymentMethods ?? \App\Models\Booking::paymentMethods();
@@ -23,6 +29,12 @@
     $selectedServicePlan = old('service_plan', 'one_time');
     $selectedSubscriptionFrequency = old('subscription_frequency', 'weekly');
     $selectedSubscriptionOccurrences = old('subscription_occurrences', 4);
+    $googleMapsApiKey = config('services.google.maps_api_key');
+    $bookingNow = $bookingNow ?? now(config('cleanflow.attendance_timezone', 'Asia/Manila'));
+    $timeSlots = $timeSlots ?? ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
+    $profileAddress = $profileAddress ?? ['barangay' => auth()->user()?->barangay, 'street_address' => auth()->user()?->street];
+    $selectedBarangay = old('barangay', $profileAddress['barangay'] ?? '');
+    $selectedStreetAddress = old('street_address', $profileAddress['street_address'] ?? '');
 @endphp
 
 <div class="cleanflow-page-shell min-h-[calc(100vh-81px)] px-4 py-6 sm:px-6 sm:py-8">
@@ -75,23 +87,23 @@
 
             <div class="booking-progress flex gap-2 overflow-x-auto pb-1 sm:flex-wrap">
                 <span class="inline-flex min-w-max items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur">
-                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-accent-500 text-[11px] text-white">1</span>
+                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 text-[11px] text-white">1</span>
                     Property
                 </span>
                 <span class="inline-flex min-w-max items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur">
-                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-accent-600 text-[11px] text-white">2</span>
+                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[11px] text-white">2</span>
                     Service
                 </span>
                 <span class="inline-flex min-w-max items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur">
-                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-secondary-600 text-[11px] text-white">3</span>
+                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-600 text-[11px] text-white">3</span>
                     Details
                 </span>
                 <span class="inline-flex min-w-max items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur">
-                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-600 text-[11px] text-white">4</span>
+                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[11px] text-white">4</span>
                     Schedule
                 </span>
                 <span class="inline-flex min-w-max items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur">
-                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-accent-700 text-[11px] text-white">5</span>
+                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-700 text-[11px] text-white">5</span>
                     Cleaner
                 </span>
                 <span class="inline-flex min-w-max items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur">
@@ -105,7 +117,7 @@
             <section class="cleanflow-panel p-6 md:p-7">
                 <div class="mb-6 flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-start gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-sm font-bold text-white shadow-sm">1</div>
+                        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">1</div>
                         <div>
                             <h2 class="text-lg font-bold text-slate-900">Choose Property Type</h2>
                             <p class="text-sm text-slate-500">Start with the property that needs cleaning so the quote uses the right base adjustment.</p>
@@ -118,7 +130,7 @@
                     <label class="block cursor-pointer">
                         <input type="radio" name="property_type" value="house" class="hidden" {{ old('property_type') == 'house' ? 'checked' : '' }}>
                         <div class="property-card selection-card {{ old('property_type') == 'house' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="house">
-                            <div class="text-3xl text-green-600"><i class="fas fa-house"></i></div>
+                            <div class="text-3xl text-blue-600"><i class="fas fa-house"></i></div>
                             <div class="mt-3 text-base font-semibold text-slate-900">House</div>
                             <div class="mt-1 text-xs text-slate-500">Included base rate</div>
                         </div>
@@ -127,7 +139,7 @@
                     <label class="block cursor-pointer">
                         <input type="radio" name="property_type" value="apartment" class="hidden" {{ old('property_type') == 'apartment' ? 'checked' : '' }}>
                         <div class="property-card selection-card {{ old('property_type') == 'apartment' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="apartment">
-                            <div class="text-3xl text-green-600"><i class="fas fa-building"></i></div>
+                            <div class="text-3xl text-blue-600"><i class="fas fa-building"></i></div>
                             <div class="mt-3 text-base font-semibold text-slate-900">Apartment</div>
                             <div class="mt-1 text-xs text-slate-500">Plus &#8369;200 adjustment</div>
                         </div>
@@ -136,7 +148,7 @@
                     <label class="block cursor-pointer sm:col-span-2 lg:col-span-1">
                         <input type="radio" name="property_type" value="boarding_house" class="hidden" {{ old('property_type') == 'boarding_house' ? 'checked' : '' }}>
                         <div class="property-card selection-card {{ old('property_type') == 'boarding_house' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="boarding_house">
-                            <div class="text-3xl text-green-600"><i class="fas fa-bed"></i></div>
+                            <div class="text-3xl text-blue-600"><i class="fas fa-bed"></i></div>
                             <div class="mt-3 text-base font-semibold text-slate-900">Boarding House</div>
                             <div class="mt-1 text-xs text-slate-500">Plus &#8369;300 adjustment</div>
                         </div>
@@ -150,7 +162,7 @@
             <section class="cleanflow-panel p-6 md:p-7">
                 <div class="mb-6 flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-start gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-sm font-bold text-white shadow-sm">2</div>
+                        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">2</div>
                         <div>
                             <h2 class="text-lg font-bold text-slate-900">Choose Service Type</h2>
                             <p class="text-sm text-slate-500">Pick the package that best matches the level of cleaning you want us to handle.</p>
@@ -169,11 +181,11 @@
                         <input type="radio" name="service_type" value="{{ $service->slug }}" class="hidden" {{ old('service_type') == $service->slug ? 'checked' : '' }}>
                         <div class="service-card selection-card {{ old('service_type') == $service->slug ? 'selected-card' : '' }} h-full p-5 text-left" data-value="{{ $service->slug }}">
                             <div class="flex items-start justify-between gap-3">
-                                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-2xl text-green-600">
+                                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-2xl text-blue-600">
                                     <i class="fas {{ $package['icon'] ?? 'fa-broom' }}"></i>
                                 </div>
                                 @if(!empty($package['badge']))
-                                <span class="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                                <span class="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700">
                                     {{ $package['badge'] }}
                                 </span>
                                 @endif
@@ -184,13 +196,21 @@
                             <div class="mt-4 space-y-2">
                                 @foreach($serviceFeatures as $feature)
                                 <div class="flex items-start gap-2 text-xs leading-5 text-slate-500">
-                                    <i class="fas fa-check-circle mt-0.5 text-[10px] text-emerald-500"></i>
+                                    <i class="fas fa-check-circle mt-0.5 text-[10px] text-green-500"></i>
                                     <span>{{ $feature }}</span>
                                 </div>
                                 @endforeach
                             </div>
                             @endif
-                            <div class="mt-4 text-sm font-semibold text-green-600">Starting at &#8369;{{ number_format($service->price, 0) }}</div>
+                            <div class="mt-4 text-sm font-semibold text-blue-600">
+                                @if(\App\Models\Service::usesPerSquareMeterPricing($service->slug))
+                                    &#8369;{{ number_format($service->price, 0) }} per sqm
+                                @elseif(\App\Models\Service::usesFlatRateRangePricing($service->slug) && ($range = \App\Models\Service::priceRangeForSlug($service->slug)))
+                                    &#8369;{{ number_format($range['min'], 0) }} - &#8369;{{ number_format($range['max'], 0) }} flat rate
+                                @else
+                                    Starting at &#8369;{{ number_format($service->price, 0) }}
+                                @endif
+                            </div>
                         </div>
                     </label>
                     @endforeach
@@ -203,7 +223,7 @@
             <section class="cleanflow-panel p-6 md:p-7">
                 <div class="mb-6 flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-start gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-sm font-bold text-white shadow-sm">3</div>
+                        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">3</div>
                         <div>
                             <h2 class="text-lg font-bold text-slate-900">Property Details</h2>
                             <p class="text-sm text-slate-500">These details define the basis of computation for the final quotation.</p>
@@ -237,14 +257,14 @@
 
                     <div>
                         <label class="mb-2 block text-sm font-semibold text-slate-700">Floor Area (sqm)</label>
-                        <input type="number" name="floor_area" value="{{ old('floor_area', $includedFloorArea) }}" min="10" max="1000" step="1" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
+                        <input type="number" name="floor_area" value="{{ old('floor_area', $includedFloorArea) }}" min="10" max="1000" step="1" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                         <div class="mt-2 text-xs text-slate-500">The first {{ $includedFloorArea }} sqm are included. Excess area is charged per sqm based on the selected service.</div>
                         @error('floor_area')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
 
-                <div class="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-slate-600">
-                    <div class="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Pricing Basis</div>
+                <div class="mt-5 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-slate-600">
+                    <div class="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">Pricing Basis</div>
                     <div class="mt-2 leading-6" id="floor-area-rule">The first {{ $includedFloorArea }} sqm are included. Any excess area is billed per sqm based on the cleaning service you choose.</div>
                 </div>
 
@@ -264,7 +284,7 @@
                                         <div class="text-sm font-semibold text-slate-900">{{ $addOn['label'] }}</div>
                                         <div class="mt-1 text-xs leading-5 text-slate-500">{{ $addOn['description'] }}</div>
                                     </div>
-                                    <div class="text-sm font-semibold text-green-600">+&#8369;{{ number_format($addOn['price'], 0) }}</div>
+                                    <div class="text-sm font-semibold text-blue-600">+&#8369;{{ number_format($addOn['price'], 0) }}</div>
                                 </div>
                             </div>
                         </label>
@@ -278,7 +298,7 @@
             <section class="cleanflow-panel p-6 md:p-7">
                 <div class="mb-6 flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-start gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-sm font-bold text-white shadow-sm">4</div>
+                        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">4</div>
                         <div>
                             <h2 class="text-lg font-bold text-slate-900">Schedule and Address</h2>
                             <p class="text-sm text-slate-500">Choose the preferred time and tell us exactly where the team should go.</p>
@@ -290,18 +310,19 @@
                 <div class="grid gap-4 md:grid-cols-2">
                     <div>
                         <label class="mb-2 block text-sm font-semibold text-slate-700">Preferred Date</label>
-                        <input type="date" name="scheduled_date" value="{{ old('scheduled_date') }}" min="{{ date('Y-m-d', strtotime('+1 day')) }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
+                        <input type="date" name="scheduled_date" value="{{ old('scheduled_date') }}" min="{{ $bookingNow->toDateString() }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
                         @error('scheduled_date')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                     </div>
 
                     <div>
                         <label class="mb-2 block text-sm font-semibold text-slate-700">Preferred Time</label>
-                        <select name="scheduled_time" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
+                        <select name="scheduled_time" id="scheduled-time-select" data-selected="{{ old('scheduled_time') }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
                             <option value="">Select time</option>
-                            @foreach(['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'] as $time)
+                            @foreach($timeSlots as $time)
                             <option value="{{ $time }}" {{ old('scheduled_time') == $time ? 'selected' : '' }}>{{ date('h:i A', strtotime($time)) }}</option>
                             @endforeach
                         </select>
+                        <div id="schedule-availability-note" class="mt-2 text-xs leading-5 text-slate-500">For today, only future time slots are shown.</div>
                         @error('scheduled_time')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
@@ -309,43 +330,83 @@
                 <div class="mt-4 grid gap-4 md:grid-cols-2">
                     <div>
                         <label class="mb-2 block text-sm font-semibold text-slate-700">Barangay</label>
-                        <select name="barangay" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
+                        <select name="barangay" id="barangay-select" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
                             <option value="">Select barangay</option>
                             @foreach($barangays as $b)
-                            <option value="{{ $b }}" {{ old('barangay') == $b ? 'selected' : '' }}>{{ ucfirst($b) }}</option>
+                            <option value="{{ $b }}" {{ $selectedBarangay == $b ? 'selected' : '' }}>{{ ucfirst($b) }}</option>
                             @endforeach
                         </select>
                         @error('barangay')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                     </div>
 
                     <div>
-                        <label class="mb-2 block text-sm font-semibold text-slate-700">Street / Purok / House Details</label>
-                        <input type="text" name="street_address" value="{{ old('street_address') }}" placeholder="Example: Purok 5, House 12, near barangay hall" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
+                        <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                            <label class="block text-sm font-semibold text-slate-700">Street / Purok / House Details</label>
+                            <button type="button" id="use-current-location" class="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60">
+                                <i class="fas fa-location-crosshairs"></i>
+                                Use my current location
+                            </button>
+                        </div>
+                        <input type="text" name="street_address" id="street-address-input" value="{{ $selectedStreetAddress }}" placeholder="Example: Purok 5, House 12, near barangay hall" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                        <input type="hidden" name="service_latitude" id="service-latitude" value="{{ old('service_latitude') }}">
+                        <input type="hidden" name="service_longitude" id="service-longitude" value="{{ old('service_longitude') }}">
+                        <div id="location-status-message" class="mt-2 text-xs text-slate-500">
+                            Use your current location, then drag the pin or tap the map to fine-tune the service address.
+                        </div>
                         @error('street_address')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
+                        @error('service_latitude')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
+                        @error('service_longitude')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+
+                <div id="address-map-shell" class="mt-4 hidden overflow-hidden rounded-2xl border border-blue-100 bg-blue-50">
+                    <div class="relative h-64 w-full">
+                        <div id="address-map" class="absolute inset-0 z-10 h-full w-full"></div>
+                        <div id="address-map-fallback" class="absolute inset-0 z-0 flex flex-col items-center justify-center gap-3 bg-blue-50 px-4 text-center text-sm text-slate-600">
+                            <i class="fas fa-location-dot text-2xl text-blue-600"></i>
+                            <div id="address-map-fallback-text">Location preview will appear here.</div>
+                            <a id="address-map-link" href="#" target="_blank" rel="noopener" class="hidden rounded-full border border-blue-200 bg-white px-4 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-50">
+                                Open in Google Maps
+                            </a>
+                        </div>
+                    </div>
+                    <div class="border-t border-blue-100 bg-white/90 px-4 py-3">
+                        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div>
+                                <div class="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Current Location Preview</div>
+                                <div id="address-preview-text" class="mt-1 text-sm font-medium text-slate-900">Move the pin if needed, then confirm this address.</div>
+                                <div id="barangay-preview-text" class="mt-1 text-xs text-slate-500">Barangay will update from the selected pin.</div>
+                                <div id="service-center-distance" class="mt-1 text-xs text-slate-500"></div>
+                            </div>
+                            <button type="button" id="confirm-current-location" class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60" disabled>
+                                <i class="fas fa-check-circle"></i>
+                                Confirm this location
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <div class="mt-4">
                     <label class="mb-2 block text-sm font-semibold text-slate-700">Special Notes (optional)</label>
-                    <textarea name="notes" rows="3" placeholder="Any special instructions for our cleaning staff..." class="min-h-[100px] w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">{{ old('notes') }}</textarea>
+                    <textarea name="notes" rows="3" placeholder="Any special instructions for our cleaning staff..." class="min-h-[100px] w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">{{ old('notes') }}</textarea>
                 </div>
             </section>
 
             <section class="cleanflow-panel p-6 md:p-7">
                 <div class="mb-6 flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-start gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-sm font-bold text-white shadow-sm">5</div>
+                        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">5</div>
                         <div>
                             <h2 class="text-lg font-bold text-slate-900">Preferred Cleaner</h2>
                             <p class="text-sm text-slate-500">Add a cleaner request if you already have someone in mind. We'll honor it when the slot is still open.</p>
                         </div>
                     </div>
-                    <span class="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">Optional</span>
+                    <span class="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-700">Optional</span>
                 </div>
 
                 <div>
                     <label class="mb-2 block text-sm font-semibold text-slate-700">Preferred Cleaner (optional)</label>
-                    <select name="preferred_staff_id" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
+                    <select name="preferred_staff_id" id="preferred-staff-select" data-selected="{{ old('preferred_staff_id') }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                         <option value="">No specific cleaner</option>
                         @foreach($preferredCleaners as $cleaner)
                         <option value="{{ $cleaner->id }}" {{ (string) old('preferred_staff_id') === (string) $cleaner->id ? 'selected' : '' }}>
@@ -353,7 +414,7 @@
                         </option>
                         @endforeach
                     </select>
-                    <div class="mt-2 text-xs leading-5 text-slate-500">Requesting a cleaner does not guarantee assignment. If they are not available at your selected date and time, we will notify you and assign another available cleaner.</div>
+                    <div id="preferred-cleaner-note" class="mt-2 text-xs leading-5 text-slate-500">Pick a date and time to see cleaners available for that slot.</div>
                     @error('preferred_staff_id')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                 </div>
             </section>
@@ -367,7 +428,7 @@
                             <p class="text-sm text-slate-500">Finish the setup by choosing how you want to pay and whether the booking should repeat automatically.</p>
                         </div>
                     </div>
-                    <span class="shrink-0 rounded-full bg-accent-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-700">Flexible</span>
+                    <span class="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-700">Flexible</span>
                 </div>
 
                 <div class="space-y-6">
@@ -421,11 +482,11 @@
                         @error('service_plan')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                     </div>
 
-                    <div id="subscription-plan-fields" class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 {{ $selectedServicePlan === 'subscription' ? '' : 'hidden' }}">
+                    <div id="subscription-plan-fields" class="rounded-2xl border border-blue-100 bg-blue-50 p-4 {{ $selectedServicePlan === 'subscription' ? '' : 'hidden' }}">
                         <div class="grid gap-4 md:grid-cols-2">
                             <div>
                                 <label class="mb-2 block text-sm font-semibold text-slate-700">Recurring Frequency</label>
-                                <select name="subscription_frequency" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
+                                <select name="subscription_frequency" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                                     @foreach($subscriptionFrequencies as $frequencyKey => $frequencyLabel)
                                     <option value="{{ $frequencyKey }}" {{ $selectedSubscriptionFrequency === $frequencyKey ? 'selected' : '' }}>{{ $frequencyLabel }}</option>
                                     @endforeach
@@ -434,7 +495,7 @@
                             </div>
                             <div>
                                 <label class="mb-2 block text-sm font-semibold text-slate-700">Number of Visits</label>
-                                <select name="subscription_occurrences" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
+                                <select name="subscription_occurrences" class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                                     @for($i = 2; $i <= 12; $i++)
                                     <option value="{{ $i }}" {{ (int) $selectedSubscriptionOccurrences === $i ? 'selected' : '' }}>{{ $i }} scheduled visits</option>
                                     @endfor
@@ -442,7 +503,7 @@
                                 @error('subscription_occurrences')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                             </div>
                         </div>
-                        <div class="mt-3 text-xs text-emerald-700" id="subscription-plan-note">
+                        <div class="mt-3 text-xs text-blue-700" id="subscription-plan-note">
                             The system will create multiple bookings using the same service, schedule time, and service details.
                         </div>
                     </div>
@@ -452,14 +513,14 @@
                 </div>
 
                 <aside class="xl:sticky xl:top-28">
-                    <section class="cleanflow-panel border border-slate-200 bg-white p-6">
+                    <section class="cleanflow-panel border border-slate-200 bg-white p-6 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:overscroll-contain">
                         <div class="flex items-start justify-between gap-4">
                             <div>
-                                <div class="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">Live Quote</div>
+                                <div class="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-700">Live Quote</div>
                                 <div class="mt-2 text-xl font-bold text-slate-900">Price Summary</div>
                                 <p class="mt-1 text-sm text-slate-500">Keep an eye on the total while you build the booking.</p>
                             </div>
-                            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/80 text-lg text-emerald-600 shadow-sm">
+                            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/80 text-lg text-blue-600 shadow-sm">
                                 <i class="fas fa-receipt"></i>
                             </div>
                         </div>
@@ -491,7 +552,7 @@
                         </div>
 
                         <div class="mt-5 space-y-3 text-sm text-slate-600" id="price-breakdown">
-                            <div class="flex items-center justify-between">
+                            <div id="pb-base-row" class="flex items-center justify-between">
                                 <span>Base service price</span>
                                 <span id="pb-base">&#8369;0</span>
                             </div>
@@ -530,21 +591,21 @@
                                 </div>
                                 <span id="pb-add-ons">&#8369;0</span>
                             </div>
-                            <div class="flex items-center justify-between border-t border-green-200 pt-3">
+                            <div class="flex items-center justify-between border-t border-blue-200 pt-3">
                                 <span class="text-base font-semibold text-slate-900">Total Price</span>
-                                <span id="pb-total" class="text-3xl font-bold tracking-tight text-green-600">&#8369;0</span>
+                                <span id="pb-total" class="text-3xl font-bold tracking-tight text-blue-600">&#8369;0</span>
                             </div>
                         </div>
 
-                        <div class="mt-4 rounded-xl bg-green-100/70 px-4 py-3 text-xs font-medium text-green-700" id="payment-summary-note">
+                        <div class="mt-4 rounded-xl bg-blue-100/70 px-4 py-3 text-xs font-medium text-blue-700" id="payment-summary-note">
                             The total is based on the service type, property type, rooms, bathrooms, floor area, and any selected add-ons. Cash payments stay pending until the service is completed.
                         </div>
-                        <div class="mt-3 rounded-xl border border-emerald-200 bg-white/80 px-4 py-3 text-xs text-slate-600" id="service-plan-summary-note">
+                        <div class="mt-3 rounded-xl border border-blue-200 bg-white/80 px-4 py-3 text-xs text-slate-600" id="service-plan-summary-note">
                             This is currently set as a one-time booking.
                         </div>
 
                         <div class="mt-5 flex flex-col gap-3">
-                            <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-6 py-3.5 font-semibold text-white transition hover:bg-green-700">
+                            <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3.5 font-semibold text-white transition hover:bg-blue-700">
                                 <i class="fas fa-circle-check"></i>
                                 Confirm Booking
                             </button>
@@ -559,6 +620,8 @@
     </div>
 </div>
 
+@push('scripts')
+<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script>
 const basePrices = @json($serviceBasePrices);
 const serviceLabels = @json($serviceLabels);
@@ -566,10 +629,17 @@ const propertyFees = @json($propertyFees);
 const propertyTypeLabels = @json($propertyTypeLabels);
 const floorAreaRates = @json($floorAreaRates);
 const includedFloorArea = @json($includedFloorArea);
+const perSquareMeterServices = new Set(@json($perSquareMeterServices));
+const flatRateRangeServices = @json($flatRateRangeServices);
 const addOnCatalog = @json($addOnCatalog);
 const paymentMethodLabels = @json($paymentMethods);
 const servicePlanLabels = @json($servicePlans);
 const subscriptionFrequencyLabels = @json($subscriptionFrequencies);
+const validBarangays = @json(array_values($barangays));
+const googleMapsEnabled = @json(!empty($googleMapsApiKey));
+const serviceCenters = @json(collect(config('cleanflow.service_areas'))->where('type', 'service_center')->values()->all());
+const barangayCenters = @json(config('cleanflow.barangay_centers'));
+const scheduleAvailability = @json($preferredCleanerAvailability ?? []);
 const peso = '\u20B1';
 
 function formatCurrency(value) {
@@ -577,6 +647,258 @@ function formatCurrency(value) {
         minimumFractionDigits: Number(value) % 1 === 0 ? 0 : 2,
         maximumFractionDigits: 2,
     });
+}
+
+function minutesFromTime(timeValue) {
+    if (!timeValue || !/^\d{2}:\d{2}$/.test(timeValue)) {
+        return null;
+    }
+
+    const [hours, minutes] = timeValue.split(':').map((part) => Number.parseInt(part, 10));
+
+    return (hours * 60) + minutes;
+}
+
+function currentLocalDateValue() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
+
+function currentLocalTimeValue() {
+    const now = new Date();
+
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
+function formatTimeLabel(timeValue) {
+    const parsedTime = new Date(`1970-01-01T${timeValue}:00`);
+
+    return Number.isNaN(parsedTime.getTime())
+        ? timeValue
+        : parsedTime.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+function selectedServiceDuration() {
+    const serviceType = document.querySelector('input[name="service_type"]:checked')?.value;
+
+    return Number(scheduleAvailability.serviceDurations?.[serviceType] || 120);
+}
+
+function slotIsFutureForSelectedDate(dateValue, timeValue) {
+    if (!dateValue || !timeValue) {
+        return true;
+    }
+
+    if (dateValue !== currentLocalDateValue()) {
+        return true;
+    }
+
+    const slotMinutes = minutesFromTime(timeValue);
+    const nowMinutes = minutesFromTime(currentLocalTimeValue());
+
+    return slotMinutes !== null && nowMinutes !== null && slotMinutes > nowMinutes;
+}
+
+function refreshAvailableTimes() {
+    const dateInput = document.querySelector('input[name="scheduled_date"]');
+    const timeSelect = document.getElementById('scheduled-time-select');
+    const note = document.getElementById('schedule-availability-note');
+
+    if (!dateInput || !timeSelect) {
+        return;
+    }
+
+    const selectedDate = dateInput.value;
+    const currentSelection = timeSelect.value || timeSelect.dataset.selected || '';
+    const timeSlots = scheduleAvailability.timeSlots || [];
+    const todayValue = currentLocalDateValue();
+    const availableSlots = timeSlots.filter((timeValue) => slotIsFutureForSelectedDate(selectedDate, timeValue));
+
+    timeSelect.innerHTML = '';
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = selectedDate === todayValue && availableSlots.length === 0
+        ? 'No time left today'
+        : 'Select time';
+    timeSelect.appendChild(placeholder);
+
+    availableSlots.forEach((timeValue) => {
+        const option = document.createElement('option');
+        option.value = timeValue;
+        option.textContent = formatTimeLabel(timeValue);
+        option.selected = timeValue === currentSelection;
+        timeSelect.appendChild(option);
+    });
+
+    if (!availableSlots.includes(currentSelection)) {
+        timeSelect.value = '';
+    }
+
+    timeSelect.disabled = selectedDate === todayValue && availableSlots.length === 0;
+
+    if (note) {
+        if (!selectedDate) {
+            note.textContent = 'Choose a date first. Today will only show future time slots.';
+            note.className = 'mt-2 text-xs leading-5 text-slate-500';
+        } else if (selectedDate === todayValue && availableSlots.length === 0) {
+            note.textContent = 'No booking times are left today. Please choose another date.';
+            note.className = 'mt-2 text-xs leading-5 text-amber-700';
+        } else if (selectedDate === todayValue) {
+            note.textContent = `Showing only times after ${formatTimeLabel(currentLocalTimeValue())} today.`;
+            note.className = 'mt-2 text-xs leading-5 text-blue-700';
+        } else {
+            note.textContent = 'All standard booking times are available for this date unless capacity fills up.';
+            note.className = 'mt-2 text-xs leading-5 text-slate-500';
+        }
+    }
+}
+
+function staffConflictsWithSelectedSlot(staffId, dateValue, timeValue) {
+    if (!dateValue || !timeValue) {
+        return false;
+    }
+
+    const selectedStart = minutesFromTime(timeValue);
+    const selectedEnd = selectedStart + selectedServiceDuration() + Number(scheduleAvailability.restMinutes || 60);
+
+    return (scheduleAvailability.assignments || []).some((assignment) => {
+        if (Number(assignment.staffId) !== Number(staffId) || assignment.date !== dateValue) {
+            return false;
+        }
+
+        const assignmentStart = minutesFromTime(assignment.time);
+        const assignmentEnd = assignmentStart + Number(assignment.duration || 120) + Number(scheduleAvailability.restMinutes || 60);
+
+        return selectedStart < assignmentEnd && assignmentStart < selectedEnd;
+    });
+}
+
+function refreshPreferredCleaners() {
+    const dateInput = document.querySelector('input[name="scheduled_date"]');
+    const timeSelect = document.getElementById('scheduled-time-select');
+    const cleanerSelect = document.getElementById('preferred-staff-select');
+    const note = document.getElementById('preferred-cleaner-note');
+
+    if (!dateInput || !timeSelect || !cleanerSelect) {
+        return;
+    }
+
+    const selectedDate = dateInput.value;
+    const selectedTime = timeSelect.value;
+    const previousSelection = cleanerSelect.value || cleanerSelect.dataset.selected || '';
+    const staff = scheduleAvailability.staff || [];
+    const todayValue = currentLocalDateValue();
+
+    const availableStaff = staff.filter((cleaner) => {
+        if (selectedDate === todayValue && !cleaner.presentToday) {
+            return false;
+        }
+
+        return !staffConflictsWithSelectedSlot(cleaner.id, selectedDate, selectedTime);
+    });
+
+    cleanerSelect.innerHTML = '';
+
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = availableStaff.length > 0 ? 'No specific cleaner' : 'No cleaner available for this slot';
+    cleanerSelect.appendChild(emptyOption);
+
+    availableStaff.forEach((cleaner) => {
+        const option = document.createElement('option');
+        option.value = cleaner.id;
+        option.textContent = cleaner.barangay
+            ? `${cleaner.name} - ${cleaner.barangay.charAt(0).toUpperCase()}${cleaner.barangay.slice(1)}`
+            : cleaner.name;
+        option.selected = String(cleaner.id) === String(previousSelection);
+        cleanerSelect.appendChild(option);
+    });
+
+    if (!availableStaff.some((cleaner) => String(cleaner.id) === String(previousSelection))) {
+        cleanerSelect.value = '';
+    }
+
+    cleanerSelect.disabled = availableStaff.length === 0;
+
+    if (note) {
+        if (!selectedDate || !selectedTime) {
+            note.textContent = selectedDate === todayValue
+                ? 'Select a future time to show cleaners who are punched in and free today.'
+                : 'Pick a date and time to see cleaners available for that slot.';
+        } else if (availableStaff.length === 0) {
+            note.textContent = 'No preferred cleaner is available for the selected date and time. You can still submit without a preferred cleaner.';
+        } else if (selectedDate === todayValue) {
+            note.textContent = `Showing ${availableStaff.length} cleaner${availableStaff.length === 1 ? '' : 's'} punched in and free for this time today.`;
+        } else {
+            note.textContent = `Showing ${availableStaff.length} cleaner${availableStaff.length === 1 ? '' : 's'} without a conflict for this schedule.`;
+        }
+    }
+}
+
+function refreshScheduleDependentFields() {
+    refreshAvailableTimes();
+    refreshPreferredCleaners();
+}
+
+function calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+function findNearestServiceCenter(lat, lng) {
+    if (!serviceCenters || serviceCenters.length === 0) {
+        return null;
+    }
+
+    let nearest = null;
+    let minDistance = Infinity;
+
+    serviceCenters.forEach(center => {
+        const distance = calculateDistance(lat, lng, center.lat, center.lng);
+        if (distance < minDistance) {
+            minDistance = distance;
+            nearest = { ...center, distance };
+        }
+    });
+
+    return nearest;
+}
+
+function findNearestBarangay(lat, lng) {
+    const centers = Object.entries(barangayCenters || {});
+
+    if (centers.length === 0) {
+        return '';
+    }
+
+    let nearestName = '';
+    let minDistance = Infinity;
+
+    centers.forEach(([name, center]) => {
+        if (typeof center?.lat === 'undefined' || typeof center?.lng === 'undefined') {
+            return;
+        }
+
+        const distance = calculateDistance(lat, lng, Number(center.lat), Number(center.lng));
+
+        if (distance < minDistance) {
+            minDistance = distance;
+            nearestName = name;
+        }
+    });
+
+    return nearestName;
 }
 
 function getSelectedAddOns() {
@@ -609,6 +931,601 @@ function formatSchedule(dateValue, timeValue) {
     return parts.join(' · ');
 }
 
+let addressMap = null;
+let addressMarker = null;
+let pendingLocation = null;
+
+function normalizeBarangayName(value) {
+    return String(value || '')
+        .toLowerCase()
+        .replace(/^barangay\s+/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function setLocationStatus(message, state = 'neutral') {
+    const status = document.getElementById('location-status-message');
+    if (!status) return;
+
+    const classes = {
+        neutral: 'mt-2 text-xs text-slate-500',
+        success: 'mt-2 text-xs font-medium text-blue-700',
+        warning: 'mt-2 text-xs font-medium text-amber-700',
+        error: 'mt-2 text-xs font-medium text-red-600',
+    };
+
+    status.className = classes[state] || classes.neutral;
+    status.textContent = message;
+}
+
+function findMatchingBarangay(results) {
+    const normalizedValidBarangays = validBarangays.map((barangay) => ({
+        original: barangay,
+        normalized: normalizeBarangayName(barangay),
+    }));
+
+    for (const result of results || []) {
+        for (const component of result.address_components || []) {
+            const candidates = [component.long_name, component.short_name].map(normalizeBarangayName);
+            const match = normalizedValidBarangays.find((barangay) => candidates.includes(barangay.normalized));
+
+            if (match) {
+                return match.original;
+            }
+        }
+    }
+
+    const combinedAddress = (results || []).map((result) => result.formatted_address || '').join(' ');
+    return normalizedValidBarangays.find((barangay) => normalizeBarangayName(combinedAddress).includes(barangay.normalized))?.original || '';
+}
+
+function findMatchingBarangayFromText(value) {
+    const normalizedValue = normalizeBarangayName(value);
+
+    if (!normalizedValue) {
+        return '';
+    }
+
+    return validBarangays.find((barangay) => normalizedValue.includes(normalizeBarangayName(barangay))) || '';
+}
+
+function detectBarangayFromLocation(lat, lng, results = []) {
+    if (Array.isArray(results) && results.length) {
+        const googleBarangay = findMatchingBarangay(results);
+
+        if (googleBarangay) {
+            return googleBarangay;
+        }
+    }
+
+    if (typeof results === 'string') {
+        const textBarangay = findMatchingBarangayFromText(results);
+
+        if (textBarangay) {
+            return textBarangay;
+        }
+    }
+
+    return findNearestBarangay(lat, lng);
+}
+
+function setBarangaySelect(value) {
+    const barangaySelect = document.getElementById('barangay-select');
+
+    if (!barangaySelect || !value) {
+        return false;
+    }
+
+    const option = Array.from(barangaySelect.options).find((item) => normalizeBarangayName(item.value) === normalizeBarangayName(value));
+
+    if (!option) {
+        return false;
+    }
+
+    barangaySelect.value = option.value;
+    barangaySelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+    return true;
+}
+
+function isBarangayOnlyAddress(value) {
+    const normalizedValue = normalizeBarangayName(value);
+
+    return validBarangays.some((barangay) => normalizeBarangayName(barangay) === normalizedValue);
+}
+
+function streetAddressFromGoogle(results = []) {
+    for (const result of results || []) {
+        const components = result.address_components || [];
+        const componentByType = (type) => components.find((component) => (component.types || []).includes(type));
+        const route = componentByType('route')?.long_name || '';
+        const streetNumber = componentByType('street_number')?.long_name || '';
+        const premise = componentByType('premise')?.long_name || componentByType('establishment')?.long_name || '';
+        const pointOfInterest = componentByType('point_of_interest')?.long_name || '';
+
+        if (route) {
+            return [streetNumber, route].filter(Boolean).join(' ');
+        }
+
+        const specificPlace = premise || pointOfInterest;
+
+        if (specificPlace && !isBarangayOnlyAddress(specificPlace)) {
+            return specificPlace;
+        }
+    }
+
+    return '';
+}
+
+function setAddressMap(lat, lng, options = {}) {
+    const shell = document.getElementById('address-map-shell');
+    const mapEl = document.getElementById('address-map');
+    const fallback = document.getElementById('address-map-fallback');
+    const mapLink = document.getElementById('address-map-link');
+    const fallbackText = document.getElementById('address-map-fallback-text');
+    const position = { lat, lng };
+    const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+    const preserveViewport = Boolean(options.preserveViewport);
+
+    if (shell) {
+        shell.classList.remove('hidden');
+    }
+
+    if (mapLink) {
+        mapLink.href = googleMapsUrl;
+        mapLink.classList.remove('hidden');
+    }
+
+    if (fallbackText) {
+        fallbackText.textContent = `Location pin captured at ${lat.toFixed(6)}, ${lng.toFixed(6)}.`;
+    }
+
+    if (!mapEl) {
+        return;
+    }
+
+    if (googleMapsEnabled && window.google && window.google.maps) {
+        if (!addressMap) {
+            addressMap = new google.maps.Map(mapEl, {
+                center: position,
+                zoom: 17,
+                disableDefaultUI: false,
+                draggable: true,
+                scrollwheel: true,
+                disableDoubleClickZoom: false,
+                keyboardShortcuts: true,
+                clickableIcons: true,
+                gestureHandling: 'greedy',
+                mapTypeId: 'roadmap',
+            });
+
+            addressMap.addListener('click', (event) => {
+                if (event.latLng) {
+                    handleAddressPinMoved(event.latLng.lat(), event.latLng.lng());
+                }
+            });
+        }
+
+        if (addressMap && !preserveViewport) {
+            addressMap.setCenter(position);
+            addressMap.setZoom(17);
+        }
+
+        if (!addressMarker) {
+            addressMarker = new google.maps.Marker({
+                position: position,
+                map: addressMap,
+                title: 'Service location pin',
+                draggable: true,
+            });
+
+            addressMarker.addListener('dragend', (event) => {
+                if (event.latLng) {
+                    handleAddressPinMoved(event.latLng.lat(), event.latLng.lng());
+                }
+            });
+        } else if (addressMarker) {
+            addressMarker.setPosition(position);
+        }
+    } else if (window.L) {
+        if (!addressMap) {
+            addressMap = L.map(mapEl, {
+                zoomControl: true,
+                dragging: true,
+                touchZoom: true,
+                doubleClickZoom: true,
+                scrollWheelZoom: true,
+                boxZoom: true,
+                keyboard: true,
+                tap: true,
+            }).setView([lat, lng], 17);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19,
+            }).addTo(addressMap);
+
+            addressMap.on('click', (event) => {
+                handleAddressPinMoved(event.latlng.lat, event.latlng.lng);
+            });
+        }
+
+        if (addressMap && !preserveViewport) {
+            addressMap.setView([lat, lng], 17);
+        }
+
+        if (!addressMarker) {
+            addressMarker = L.marker([lat, lng], { draggable: true }).addTo(addressMap).bindPopup('Service location pin');
+            addressMarker.on('dragend', (event) => {
+                const markerPosition = event.target.getLatLng();
+                handleAddressPinMoved(markerPosition.lat, markerPosition.lng);
+            });
+        } else if (addressMarker) {
+            addressMarker.setLatLng([lat, lng]);
+        }
+    }
+
+    window.setTimeout(() => {
+        if (!addressMap) {
+            return;
+        }
+
+        if (googleMapsEnabled && window.google && window.google.maps) {
+            google.maps.event.trigger(addressMap, 'resize');
+            if (!preserveViewport) {
+                addressMap.setCenter(position);
+            }
+        } else if (window.L) {
+            addressMap.invalidateSize();
+        }
+
+        if (fallback) {
+            fallback.classList.add('opacity-0', 'pointer-events-none');
+        }
+    }, 250);
+}
+
+async function handleAddressPinMoved(lat, lng) {
+    setAddressMap(lat, lng, { preserveViewport: true });
+    setLocationStatus('Pin moved. Looking up the nearest street address...', 'neutral');
+
+    if (googleMapsEnabled && window.google?.maps?.Geocoder) {
+        const geocoder = new google.maps.Geocoder();
+
+        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+            if (status === 'OK' && results?.length) {
+                showLocationPreview(lat, lng, results, { preserveViewport: true });
+                setLocationStatus('Pin moved. Confirm this location to use the updated address.', 'success');
+                return;
+            }
+
+            reverseGeocodeWithOpenStreetMap(lat, lng)
+                .then((address) => {
+                    showLocationPreview(lat, lng, address || [], { preserveViewport: true });
+                    setLocationStatus(
+                        address
+                            ? 'Pin moved. Confirm this location to use the updated street details.'
+                            : 'Pin moved, but no street name was found. Type the street details manually.',
+                        address ? 'success' : 'warning'
+                    );
+                })
+                .catch(() => {
+                    showLocationPreview(lat, lng, [], { preserveViewport: true });
+                    setLocationStatus('Pin moved, but address lookup failed. Type the street details manually.', 'warning');
+                });
+        });
+
+        return;
+    }
+
+    try {
+        const address = await reverseGeocodeWithOpenStreetMap(lat, lng);
+        showLocationPreview(lat, lng, address || [], { preserveViewport: true });
+        setLocationStatus(
+            address
+                ? 'Pin moved. Confirm this location to use the updated street details.'
+                : 'Pin moved, but no street name was found. Type the street details manually.',
+            address ? 'success' : 'warning'
+        );
+    } catch (error) {
+        showLocationPreview(lat, lng, [], { preserveViewport: true });
+        setLocationStatus('Pin moved, but address lookup failed. Type the street details manually.', 'warning');
+    }
+}
+
+function streetAddressFromOpenStreetMap(data) {
+    const address = data?.address || {};
+    const road = address.road || address.pedestrian || address.footway || address.path || '';
+
+    if (!road) {
+        return '';
+    }
+
+    const parts = [address.house_number, road].filter(Boolean);
+
+    if (parts.length) {
+        return parts.join(', ');
+    }
+
+    return '';
+}
+
+async function reverseGeocodeWithOpenStreetMap(lat, lng) {
+    const url = new URL('https://nominatim.openstreetmap.org/reverse');
+    url.searchParams.set('format', 'jsonv2');
+    url.searchParams.set('lat', String(lat));
+    url.searchParams.set('lon', String(lng));
+    url.searchParams.set('zoom', '18');
+    url.searchParams.set('addressdetails', '1');
+
+    const response = await fetch(url.toString(), {
+        headers: {
+            Accept: 'application/json',
+        },
+    });
+
+    if (!response.ok) {
+        return '';
+    }
+
+    return streetAddressFromOpenStreetMap(await response.json());
+}
+
+function showLocationPreview(lat, lng, results = [], options = {}) {
+    const bestAddress = typeof results === 'string'
+        ? results
+        : streetAddressFromGoogle(results);
+    const detectedBarangay = detectBarangayFromLocation(lat, lng, results);
+    const addressPreview = document.getElementById('address-preview-text');
+    const barangayPreview = document.getElementById('barangay-preview-text');
+    const serviceCenterDistance = document.getElementById('service-center-distance');
+    const confirmButton = document.getElementById('confirm-current-location');
+
+    pendingLocation = {
+        lat,
+        lng,
+        results,
+        address: bestAddress,
+        barangay: detectedBarangay,
+    };
+
+    setAddressMap(lat, lng, options);
+
+    if (addressPreview) {
+        addressPreview.textContent = bestAddress || 'No street name found for this pin. Type the street/purok/house details manually.';
+    }
+
+    const nearestCenter = findNearestServiceCenter(lat, lng);
+    if (serviceCenterDistance && nearestCenter) {
+        const distanceKm = nearestCenter.distance;
+        const distanceText = distanceKm < 1
+            ? `${Math.round(distanceKm * 1000)}m`
+            : `${distanceKm.toFixed(1)}km`;
+        serviceCenterDistance.textContent = `Distance to ${nearestCenter.name} Service Center: ${distanceText}`;
+    } else if (serviceCenterDistance) {
+        serviceCenterDistance.textContent = '';
+    }
+
+    if (barangayPreview) {
+        barangayPreview.textContent = detectedBarangay
+            ? `Detected barangay: ${detectedBarangay}`
+            : 'Barangay could not be detected. Select the barangay yourself.';
+    }
+
+    if (confirmButton) {
+        confirmButton.disabled = false;
+        confirmButton.innerHTML = '<i class="fas fa-check-circle"></i> Confirm this location';
+    }
+
+    setLocationStatus(
+        bestAddress
+            ? 'Drag the pin or tap the map if needed. Confirm it to fill the street details and barangay.'
+            : 'Drag the pin or tap the map if needed. Confirming saves the pin and detected barangay, but you still need to type street details manually.',
+        bestAddress ? 'success' : 'warning'
+    );
+}
+
+function fillLocationFields(lat, lng, results = []) {
+    document.getElementById('service-latitude').value = lat.toFixed(7);
+    document.getElementById('service-longitude').value = lng.toFixed(7);
+
+    const streetInput = document.getElementById('street-address-input');
+    const detectedBarangay = detectBarangayFromLocation(lat, lng, results);
+    const barangayWasSet = setBarangaySelect(detectedBarangay);
+    const bestAddress = typeof results === 'string'
+        ? results
+        : streetAddressFromGoogle(results);
+
+    if (bestAddress && streetInput && !isBarangayOnlyAddress(bestAddress)) {
+        streetInput.value = bestAddress;
+        setLocationStatus(
+            barangayWasSet
+                ? `Location confirmed. Street details were filled and barangay was set to ${detectedBarangay}.`
+                : 'Location confirmed. Street details were filled, but barangay could not be detected.',
+            barangayWasSet ? 'success' : 'warning'
+        );
+        return;
+    }
+
+    setLocationStatus(
+        barangayWasSet
+            ? `Location confirmed and barangay was set to ${detectedBarangay}. Type the street/purok/house details manually.`
+            : 'Detected location saved, but no street name or barangay was found. Type the street details manually and select barangay.',
+        barangayWasSet ? 'success' : 'warning'
+    );
+}
+
+function confirmCurrentLocation() {
+    if (!pendingLocation) {
+        setLocationStatus('Detect your current location first, then confirm it.', 'warning');
+        return;
+    }
+
+    fillLocationFields(pendingLocation.lat, pendingLocation.lng, pendingLocation.results);
+
+    document.getElementById('address-map-shell')?.classList.add('hidden');
+
+    const confirmButton = document.getElementById('confirm-current-location');
+    if (confirmButton) {
+        confirmButton.disabled = true;
+        confirmButton.innerHTML = '<i class="fas fa-check-circle"></i> Location confirmed';
+    }
+}
+
+function resetCurrentLocationButton() {
+    const button = document.getElementById('use-current-location');
+
+    if (button) {
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-location-crosshairs"></i> Use my current location';
+    }
+}
+
+function useCurrentLocation() {
+    const button = document.getElementById('use-current-location');
+
+    if (!navigator.geolocation) {
+        setLocationStatus('Current location is not supported by this browser.', 'error');
+        return;
+    }
+
+    if (!window.L && (!googleMapsEnabled || !window.google || !window.google.maps)) {
+        setLocationStatus('Map preview is still loading. Wait a moment, then try again.', 'warning');
+        return;
+    }
+
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Locating...';
+    }
+
+    setLocationStatus('Waiting for browser location permission...', 'neutral');
+
+    let locationHandled = false;
+    const locationTimeout = window.setTimeout(() => {
+        if (locationHandled) {
+            return;
+        }
+
+        locationHandled = true;
+        resetCurrentLocationButton();
+        setLocationStatus('Location is taking too long. Make sure location permission is allowed and GPS/location services are enabled, then try again.', 'warning');
+    }, 10000);
+
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            if (locationHandled) {
+                return;
+            }
+
+            locationHandled = true;
+            window.clearTimeout(locationTimeout);
+
+            const lat = Number(position.coords.latitude);
+            const lng = Number(position.coords.longitude);
+
+            showLocationPreview(lat, lng, []);
+            setLocationStatus('Location found. Loading street address...', 'neutral');
+
+            if (!googleMapsEnabled || !window.google?.maps?.Geocoder) {
+                reverseGeocodeWithOpenStreetMap(lat, lng)
+                    .then((address) => {
+                        showLocationPreview(lat, lng, address || []);
+                        setLocationStatus(
+                            address
+                                ? 'Street address found. Confirm the pin to fill the street details.'
+                                : 'Location found, but no street address was returned. Type the street manually.',
+                            address ? 'success' : 'warning'
+                        );
+                    })
+                    .catch(() => {
+                        showLocationPreview(lat, lng, []);
+                        setLocationStatus('Location found, but address lookup failed. Type the street manually.', 'warning');
+                    })
+                    .finally(resetCurrentLocationButton);
+
+                return;
+            }
+
+            const geocoder = new google.maps.Geocoder();
+            let geocodeHandled = false;
+            const geocodeTimeout = window.setTimeout(() => {
+                if (geocodeHandled) {
+                    return;
+                }
+
+                geocodeHandled = true;
+                reverseGeocodeWithOpenStreetMap(lat, lng)
+                    .then((address) => {
+                        showLocationPreview(lat, lng, address || []);
+                        setLocationStatus(
+                            address
+                                ? 'Street address found. Confirm the pin to fill the street details.'
+                                : 'Location found, but no street address was returned. Type the street manually.',
+                            address ? 'success' : 'warning'
+                        );
+                    })
+                    .catch(() => {
+                        showLocationPreview(lat, lng, []);
+                        setLocationStatus('Location found, but address lookup failed. Type the street manually.', 'warning');
+                    })
+                    .finally(resetCurrentLocationButton);
+            }, 8000);
+
+            geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+                if (geocodeHandled) {
+                    return;
+                }
+
+                geocodeHandled = true;
+                window.clearTimeout(geocodeTimeout);
+
+                if (status === 'OK' && results?.length) {
+                    showLocationPreview(lat, lng, results);
+                    resetCurrentLocationButton();
+                    return;
+                }
+
+                reverseGeocodeWithOpenStreetMap(lat, lng)
+                    .then((address) => {
+                        showLocationPreview(lat, lng, address || []);
+                        setLocationStatus(
+                            address
+                                ? 'Street address found. Confirm the pin to fill the street details.'
+                                : 'Location found, but no street address was returned. Type the street manually.',
+                            address ? 'success' : 'warning'
+                        );
+                    })
+                    .catch(() => {
+                        showLocationPreview(lat, lng, []);
+                        setLocationStatus('Location found, but address lookup failed. Type the street manually.', 'warning');
+                    })
+                    .finally(resetCurrentLocationButton);
+            });
+        },
+        (error) => {
+            if (locationHandled) {
+                return;
+            }
+
+            locationHandled = true;
+            window.clearTimeout(locationTimeout);
+
+            const message = error.code === error.PERMISSION_DENIED
+                ? 'Location permission was denied. Allow location access in the browser, then try again.'
+                : 'Current location could not be detected. Check GPS/internet and try again.';
+
+            setLocationStatus(message, 'error');
+            resetCurrentLocationButton();
+        },
+        {
+            enableHighAccuracy: false,
+            timeout: 8000,
+            maximumAge: 120000,
+        }
+    );
+}
+
 function updatePrice() {
     const serviceType = document.querySelector('input[name="service_type"]:checked')?.value;
     const propertyType = document.querySelector('input[name="property_type"]:checked')?.value;
@@ -623,17 +1540,25 @@ function updatePrice() {
     const scheduledDate = document.querySelector('input[name="scheduled_date"]')?.value || '';
     const scheduledTime = document.querySelector('select[name="scheduled_time"]')?.value || '';
 
-    const basePrice = basePrices[serviceType] || 0;
-    const propertyFee = propertyFees[propertyType] || 0;
-    const roomsFee = (rooms - 1) * 50;
-    const bathroomsFee = (bathrooms - 1) * 100;
+    const isPerSquareMeter = perSquareMeterServices.has(serviceType);
+    const flatRateRange = flatRateRangeServices[serviceType] || null;
+    const isFlatRateRange = Boolean(flatRateRange);
+    const basePrice = isPerSquareMeter
+        ? 0
+        : isFlatRateRange && rooms >= 3
+            ? Number(flatRateRange.max || basePrices[serviceType] || 0)
+            : Number(flatRateRange?.min || basePrices[serviceType] || 0);
+    const propertyFee = isFlatRateRange ? 0 : (propertyFees[propertyType] || 0);
+    const roomsFee = isFlatRateRange ? 0 : (rooms - 1) * 50;
+    const bathroomsFee = isFlatRateRange ? 0 : (bathrooms - 1) * 100;
     const floorAreaRate = floorAreaRates[serviceType] || 0;
-    const billableFloorArea = Math.max(0, floorArea - includedFloorArea);
+    const billableFloorArea = isFlatRateRange ? 0 : isPerSquareMeter ? Math.max(0, floorArea) : Math.max(0, floorArea - includedFloorArea);
     const floorAreaFee = billableFloorArea * floorAreaRate;
     const addOnsFee = selectedAddOns.reduce((sum, key) => sum + Number(addOnCatalog[key]?.price || 0), 0);
     const total = basePrice + propertyFee + roomsFee + bathroomsFee + floorAreaFee + addOnsFee;
 
     document.getElementById('pb-base').textContent = formatCurrency(basePrice);
+    document.getElementById('pb-base-row').classList.toggle('hidden', isPerSquareMeter);
     document.getElementById('pb-property').textContent = propertyFee > 0 ? '+' + formatCurrency(propertyFee) : formatCurrency(0);
     document.getElementById('pb-rooms').textContent = roomsFee > 0 ? '+' + formatCurrency(roomsFee) : formatCurrency(0);
     document.getElementById('pb-bathrooms').textContent = bathroomsFee > 0 ? '+' + formatCurrency(bathroomsFee) : formatCurrency(0);
@@ -647,16 +1572,26 @@ function updatePrice() {
     document.getElementById('pb-current-payment').textContent = paymentMethodLabels[paymentMethod] || 'Cash on Service Day';
 
     document.getElementById('pb-property-meta').textContent = propertyType
-        ? `${propertyTypeLabels[propertyType] || 'Selected property'}${propertyFee > 0 ? ' adds an adjustment.' : ' has no extra charge.'}`
+        ? isFlatRateRange
+            ? `${serviceLabels[serviceType]} uses flat-rate pricing for standard homes.`
+            : `${propertyTypeLabels[propertyType] || 'Selected property'}${propertyFee > 0 ? ' adds an adjustment.' : ' has no extra charge.'}`
         : 'Select a property type.';
     document.getElementById('pb-rooms-meta').textContent = rooms > 1
-        ? `${rooms - 1} extra room${rooms - 1 > 1 ? 's' : ''} x ${formatCurrency(50)}`
+        ? isFlatRateRange
+            ? `${rooms} room${rooms > 1 ? 's' : ''} selected; flat rate applied.`
+            : `${rooms - 1} extra room${rooms - 1 > 1 ? 's' : ''} x ${formatCurrency(50)}`
         : '1 room included in the base setup.';
     document.getElementById('pb-bathrooms-meta').textContent = bathrooms > 1
-        ? `${bathrooms - 1} extra bathroom${bathrooms - 1 > 1 ? 's' : ''} x ${formatCurrency(100)}`
+        ? isFlatRateRange
+            ? `${bathrooms} bathroom${bathrooms > 1 ? 's' : ''} selected; flat rate applied.`
+            : `${bathrooms - 1} extra bathroom${bathrooms - 1 > 1 ? 's' : ''} x ${formatCurrency(100)}`
         : '1 bathroom included in the base setup.';
     document.getElementById('pb-floor-area-meta').textContent = floorArea > 0
-        ? `${billableFloorArea} billable sqm x ${formatCurrency(floorAreaRate)}/sqm after ${includedFloorArea} sqm included`
+        ? isFlatRateRange
+            ? `Floor area is covered by the selected flat-rate package.`
+            : isPerSquareMeter
+            ? `${billableFloorArea} sqm x ${formatCurrency(floorAreaRate)}/sqm`
+            : `${billableFloorArea} billable sqm x ${formatCurrency(floorAreaRate)}/sqm after ${includedFloorArea} sqm included`
         : `Enter floor area to compute any excess-square-meter charge.`;
     document.getElementById('pb-add-ons-meta').textContent = selectedAddOns.length > 0
         ? selectedAddOns.map((key) => addOnCatalog[key]?.label).join(', ')
@@ -665,7 +1600,11 @@ function updatePrice() {
     const floorAreaRule = document.getElementById('floor-area-rule');
     if (floorAreaRule) {
         floorAreaRule.textContent = serviceType
-            ? `The first ${includedFloorArea} sqm are included in ${serviceLabels[serviceType]}. Excess floor area is billed at ${formatCurrency(floorAreaRate)}/sqm.`
+            ? isFlatRateRange
+                ? `${serviceLabels[serviceType]} is quoted as a ${formatCurrency(flatRateRange.min)}-${formatCurrency(flatRateRange.max)} flat rate for a standard 2-3 bedroom home.`
+                : isPerSquareMeter
+                ? `${serviceLabels[serviceType]} is billed at ${formatCurrency(floorAreaRate)}/sqm.`
+                : `The first ${includedFloorArea} sqm are included in ${serviceLabels[serviceType]}. Excess floor area is billed at ${formatCurrency(floorAreaRate)}/sqm.`
             : `The first ${includedFloorArea} sqm are included. Excess area is billed per sqm based on the selected service.`;
     }
 
@@ -717,6 +1656,7 @@ document.querySelectorAll('input[name="property_type"]').forEach((input) => {
 document.querySelectorAll('input[name="service_type"]').forEach((input) => {
     input.addEventListener('change', function () {
         syncSelectedCards('service_type', '.service-card');
+        refreshPreferredCleaners();
         updatePrice();
     });
 });
@@ -741,7 +1681,10 @@ document.querySelectorAll('select[name="rooms"], select[name="bathrooms"]').forE
 });
 
 document.querySelectorAll('input[name="scheduled_date"], select[name="scheduled_time"]').forEach((input) => {
-    input.addEventListener('change', updatePrice);
+    input.addEventListener('change', function () {
+        refreshScheduleDependentFields();
+        updatePrice();
+    });
 });
 
 document.querySelectorAll('select[name="subscription_frequency"], select[name="subscription_occurrences"]').forEach((input) => {
@@ -756,6 +1699,9 @@ document.querySelectorAll('input[name="add_ons[]"]').forEach((input) => {
         updatePrice();
     });
 });
+
+document.getElementById('use-current-location')?.addEventListener('click', useCurrentLocation);
+document.getElementById('confirm-current-location')?.addEventListener('click', confirmCurrentLocation);
 
 if (!document.querySelector('input[name="service_type"]:checked')) {
     const firstService = document.querySelector('input[name="service_type"]');
@@ -791,6 +1737,12 @@ syncSelectedCards('payment_method', '.payment-card');
 syncSelectedCards('service_plan', '.service-plan-card');
 syncAddOnCards();
 toggleSubscriptionFields();
+refreshScheduleDependentFields();
+window.setInterval(refreshScheduleDependentFields, 60000);
 updatePrice();
 </script>
+@if($googleMapsApiKey)
+<script async defer src="https://maps.googleapis.com/maps/api/js?key={{ urlencode($googleMapsApiKey) }}"></script>
+@endif
+@endpush
 @endsection

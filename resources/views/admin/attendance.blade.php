@@ -69,7 +69,7 @@
             <button
                 type="button"
                 data-attendance-tab-target="today"
-                class="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition {{ $activeAttendanceTab === 'today' ? 'border-accent-200 bg-accent-50 text-accent-700' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100' }}"
+                class="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition {{ $activeAttendanceTab === 'today' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100' }}"
             >
                 <i class="fas fa-clipboard-check"></i>
                 Today&apos;s Attendance
@@ -77,7 +77,7 @@
             <button
                 type="button"
                 data-attendance-tab-target="history"
-                class="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition {{ $activeAttendanceTab === 'history' ? 'border-accent-200 bg-accent-50 text-accent-700' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100' }}"
+                class="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition {{ $activeAttendanceTab === 'history' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100' }}"
             >
                 <i class="fas fa-clock-rotate-left"></i>
                 History and Logs
@@ -116,7 +116,7 @@
                     <div class="mt-2 text-4xl font-black leading-none text-slate-900">{{ $presentCount }}</div>
                     <div class="mt-2 text-sm text-slate-500">Staff already clocked in.</div>
                 </div>
-                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white">
                     <i class="fas fa-user-check"></i>
                 </div>
             </div>
@@ -128,7 +128,7 @@
                     <div class="mt-2 text-4xl font-black leading-none text-slate-900">{{ $absentCount }}</div>
                     <div class="mt-2 text-sm text-slate-500">No time-in record yet.</div>
                 </div>
-                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-danger-50 text-danger-700">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-600 text-white">
                     <i class="fas fa-user-slash"></i>
                 </div>
             </div>
@@ -140,7 +140,7 @@
                     <div class="mt-2 text-4xl font-black leading-none text-slate-900">{{ $lateCount }}</div>
                     <div class="mt-2 text-sm text-slate-500">Arrived after 8:00 AM.</div>
                 </div>
-                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400 text-white">
                     <i class="fas fa-clock"></i>
                 </div>
             </div>
@@ -152,7 +152,7 @@
                     <div class="mt-2 text-4xl font-black leading-none text-slate-900">{{ $staffWithoutFingerprint }}</div>
                     <div class="mt-2 text-sm text-slate-500">Staff without fingerprint templates.</div>
                 </div>
-                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-700">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white">
                     <i class="fas fa-fingerprint"></i>
                 </div>
             </div>
@@ -205,7 +205,7 @@
             <div class="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                     <h3 class="text-lg font-extrabold text-slate-900">Fingerprint Enrollment</h3>
-                    <p class="mt-1 text-sm text-slate-500">Create the enrollment request from the website, then ask the staff member to place the same finger twice on the selected device.</p>
+                    <p class="mt-1 text-sm text-slate-500">Send the biometric terms to the staff member first. Enrollment can continue only after the staff member accepts.</p>
                 </div>
                 <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600">
                     <i class="fas fa-user-plus text-slate-400"></i>
@@ -248,11 +248,11 @@
 
                 <div class="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
                     <p class="text-sm leading-7 text-slate-500">
-                        The website submits the request to the ESP32 queue. The browser does not communicate with the AS608 device directly.
+                        The website sends the terms and agreement to the selected staff member first. The ESP32 queue is locked until staff consent is accepted.
                     </p>
                     <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-full bg-cyan-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-cyan-800">
                         <i class="fas fa-fingerprint"></i>
-                        Start Enrollment
+                        Send Terms
                     </button>
                 </div>
             </form>
@@ -274,9 +274,11 @@
                 @forelse($recentEnrollmentRequests as $request)
                     @php
                         $queueBadgeClasses = match ($request->status) {
-                            'completed' => 'border-accent-300 bg-accent-100 text-accent-800',
+                            'completed' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
                             'failed' => 'border-danger-200 bg-danger-50 text-danger-700',
-                            'in_progress' => 'border-primary-200 bg-primary-50 text-primary-700',
+                            'in_progress' => 'border-teal-200 bg-teal-50 text-teal-700',
+                            'consent_accepted' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
+                            'awaiting_consent' => 'border-amber-200 bg-amber-50 text-amber-700',
                             default => 'border-amber-200 bg-amber-50 text-amber-700',
                         };
                     @endphp
@@ -292,6 +294,19 @@
                                 {{ str_replace('_', ' ', $request->status) }}
                             </span>
                         </div>
+                        @if($request->status === 'awaiting_consent')
+                            <div class="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">
+                                Waiting for {{ $request->user->display_name }} to accept the fingerprint terms.
+                            </div>
+                        @elseif($request->status === 'consent_accepted')
+                            <form method="POST" action="{{ route('admin.attendance.enrollments.continue', $request) }}" class="mt-3">
+                                @csrf
+                                <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700">
+                                    <i class="fas fa-play"></i>
+                                    Continue Enrollment
+                                </button>
+                            </form>
+                        @endif
                         @if($request->error_message)
                             <div class="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700">
                                 {{ $request->error_message }}
@@ -341,7 +356,7 @@
                         <tr class="transition hover:bg-slate-50/80">
                             <td class="px-6 py-5">
                                 <div class="flex items-center gap-3">
-                                    <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-600 text-sm font-black text-white shadow-sm">
+                                    <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-sm font-black text-white shadow-sm">
                                         {{ strtoupper(substr($a['name'], 0, 1)) }}
                                     </div>
                                     <div>
@@ -352,17 +367,17 @@
                             </td>
                             <td class="px-6 py-5">
                                 @if($a['status'] === 'present')
-                                    <span class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                                    <span class="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white">
                                         <i class="fas fa-circle-check"></i>
                                         Present
                                     </span>
                                 @elseif($a['status'] === 'late')
-                                    <span class="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                                    <span class="inline-flex items-center gap-2 rounded-full bg-amber-500 px-3 py-1 text-xs font-bold text-white">
                                         <i class="fas fa-clock"></i>
                                         Late
                                     </span>
                                 @else
-                                    <span class="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
+                                    <span class="inline-flex items-center gap-2 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white">
                                         <i class="fas fa-circle-xmark"></i>
                                         Absent
                                     </span>
@@ -380,7 +395,7 @@
                             </td>
                             <td class="px-6 py-5">
                                 @if($a['is_present'])
-                                    <span class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                                    <span class="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white">
                                         <i class="fas fa-user-check"></i>
                                         Available for assignment
                                     </span>
@@ -455,7 +470,7 @@
                         </div>
                         <form method="POST" action="{{ route('admin.attendance.devices.rotate-token', $device) }}">
                             @csrf
-                            <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100">
+                            <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700">
                                 <i class="fas fa-rotate"></i>
                                 Rotate Token
                             </button>
@@ -479,19 +494,40 @@
     <div data-attendance-tab-panel="history" class="space-y-6 {{ $activeAttendanceTab === 'history' ? '' : 'hidden' }}">
         <section class="grid gap-5 md:grid-cols-3">
             <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Total Records</div>
-                <div class="mt-2 text-4xl font-black leading-none text-accent-700">{{ number_format($totalLogs) }}</div>
-                <div class="mt-2 text-sm text-slate-500">All attendance punch records captured so far.</div>
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Total Records</div>
+                        <div class="mt-2 text-4xl font-black leading-none text-slate-900">{{ number_format($totalLogs) }}</div>
+                        <div class="mt-2 text-sm text-slate-500">All attendance punch records captured so far.</div>
+                    </div>
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white">
+                        <i class="fas fa-list"></i>
+                    </div>
+                </div>
             </article>
             <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Late Logs</div>
-                <div class="mt-2 text-4xl font-black leading-none text-amber-600">{{ number_format($totalLate) }}</div>
-                <div class="mt-2 text-sm text-slate-500">Time-in records flagged as late arrivals.</div>
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Late Logs</div>
+                        <div class="mt-2 text-4xl font-black leading-none text-slate-900">{{ number_format($totalLate) }}</div>
+                        <div class="mt-2 text-sm text-slate-500">Time-in records flagged as late arrivals.</div>
+                    </div>
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-400 text-white">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                </div>
             </article>
             <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Staff Tracked</div>
-                <div class="mt-2 text-4xl font-black leading-none text-emerald-700">{{ number_format($staffList->count()) }}</div>
-                <div class="mt-2 text-sm text-slate-500">Staff members included in attendance logs.</div>
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Staff Tracked</div>
+                        <div class="mt-2 text-4xl font-black leading-none text-slate-900">{{ number_format($staffList->count()) }}</div>
+                        <div class="mt-2 text-sm text-slate-500">Staff members included in attendance logs.</div>
+                    </div>
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
             </article>
         </section>
 
@@ -500,7 +536,7 @@
             <p class="mt-1 text-sm text-slate-500">Quickly jump to common history windows.</p>
             @php
                 $periodLinkClasses = fn (bool $active) => $active
-                    ? 'border-accent-200 bg-accent-50 text-accent-700'
+                    ? 'border-blue-200 bg-blue-50 text-blue-700'
                     : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50';
             @endphp
             <div class="mt-4 flex flex-wrap gap-2">
@@ -558,7 +594,7 @@
                         </select>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        <button type="submit" class="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-primary-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-primary-700">
+                        <button type="submit" class="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-700">
                             <i class="fas fa-filter"></i>
                             Apply
                         </button>
@@ -705,9 +741,9 @@
 
             buttons.forEach((button) => {
                 const isActive = button.dataset.attendanceTabTarget === targetTab;
-                button.classList.toggle('border-accent-200', isActive);
-                button.classList.toggle('bg-accent-50', isActive);
-                button.classList.toggle('text-accent-700', isActive);
+                button.classList.toggle('border-blue-200', isActive);
+                button.classList.toggle('bg-blue-50', isActive);
+                button.classList.toggle('text-blue-700', isActive);
                 button.classList.toggle('border-slate-200', !isActive);
                 button.classList.toggle('bg-slate-50', !isActive);
                 button.classList.toggle('text-slate-600', !isActive);

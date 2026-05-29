@@ -14,20 +14,23 @@ class RateLimitPerDevice
     public function handle(Request $request, Closure $next)
     {
         $deviceSerial = $request->header('X-Device-Serial');
+        $deviceToken = $request->header('X-Device-Token');
 
-        if (!$deviceSerial) {
-            return response()->json(['error' => 'Device serial required'], 400);
+        if (! $deviceSerial && ! $deviceToken) {
+            return $next($request);
         }
 
-        // Rate limit per device: 10 requests per minute
-        $key = 'rate_limit:device:' . $deviceSerial;
-        $limit = 10;
+        // ESP32 devices poll enrollment and heartbeat frequently while online.
+        $key = 'rate_limit:device:'.($deviceSerial ?: hash('sha256', $deviceToken));
+        $limit = 120;
         $decayMinutes = 1;
 
         if (cache()->get($key, 0) >= $limit) {
             Log::warning('Device rate limit exceeded', [
                 'device_serial' => $deviceSerial,
+                'has_device_token' => (bool) $deviceToken,
             ]);
+
             return response()->json(
                 ['error' => 'Too many requests. Please wait.'],
                 429

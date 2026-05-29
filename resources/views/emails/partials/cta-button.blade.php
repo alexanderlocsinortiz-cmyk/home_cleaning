@@ -1,11 +1,11 @@
 @php
     $buttonPalette = [
-        'emerald' => ['background' => '#09637e', 'text' => '#ffffff'],
-        'cyan' => ['background' => '#088395', 'text' => '#ffffff'],
-        'purple' => ['background' => '#7ab2b2', 'text' => '#143241'],
-        'amber' => ['background' => '#294351', 'text' => '#ffffff'],
-        'slate' => ['background' => '#143241', 'text' => '#ffffff'],
-    ][$tone ?? 'emerald'] ?? ['background' => '#09637e', 'text' => '#ffffff'];
+        'emerald' => ['background' => '#2563EB', 'text' => '#ffffff'],
+        'cyan' => ['background' => '#3B82F6', 'text' => '#ffffff'],
+        'purple' => ['background' => '#1D4ED8', 'text' => '#ffffff'],
+        'amber' => ['background' => '#1E40AF', 'text' => '#ffffff'],
+        'slate' => ['background' => '#1E3A8A', 'text' => '#ffffff'],
+    ][$tone ?? 'emerald'] ?? ['background' => '#2563EB', 'text' => '#ffffff'];
 @endphp
 
 <div class="cta-wrap">

@@ -5,15 +5,17 @@ namespace App\Http\Controllers;
 use App\Http\Requests\CalculatePriceRequest;
 use App\Http\Requests\StoreBookingRequest;
 use App\Mail\BookingSubmitted;
+use App\Models\AttendanceLog;
 use App\Models\Booking;
-use App\Models\Notification;
 use App\Models\Service;
 use App\Models\User;
+use App\Services\PaymongoCheckoutService;
 use Carbon\Carbon;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -47,10 +49,45 @@ class BookingController extends Controller
         $paymentMethods = Booking::paymentMethods();
         $servicePlans = Booking::servicePlans();
         $subscriptionFrequencies = Booking::subscriptionFrequencyLabels();
+        $bookingTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+        $bookingNow = Carbon::now($bookingTimezone);
+        $timeSlots = $this->bookingTimeSlots();
+        $profileAddress = [
+            'barangay' => $user->barangay,
+            'street_address' => $user->street,
+        ];
         $preferredCleaners = User::where('role', 'staff')
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get();
+        $presentTodayStaffIds = $this->presentStaffIdsForDate($bookingNow->toDateString());
+        $preferredCleanerAvailability = [
+            'today' => $bookingNow->toDateString(),
+            'now' => $bookingNow->format('H:i'),
+            'timeSlots' => $timeSlots,
+            'staff' => $preferredCleaners->map(fn (User $staff) => [
+                'id' => $staff->id,
+                'name' => trim($staff->first_name.' '.$staff->last_name),
+                'barangay' => $staff->barangay,
+                'presentToday' => in_array((int) $staff->id, $presentTodayStaffIds, true),
+            ])->values(),
+            'assignments' => Booking::query()
+                ->whereIn('status', Booking::staffAssignmentConflictStatuses())
+                ->whereNotNull('staff_id')
+                ->whereDate('scheduled_date', '>=', $bookingNow->toDateString())
+                ->get(['staff_id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'service_type', 'status'])
+                ->map(fn (Booking $booking) => [
+                    'staffId' => (int) $booking->staff_id,
+                    'date' => Booking::normalizeScheduleDate($booking->scheduled_date),
+                    'time' => Carbon::parse($booking->scheduled_time)->format('H:i'),
+                    'duration' => (int) ($booking->duration_minutes ?: Service::durationForSlug($booking->service_type)),
+                    'status' => $booking->status,
+                ])->values(),
+            'serviceDurations' => $services->mapWithKeys(fn (Service $service) => [
+                $service->slug => (int) ($service->duration_minutes ?: Service::durationForSlug($service->slug)),
+            ]),
+            'restMinutes' => Booking::STAFF_REST_MINUTES,
+        ];
 
         return view('bookings.create', compact(
             'barangays',
@@ -61,6 +98,10 @@ class BookingController extends Controller
             'paymentMethods',
             'servicePlans',
             'subscriptionFrequencies',
+            'timeSlots',
+            'bookingNow',
+            'profileAddress',
+            'preferredCleanerAvailability',
         ));
     }
 
@@ -100,20 +141,21 @@ class BookingController extends Controller
 
         $preferredStaff = null;
         $preferredStaffStatus = 'none';
+        $service = Service::where('slug', $request->service_type)->where('is_active', true)->first();
+        $serviceDurationMinutes = (int) ($service?->duration_minutes ?: Service::durationForSlug($request->service_type));
 
         if ($request->filled('preferred_staff_id')) {
             $preferredStaff = User::where('role', 'staff')->find($request->preferred_staff_id);
 
             if ($preferredStaff) {
-                $preferredStaffStatus = Booking::staffHasScheduleConflict(
-                    $preferredStaff->id,
+                $preferredStaffStatus = $this->preferredStaffIsAvailable(
+                    $preferredStaff,
                     $request->scheduled_date,
-                    $request->scheduled_time
-                ) ? 'unavailable' : 'requested';
+                    $request->scheduled_time,
+                    $serviceDurationMinutes
+                ) ? 'requested' : 'unavailable';
             }
         }
-
-        $service = Service::where('slug', $request->service_type)->where('is_active', true)->first();
 
         $pricing = Booking::calculatePrice(
             $request->service_type,
@@ -143,6 +185,7 @@ class BookingController extends Controller
                 $schedulePlan,
                 $pricing,
                 $service,
+                $serviceDurationMinutes,
                 $riskReasons,
                 $manualReviewStatus,
                 $preferredStaff,
@@ -164,6 +207,7 @@ class BookingController extends Controller
                     $schedulePlan,
                     $pricing,
                     $service,
+                    $serviceDurationMinutes,
                     $riskReasons,
                     $manualReviewStatus,
                     $preferredStaff,
@@ -178,6 +222,7 @@ class BookingController extends Controller
                         $request,
                         $pricing,
                         $service,
+                        $serviceDurationMinutes,
                         $riskReasons,
                         $manualReviewStatus,
                         $preferredStaff,
@@ -190,15 +235,12 @@ class BookingController extends Controller
                         $paymentDetails = $this->resolvePaymentDetails($request->input('payment_method'));
 
                         $currentPreferredStaffStatus = $preferredStaff
-                            ? (
-                                Booking::staffHasScheduleConflict(
-                                    $preferredStaff->id,
-                                    $schedule['scheduled_date'],
-                                    $schedule['scheduled_time']
-                                )
-                                    ? 'unavailable'
-                                    : 'requested'
-                            )
+                            ? ($this->preferredStaffIsAvailable(
+                                $preferredStaff,
+                                $schedule['scheduled_date'],
+                                $schedule['scheduled_time'],
+                                $serviceDurationMinutes
+                            ) ? 'requested' : 'unavailable')
                             : $preferredStaffStatus;
 
                         return Booking::create([
@@ -212,8 +254,11 @@ class BookingController extends Controller
                             'add_ons' => $pricing['add_ons'],
                             'barangay' => $request->barangay,
                             'street_address' => $request->street_address,
+                            'service_latitude' => $request->input('service_latitude'),
+                            'service_longitude' => $request->input('service_longitude'),
                             'scheduled_date' => $schedule['scheduled_date'],
                             'scheduled_time' => $schedule['scheduled_time'],
+                            'duration_minutes' => $serviceDurationMinutes,
                             'notes' => $request->notes,
                             'service_plan' => $servicePlan,
                             'subscription_frequency' => $servicePlan === 'subscription' ? $subscriptionFrequency : null,
@@ -283,6 +328,25 @@ class BookingController extends Controller
             $redirect->with('warning', 'Your preferred cleaner '.$preferredStaff->full_name.' is already booked for that schedule. Another available cleaner will be assigned during confirmation.');
         }
 
+        if (Booking::isDigitalPaymentMethod($booking->payment_method) && (bool) config('services.paymongo.checkout_redirect_enabled', true)) {
+            try {
+                $checkoutSession = app(PaymongoCheckoutService::class)->createCheckoutSession($createdBookings, $user);
+
+                Booking::whereIn('id', $createdBookings->pluck('id'))->update([
+                    'payment_checkout_session_id' => $checkoutSession['id'],
+                ]);
+
+                return redirect()->away($checkoutSession['checkout_url']);
+            } catch (\Throwable $exception) {
+                Log::error('PayMongo checkout session could not be created.', [
+                    'booking_id' => $booking->id,
+                    'error' => $exception->getMessage(),
+                ]);
+
+                return $redirect->with('warning', 'Your booking was saved, but the payment checkout could not be opened. Please contact support or wait for admin payment instructions.');
+            }
+        }
+
         return $redirect;
     }
 
@@ -308,6 +372,95 @@ class BookingController extends Controller
         return response()->json($pricing);
     }
 
+    public function paymentReturn($id)
+    {
+        $user = $this->requireVerifiedClient();
+
+        $booking = Booking::where('id', $id)
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        if (! Booking::isDigitalPaymentMethod($booking->payment_method)) {
+            return redirect()
+                ->route('bookings.show', $booking->id)
+                ->with('info', 'This booking is not using an online PayMongo payment method.');
+        }
+
+        if ($booking->payment_status === 'paid') {
+            return redirect()
+                ->route('bookings.show', $booking->id)
+                ->with('success', 'Your payment is already confirmed.');
+        }
+
+        $checkoutSessionId = $booking->payment_checkout_session_id
+            ?: (is_string($booking->payment_reference) && str_starts_with($booking->payment_reference, 'cs_') ? $booking->payment_reference : null);
+
+        if (! $checkoutSessionId) {
+            return redirect()
+                ->route('bookings.show', $booking->id)
+                ->with('warning', 'We could not verify this PayMongo checkout automatically because the booking has no checkout session ID. Check the PayMongo dashboard and mark this booking as paid from admin if the GCash charge succeeded.');
+        }
+
+        try {
+            $paymongo = app(PaymongoCheckoutService::class);
+            $checkoutSession = $paymongo->retrieveCheckoutSession($checkoutSessionId);
+        } catch (\Throwable $exception) {
+            Log::warning('PayMongo checkout session could not be verified after return.', [
+                'booking_id' => $booking->id,
+                'checkout_session_id' => $checkoutSessionId,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return redirect()
+                ->route('bookings.show', $booking->id)
+                ->with('warning', 'Your booking was saved, but PayMongo payment verification is not available right now. If GCash charged you, check the PayMongo dashboard before asking the customer to pay again.');
+        }
+
+        if (! $paymongo->checkoutSessionIsPaid($checkoutSession)) {
+            return redirect()
+                ->route('bookings.show', $booking->id)
+                ->with('warning', 'PayMongo has not confirmed this checkout as paid yet. If GCash already charged you, wait a moment and refresh before paying again.');
+        }
+
+        $paymentReference = $paymongo->paymentReferenceFromCheckoutSession($checkoutSession);
+        $metadataBookingIds = collect(explode(',', (string) data_get($checkoutSession, 'data.attributes.metadata.booking_ids')))
+            ->filter(fn (string $id): bool => ctype_digit($id))
+            ->map(fn (string $id): int => (int) $id)
+            ->values();
+
+        $bookingIds = $metadataBookingIds->isNotEmpty() ? $metadataBookingIds : collect([$booking->id]);
+        $paidBookings = Booking::whereIn('id', $bookingIds)
+            ->where('user_id', $user->id)
+            ->get();
+
+        if (! $paidBookings->contains(fn (Booking $paidBooking): bool => (int) $paidBooking->id === (int) $booking->id)) {
+            abort(403);
+        }
+
+        $paidBookings->each(function (Booking $paidBooking) use ($user, $paymentReference): void {
+            $wasPending = $paidBooking->payment_status !== 'paid';
+            $shouldReplaceReference = ! $paidBooking->payment_reference || str_starts_with((string) $paidBooking->payment_reference, 'cs_');
+
+            $paidBooking->forceFill([
+                'payment_status' => 'paid',
+                'payment_reference' => $shouldReplaceReference ? $paymentReference : $paidBooking->payment_reference,
+                'paid_at' => $paidBooking->paid_at ?: now(),
+            ])->save();
+
+            if ($wasPending) {
+                $paidBooking->logActivity($user, 'payment_updated', 'Payment confirmed through PayMongo return verification.', [
+                    'from_payment_status' => 'pending',
+                    'to_payment_status' => 'paid',
+                    'payment_reference' => $paidBooking->payment_reference,
+                ]);
+            }
+        });
+
+        return redirect()
+            ->route('bookings.show', $booking->id)
+            ->with('success', 'Payment confirmed. Your booking is now marked as paid.');
+    }
+
     public function show($id)
     {
         $booking = Booking::with([
@@ -318,7 +471,6 @@ class BookingController extends Controller
             'preferredStaff',
             'serviceProofs.uploader',
             'activityLogs.actor',
-            'messages.sender',
         ])
             ->findOrFail($id);
 
@@ -392,7 +544,11 @@ class BookingController extends Controller
     public function cancel($id)
     {
         $user = $this->requireVerifiedClient();
-        $booking = Booking::where('id', $id)->where('user_id', $user->id)->firstOrFail();
+        $booking = Booking::findOrFail($id);
+
+        if ((int) $booking->user_id !== (int) $user->id) {
+            abort(403);
+        }
         if ($booking->status !== 'pending') {
             return back()->with('error', 'Only pending bookings can be cancelled from your dashboard.');
         }
@@ -439,7 +595,7 @@ class BookingController extends Controller
             ]);
         }
 
-        if ($booking->staff_id && Booking::staffHasScheduleConflict($booking->staff_id, $request->scheduled_date, $request->scheduled_time, $booking->id)) {
+        if ($booking->staff_id && Booking::staffHasScheduleConflict($booking->staff_id, $request->scheduled_date, $request->scheduled_time, $booking->id, (int) $booking->duration_minutes)) {
             return back()->withErrors([
                 'scheduled_time' => 'The assigned cleaner is not available on that date and time.',
             ]);
@@ -603,6 +759,52 @@ class BookingController extends Controller
             ->all();
     }
 
+    private function bookingTimeSlots(): array
+    {
+        return ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
+    }
+
+    private function preferredStaffIsAvailable(
+        User $staff,
+        mixed $scheduledDate,
+        mixed $scheduledTime,
+        int $serviceDurationMinutes
+    ): bool {
+        $bookingTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+        $scheduleDate = Carbon::parse($scheduledDate, $bookingTimezone)->toDateString();
+
+        if ($scheduleDate === Carbon::now($bookingTimezone)->toDateString()
+            && ! in_array((int) $staff->id, $this->presentStaffIdsForDate($scheduleDate), true)) {
+            return false;
+        }
+
+        return ! Booking::staffHasScheduleConflict(
+            $staff->id,
+            $scheduledDate,
+            $scheduledTime,
+            null,
+            $serviceDurationMinutes
+        );
+    }
+
+    private function presentStaffIdsForDate(string $localDate): array
+    {
+        $bookingTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+        $localDay = Carbon::parse($localDate, $bookingTimezone);
+
+        return AttendanceLog::query()
+            ->where('punch_type', 'in')
+            ->whereBetween('logged_at', [
+                $localDay->copy()->startOfDay()->utc(),
+                $localDay->copy()->endOfDay()->utc(),
+            ])
+            ->pluck('user_id')
+            ->map(fn ($staffId) => (int) $staffId)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     private function schedulePlanConflictMessage(int $userId, array $schedulePlan): ?string
     {
         foreach ($schedulePlan as $schedule) {
@@ -615,6 +817,22 @@ class BookingController extends Controller
 
             if (! Booking::slotHasCapacity($schedule['scheduled_date'], $schedule['scheduled_time'])) {
                 return 'The selected schedule plan cannot be created because '.$formattedDate.' at '.$formattedTime.' is already fully booked.';
+            }
+        }
+
+        if (count($schedulePlan) > 1) {
+            $firstSchedule = collect($schedulePlan)->sortBy('scheduled_date')->first();
+            $lastSchedule = collect($schedulePlan)->sortBy('scheduled_date')->last();
+
+            $sameTimeConflict = Booking::query()
+                ->where('user_id', $userId)
+                ->whereIn('status', Booking::ACTIVE_SCHEDULE_STATUSES)
+                ->where('scheduled_time', $firstSchedule['scheduled_time'])
+                ->whereBetween('scheduled_date', [$firstSchedule['scheduled_date'], $lastSchedule['scheduled_date']])
+                ->exists();
+
+            if ($sameTimeConflict) {
+                return 'You already have an active booking during this recurring schedule window. Please choose a different schedule plan.';
             }
         }
 

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Tests\TestCase;
 
 class LoginTest extends TestCase
@@ -161,6 +162,94 @@ class LoginTest extends TestCase
 
         $response->assertRedirect(route('login'));
         $response->assertSessionHasErrors('email');
+        $this->assertGuest();
+    }
+
+    public function test_login_locks_for_one_minute_after_five_invalid_password_attempts(): void
+    {
+        RateLimiter::clear('login-attempts:locked-client@example.com|127.0.0.1');
+        RateLimiter::clear('login-lockout:locked-client@example.com|127.0.0.1');
+        RateLimiter::clear('login-lockout-rounds:locked-client@example.com|127.0.0.1');
+
+        $user = $this->createUser([
+            'email' => 'locked-client@example.com',
+            'username' => 'lockedclient',
+        ]);
+
+        for ($attempt = 1; $attempt <= 4; $attempt++) {
+            $this->from(route('login'))->post(route('login.store'), [
+                'email' => $user->email,
+                'password' => 'wrong-password',
+            ])->assertSessionHasErrors('email');
+        }
+
+        $this->from(route('login'))->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ])->assertSessionHasErrors([
+            'email' => 'Too many incorrect login attempts. Please try again in 1 minute.',
+        ])->assertSessionHas('login_lockout');
+
+        $this->from(route('login'))->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'password123',
+        ])->assertSessionHasErrors([
+            'email' => 'Too many incorrect login attempts. Please try again in 1 minute.',
+        ])->assertSessionHas('login_lockout');
+
+        $this->assertGuest();
+    }
+
+    public function test_login_page_has_persistent_lockout_countdown(): void
+    {
+        $response = $this
+            ->withSession([
+                'login_lockout' => [
+                    'email' => 'locked-client@example.com',
+                    'ends_at' => now()->addMinute()->timestamp,
+                ],
+            ])
+            ->get(route('login'));
+
+        $response->assertOk();
+        $response->assertSee('login-lockout-countdown', false);
+        $response->assertSee('cleanflow.login.lockout', false);
+    }
+
+    public function test_second_invalid_login_batch_locks_for_three_minutes(): void
+    {
+        RateLimiter::clear('login-attempts:escalated-client@example.com|127.0.0.1');
+        RateLimiter::clear('login-lockout:escalated-client@example.com|127.0.0.1');
+        RateLimiter::clear('login-lockout-rounds:escalated-client@example.com|127.0.0.1');
+
+        $user = $this->createUser([
+            'email' => 'escalated-client@example.com',
+            'username' => 'escalatedclient',
+        ]);
+
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            $this->from(route('login'))->post(route('login.store'), [
+                'email' => $user->email,
+                'password' => 'wrong-password',
+            ]);
+        }
+
+        $this->travel(61)->seconds();
+
+        for ($attempt = 1; $attempt <= 4; $attempt++) {
+            $this->from(route('login'))->post(route('login.store'), [
+                'email' => $user->email,
+                'password' => 'wrong-password',
+            ])->assertSessionHasErrors('email');
+        }
+
+        $this->from(route('login'))->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ])->assertSessionHasErrors([
+            'email' => 'Too many incorrect login attempts. Please try again in 3 minutes.',
+        ]);
+
         $this->assertGuest();
     }
 

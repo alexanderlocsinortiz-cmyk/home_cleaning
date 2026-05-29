@@ -62,12 +62,25 @@ class ServiceTest extends TestCase
     {
         $this->assertArrayHasKey('deep', Service::PACKAGE_CATALOG);
         $this->assertEquals('Deep Clean', Service::PACKAGE_CATALOG['deep']['name']);
+        $this->assertEquals(95.0, Service::PACKAGE_CATALOG['deep']['recommended_price']);
+        $this->assertTrue(Service::usesPerSquareMeterPricing('deep'));
     }
 
     public function test_service_package_catalog_includes_moveinout()
     {
         $this->assertArrayHasKey('moveinout', Service::PACKAGE_CATALOG);
         $this->assertStringContainsString('Move-in', Service::PACKAGE_CATALOG['moveinout']['name']);
+        $this->assertEquals(80.0, Service::PACKAGE_CATALOG['moveinout']['recommended_price']);
+        $this->assertTrue(Service::usesPerSquareMeterPricing('moveinout'));
+        $this->assertFalse(Service::usesFlatRateRangePricing('moveinout'));
+        $this->assertNull(Service::priceRangeForSlug('moveinout'));
+    }
+
+    public function test_service_package_catalog_marks_post_construction_as_per_square_meter()
+    {
+        $this->assertArrayHasKey('postconstruction', Service::PACKAGE_CATALOG);
+        $this->assertEquals(105.0, Service::PACKAGE_CATALOG['postconstruction']['recommended_price']);
+        $this->assertTrue(Service::usesPerSquareMeterPricing('postconstruction'));
     }
 
     public function test_service_packages_have_recommended_prices()
@@ -76,6 +89,15 @@ class ServiceTest extends TestCase
             $this->assertArrayHasKey('recommended_price', $package);
             $this->assertGreaterThan(0, $package['recommended_price']);
         }
+    }
+
+    public function test_weeklymaintenance_slug_maps_to_general_regular_cleaning()
+    {
+        $this->assertSame('weeklymaintenance', Service::canonicalSlugForName('General/Regular Cleaning'));
+        $this->assertSame('General/Regular Cleaning', Service::displayNameForSlug('weeklymaintenance'));
+        $this->assertEquals(500.0, Service::PACKAGE_CATALOG['weeklymaintenance']['recommended_price']);
+        $this->assertTrue(Service::usesFlatRateRangePricing('weeklymaintenance'));
+        $this->assertSame(['min' => 500.0, 'max' => 800.0], Service::priceRangeForSlug('weeklymaintenance'));
     }
 
     public function test_service_packages_have_features()

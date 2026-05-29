@@ -38,14 +38,15 @@ class ProfileController extends Controller
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
-            'phone' => ['nullable', 'string', 'max:30'],
+            'phone' => ['nullable', 'regex:/^[0-9]{11}$/'],
             'date_of_birth' => ['nullable', 'date'],
             'gender' => ['nullable', 'string', 'max:30'],
             'street' => ['required', 'string', 'max:255'],
             'barangay' => ['required', Rule::in($barangays)],
-            'zip_code' => ['required', 'string', 'max:10'],
             'current_password' => ['nullable', 'string'],
             'new_password' => ['nullable', 'string', 'min:8', 'confirmed'],
+        ], [
+            'phone.regex' => 'Phone number must contain exactly 11 digits.',
         ]);
 
         $user->update([
@@ -56,7 +57,6 @@ class ProfileController extends Controller
             'gender' => $validated['gender'] ?? null,
             'street' => $validated['street'],
             'barangay' => $validated['barangay'],
-            'zip_code' => $validated['zip_code'],
         ]);
 
         if (! empty($validated['new_password'])) {

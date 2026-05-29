@@ -2,6 +2,9 @@
 
 use Illuminate\Support\Facades\Route;
 
+Route::post('/paymongo/webhook', App\Http\Controllers\Api\PaymongoWebhookController::class)
+    ->name('api.paymongo.webhook');
+
 // IoT Device attendance punch - per-device rate limiting with signature validation
 Route::middleware(['rate_limit_per_device'])->group(function () {
     Route::post('/iot/attendance/punch', [App\Http\Controllers\Api\AttendanceController::class, 'punch']);

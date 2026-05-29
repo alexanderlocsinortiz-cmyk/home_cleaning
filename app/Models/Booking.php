@@ -6,11 +6,13 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class Booking extends Model
 {
     use HasFactory;
+
     public const STATUS_TRANSITIONS = [
         'pending' => ['pending', 'confirmed', 'cancelled'],
         'confirmed' => ['confirmed', 'in_progress', 'cancelled'],
@@ -30,6 +32,15 @@ class Booking extends Model
         'confirmed',
         'in_progress',
     ];
+
+    public const STAFF_ASSIGNMENT_CONFLICT_STATUSES = [
+        'pending',
+        'confirmed',
+        'in_progress',
+        'completed',
+    ];
+
+    public const STAFF_REST_MINUTES = 60;
 
     public const MANUAL_REVIEW_STATUSES = [
         'not_required',
@@ -83,10 +94,11 @@ class Booking extends Model
     public const INCLUDED_FLOOR_AREA = 30;
 
     public const FLOOR_AREA_RATES = [
-        'basic' => 8.0,
-        'deep' => 12.0,
-        'moveinout' => 15.0,
-        'postconstruction' => 14.0,
+        'basic' => 35.0,
+        'basic-clean' => 35.0,
+        'deep' => 95.0,
+        'moveinout' => 80.0,
+        'postconstruction' => 105.0,
         'commercial' => 13.0,
         'weeklymaintenance' => 9.0,
     ];
@@ -94,27 +106,27 @@ class Booking extends Model
     public const ADD_ON_CATALOG = [
         'window_glass' => [
             'label' => 'Window Glass Cleaning',
-            'price' => 180.0,
+            'price' => 200.0,
             'description' => 'Interior glass panels and reachable windows.',
         ],
         'refrigerator' => [
             'label' => 'Refrigerator Cleaning',
-            'price' => 250.0,
+            'price' => 350.0,
             'description' => 'Deep wipe-down for the inside of the refrigerator.',
         ],
         'inside_cabinets' => [
             'label' => 'Inside Cabinet Cleaning',
-            'price' => 220.0,
+            'price' => 300.0,
             'description' => 'Interior shelf and cabinet surface cleaning.',
         ],
         'sofa_vacuum' => [
             'label' => 'Sofa Vacuuming',
-            'price' => 300.0,
+            'price' => 400.0,
             'description' => 'Dust and crumb removal for fabric seating.',
         ],
         'pet_hair_removal' => [
             'label' => 'Pet Hair Removal',
-            'price' => 200.0,
+            'price' => 300.0,
             'description' => 'Extra removal for fur on floors, rugs, and furniture.',
         ],
         'eco_friendly_supplies' => [
@@ -135,8 +147,19 @@ class Booking extends Model
         'add_ons',
         'barangay',
         'street_address',
+        'service_latitude',
+        'service_longitude',
         'scheduled_date',
         'scheduled_time',
+        'duration_minutes',
+        'expected_started_at',
+        'expected_completed_at',
+        'started_at',
+        'completed_at',
+        'started_late_minutes',
+        'completed_late_minutes',
+        'on_time_status',
+        'on_time_notes',
         'notes',
         'risk_reasons',
         'manual_review_status',
@@ -156,6 +179,7 @@ class Booking extends Model
         'payment_method',
         'payment_status',
         'payment_reference',
+        'payment_checkout_session_id',
         'paid_at',
         'service_plan',
         'subscription_frequency',
@@ -170,13 +194,26 @@ class Booking extends Model
         'current_latitude',
         'current_longitude',
         'location_updated_at',
+        'daily_room_name',
+        'daily_room_url',
+        'daily_room_expires_at',
+        'live_video_started_at',
+        'live_video_ended_at',
     ];
 
     protected $casts = [
         'add_ons' => 'array',
         'risk_reasons' => 'array',
+        'scheduled_date' => 'date',
         'reviewed_at' => 'datetime',
         'paid_at' => 'datetime',
+        'expected_started_at' => 'datetime',
+        'expected_completed_at' => 'datetime',
+        'started_at' => 'datetime',
+        'completed_at' => 'datetime',
+        'daily_room_expires_at' => 'datetime',
+        'live_video_started_at' => 'datetime',
+        'live_video_ended_at' => 'datetime',
     ];
 
     public function user()
@@ -266,6 +303,11 @@ class Booking extends Model
     public static function scheduleConflictStatuses(): array
     {
         return self::ACTIVE_SCHEDULE_STATUSES;
+    }
+
+    public static function staffAssignmentConflictStatuses(): array
+    {
+        return self::STAFF_ASSIGNMENT_CONFLICT_STATUSES;
     }
 
     public static function manualReviewStatuses(): array
@@ -396,14 +438,41 @@ class Booking extends Model
         return (float) (self::FLOOR_AREA_RATES[$serviceType] ?? 0.0);
     }
 
-    public static function addOnCatalog(): array
+    public static function billableFloorAreaForService(?string $serviceType, int $floorArea): int
     {
-        return self::ADD_ON_CATALOG;
+        $floorArea = max(0, $floorArea);
+
+        if (Service::usesPerSquareMeterPricing($serviceType)) {
+            return $floorArea;
+        }
+
+        if (Service::usesFlatRateRangePricing($serviceType)) {
+            return 0;
+        }
+
+        return max(0, $floorArea - self::includedFloorArea());
+    }
+
+    public static function addOnCatalog(bool $activeOnly = true): array
+    {
+        if (Schema::hasTable('service_add_ons')) {
+            $catalog = ServiceAddOn::catalog($activeOnly);
+
+            if ($catalog !== []) {
+                return $catalog;
+            }
+        }
+
+        return $activeOnly
+            ? self::ADD_ON_CATALOG
+            : collect(self::ADD_ON_CATALOG)
+                ->map(fn (array $addOn) => array_merge($addOn, ['is_active' => true]))
+                ->all();
     }
 
     public static function addOnLabel(string $key): string
     {
-        return self::ADD_ON_CATALOG[$key]['label'] ?? Str::of($key)->replace('_', ' ')->title()->value();
+        return self::addOnCatalog(false)[$key]['label'] ?? Str::of($key)->replace('_', ' ')->title()->value();
     }
 
     public static function normalizeAddOns(mixed $addOns): array
@@ -413,7 +482,7 @@ class Booking extends Model
         }
 
         return collect($addOns)
-            ->filter(fn ($key) => is_string($key) && array_key_exists($key, self::ADD_ON_CATALOG))
+            ->filter(fn ($key) => is_string($key) && array_key_exists($key, self::addOnCatalog()))
             ->unique()
             ->values()
             ->all();
@@ -421,13 +490,20 @@ class Booking extends Model
 
     public static function addOnBreakdown(mixed $addOns): array
     {
-        return collect(self::normalizeAddOns($addOns))
+        $catalog = self::addOnCatalog(false);
+
+        return collect(is_array($addOns) ? $addOns : [])
+            ->filter(fn ($key) => is_string($key) && array_key_exists($key, $catalog))
+            ->unique()
+            ->values()
             ->map(function (string $key) {
+                $catalog = self::addOnCatalog(false);
+
                 return [
                     'key' => $key,
                     'label' => self::addOnLabel($key),
-                    'price' => (float) self::ADD_ON_CATALOG[$key]['price'],
-                    'description' => self::ADD_ON_CATALOG[$key]['description'] ?? '',
+                    'price' => (float) $catalog[$key]['price'],
+                    'description' => $catalog[$key]['description'] ?? '',
                 ];
             })
             ->values()
@@ -441,6 +517,18 @@ class Booking extends Model
             'property_type_labels' => self::PROPERTY_TYPE_LABELS,
             'included_floor_area' => self::includedFloorArea(),
             'floor_area_rates' => self::floorAreaRates(),
+            'per_square_meter_services' => collect(Service::PACKAGE_CATALOG)
+                ->filter(fn (array $package) => ($package['pricing_unit'] ?? null) === 'sqm')
+                ->keys()
+                ->values()
+                ->all(),
+            'flat_rate_range_services' => collect(Service::PACKAGE_CATALOG)
+                ->filter(fn (array $package) => ($package['pricing_unit'] ?? null) === 'flat_range')
+                ->map(fn (array $package) => [
+                    'min' => (float) ($package['price_range']['min'] ?? $package['recommended_price'] ?? 0),
+                    'max' => (float) ($package['price_range']['max'] ?? $package['recommended_price'] ?? 0),
+                ])
+                ->all(),
             'add_ons' => self::addOnCatalog(),
         ];
     }
@@ -462,6 +550,153 @@ class Booking extends Model
             'completed' => in_array($this->status, ['in_progress', 'completed'], true),
             default => false,
         };
+    }
+
+    public function canUseLiveVideo(): bool
+    {
+        return $this->status === 'in_progress' && $this->staff_id !== null;
+    }
+
+    public function dailyRoomIsActive(): bool
+    {
+        return filled($this->daily_room_name)
+            && filled($this->daily_room_url)
+            && $this->daily_room_expires_at
+            && Carbon::parse($this->daily_room_expires_at)->isFuture();
+    }
+
+    public function canAccessLiveVideo(User $user): bool
+    {
+        if (! $this->canUseLiveVideo()) {
+            return false;
+        }
+
+        return match ($user->role) {
+            'admin' => true,
+            'client' => (int) $this->user_id === (int) $user->id,
+            'staff' => (int) $this->staff_id === (int) $user->id,
+            default => false,
+        };
+    }
+
+    public function canManageLiveVideo(User $user): bool
+    {
+        if (! $this->canUseLiveVideo()) {
+            return false;
+        }
+
+        return $user->role === 'admin'
+            || ($user->role === 'staff' && (int) $this->staff_id === (int) $user->id);
+    }
+
+    public function expectedServiceStart(): Carbon
+    {
+        $timezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+
+        return Carbon::parse(self::normalizeScheduleDate($this->scheduled_date).' '.self::normalizeScheduleTime($this->scheduled_time), $timezone)
+            ->utc();
+    }
+
+    public function expectedServiceCompletion(): Carbon
+    {
+        return $this->expectedServiceStart()->copy()->addMinutes((int) ($this->duration_minutes ?: Service::DEFAULT_DURATION_MINUTES));
+    }
+
+    public function setExpectedServiceWindow(): void
+    {
+        $this->expected_started_at = $this->expected_started_at ?: $this->expectedServiceStart();
+        $this->expected_completed_at = $this->expected_completed_at ?: $this->expectedServiceCompletion();
+        $this->on_time_status = $this->on_time_status ?: 'not_started';
+    }
+
+    public function markServiceStarted(?Carbon $startedAt = null): void
+    {
+        $this->setExpectedServiceWindow();
+        $this->started_at = $this->started_at ?: ($startedAt ?: now());
+        $this->refreshTimelinessStatus();
+    }
+
+    public function markServiceCompleted(?Carbon $completedAt = null): void
+    {
+        $this->setExpectedServiceWindow();
+        $this->started_at = $this->started_at ?: ($this->expected_started_at ?: now());
+        $this->completed_at = $this->completed_at ?: ($completedAt ?: now());
+        $this->refreshTimelinessStatus();
+    }
+
+    public function refreshTimelinessStatus(): void
+    {
+        $expectedStartedAt = $this->expected_started_at ? Carbon::parse($this->expected_started_at) : $this->expectedServiceStart();
+        $expectedCompletedAt = $this->expected_completed_at ? Carbon::parse($this->expected_completed_at) : $this->expectedServiceCompletion();
+        $startedAt = $this->started_at ? Carbon::parse($this->started_at) : null;
+        $completedAt = $this->completed_at ? Carbon::parse($this->completed_at) : null;
+
+        $this->started_late_minutes = $startedAt && $startedAt->gt($expectedStartedAt)
+            ? $expectedStartedAt->diffInMinutes($startedAt)
+            : 0;
+        $this->completed_late_minutes = $completedAt && $completedAt->gt($expectedCompletedAt)
+            ? $expectedCompletedAt->diffInMinutes($completedAt)
+            : 0;
+
+        $this->on_time_status = match (true) {
+            ! $startedAt => 'not_started',
+            $completedAt && $this->started_late_minutes > 0 && $this->completed_late_minutes > 0 => 'late',
+            $completedAt && $this->completed_late_minutes > 0 => 'completed_late',
+            $this->started_late_minutes > 0 => 'started_late',
+            default => 'on_time',
+        };
+
+        $this->on_time_notes = $this->timelinessSummary();
+    }
+
+    public function timelinessLabel(): string
+    {
+        return match ($this->on_time_status) {
+            'on_time' => 'On Time',
+            'started_late' => 'Started Late',
+            'completed_late' => 'Completed Late',
+            'late' => 'Started and Completed Late',
+            'not_started' => 'Not Started',
+            default => 'Not Tracked',
+        };
+    }
+
+    public function timelinessBadgeClass(): string
+    {
+        return match ($this->on_time_status) {
+            'on_time' => 'bg-green-100 text-green-800',
+            'started_late' => 'bg-amber-100 text-amber-800',
+            'completed_late', 'late' => 'bg-red-100 text-red-700',
+            'not_started' => 'bg-slate-100 text-slate-600',
+            default => 'bg-slate-100 text-slate-500',
+        };
+    }
+
+    public function timelinessSummary(): string
+    {
+        if (! $this->started_at) {
+            return 'Service has not started yet.';
+        }
+
+        if (! $this->completed_at) {
+            return $this->started_late_minutes > 0
+                ? 'Started '.$this->started_late_minutes.' minutes late.'
+                : 'Started on time.';
+        }
+
+        if ($this->started_late_minutes === 0 && $this->completed_late_minutes === 0) {
+            return 'Started and completed on time.';
+        }
+
+        if ($this->started_late_minutes > 0 && $this->completed_late_minutes > 0) {
+            return 'Started '.$this->started_late_minutes.' minutes late and completed '.$this->completed_late_minutes.' minutes late.';
+        }
+
+        if ($this->completed_late_minutes > 0) {
+            return 'Completed '.$this->completed_late_minutes.' minutes late.';
+        }
+
+        return 'Started '.$this->started_late_minutes.' minutes late but completed within the expected window.';
     }
 
     public static function normalizeScheduleDate(mixed $scheduledDate): string
@@ -609,25 +844,121 @@ class Booking extends Model
         int $staffId,
         mixed $scheduledDate,
         mixed $scheduledTime,
-        ?int $exceptBookingId = null
+        ?int $exceptBookingId = null,
+        ?int $targetDurationMinutes = null
     ): bool {
-        return self::scheduleConflictQuery($scheduledDate, $scheduledTime, $exceptBookingId)
-            ->where('staff_id', $staffId)
-            ->exists();
+        return self::conflictingStaffBooking($staffId, $scheduledDate, $scheduledTime, $exceptBookingId, $targetDurationMinutes) !== null;
     }
 
     public static function busyStaffIdsForSchedule(
         mixed $scheduledDate,
         mixed $scheduledTime,
-        ?int $exceptBookingId = null
+        ?int $exceptBookingId = null,
+        ?int $targetDurationMinutes = null
     ): array {
-        return self::scheduleConflictQuery($scheduledDate, $scheduledTime, $exceptBookingId)
+        return self::busyStaffIdsForAssignment($scheduledDate, $scheduledTime, $exceptBookingId, $targetDurationMinutes);
+    }
+
+    public static function busyStaffIdsForAssignment(
+        mixed $scheduledDate,
+        mixed $scheduledTime,
+        ?int $exceptBookingId = null,
+        ?int $targetDurationMinutes = null
+    ): array {
+        return self::query()
+            ->whereIn('status', self::staffAssignmentConflictStatuses())
             ->whereNotNull('staff_id')
+            ->whereDate('scheduled_date', self::normalizeScheduleDate($scheduledDate))
+            ->when(
+                $exceptBookingId !== null,
+                fn (Builder $query) => $query->where('id', '!=', $exceptBookingId)
+            )
+            ->get(['id', 'staff_id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'status', 'updated_at'])
+            ->filter(fn (Booking $booking) => self::staffBookingConflictsWithSchedule($booking, $scheduledDate, $scheduledTime, $targetDurationMinutes))
             ->pluck('staff_id')
             ->map(fn ($staffId) => (int) $staffId)
             ->unique()
             ->values()
             ->all();
+    }
+
+    public static function conflictingStaffBooking(
+        int $staffId,
+        mixed $scheduledDate,
+        mixed $scheduledTime,
+        ?int $exceptBookingId = null,
+        ?int $targetDurationMinutes = null
+    ): ?self {
+        return self::query()
+            ->where('staff_id', $staffId)
+            ->whereIn('status', self::staffAssignmentConflictStatuses())
+            ->whereDate('scheduled_date', self::normalizeScheduleDate($scheduledDate))
+            ->when(
+                $exceptBookingId !== null,
+                fn (Builder $query) => $query->where('id', '!=', $exceptBookingId)
+            )
+            ->get(['id', 'staff_id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'status', 'updated_at'])
+            ->first(fn (Booking $booking) => self::staffBookingConflictsWithSchedule($booking, $scheduledDate, $scheduledTime, $targetDurationMinutes));
+    }
+
+    public static function staffBookingConflictsWithSchedule(
+        Booking $existingBooking,
+        mixed $scheduledDate,
+        mixed $scheduledTime,
+        ?int $targetDurationMinutes = null
+    ): bool {
+        if (self::normalizeScheduleDate($existingBooking->scheduled_date) !== self::normalizeScheduleDate($scheduledDate)) {
+            return false;
+        }
+
+        if ($existingBooking->status === 'completed') {
+            $restStart = $existingBooking->updated_at
+                ? Carbon::parse($existingBooking->updated_at)
+                : self::assignmentWindowStart($existingBooking->scheduled_date, $existingBooking->scheduled_time);
+            $restEnd = $restStart->copy()->addMinutes(self::STAFF_REST_MINUTES);
+            $targetStart = self::assignmentWindowStart($scheduledDate, $scheduledTime);
+            $targetEnd = self::assignmentWindowEnd($scheduledDate, $scheduledTime, $targetDurationMinutes);
+
+            return $targetStart->lt($restEnd) && $restStart->lt($targetEnd);
+        }
+
+        return self::assignmentWindowsOverlap(
+            $scheduledDate,
+            $scheduledTime,
+            $targetDurationMinutes,
+            $existingBooking->scheduled_date,
+            $existingBooking->scheduled_time,
+            (int) ($existingBooking->duration_minutes ?: Service::durationForSlug($existingBooking->service_type))
+        );
+    }
+
+    public static function assignmentWindowStart(mixed $scheduledDate, mixed $scheduledTime): Carbon
+    {
+        return Carbon::parse(self::normalizeScheduleDate($scheduledDate).' '.self::normalizeScheduleTime($scheduledTime));
+    }
+
+    public static function assignmentWindowEnd(mixed $scheduledDate, mixed $scheduledTime, ?int $durationMinutes = null): Carbon
+    {
+        $durationMinutes = max(1, (int) ($durationMinutes ?: Service::DEFAULT_DURATION_MINUTES));
+
+        return self::assignmentWindowStart($scheduledDate, $scheduledTime)
+            ->addMinutes($durationMinutes + self::STAFF_REST_MINUTES);
+    }
+
+    public static function assignmentWindowsOverlap(
+        mixed $leftDate,
+        mixed $leftTime,
+        ?int $leftDurationMinutes,
+        mixed $rightDate,
+        mixed $rightTime,
+        ?int $rightDurationMinutes = null
+    ): bool {
+        $leftStart = self::assignmentWindowStart($leftDate, $leftTime);
+        $leftEnd = self::assignmentWindowEnd($leftDate, $leftTime, $leftDurationMinutes);
+        $rightStart = self::assignmentWindowStart($rightDate, $rightTime);
+        $rightEnd = self::assignmentWindowEnd($rightDate, $rightTime, $rightDurationMinutes);
+
+        return $leftStart->lt($rightEnd) && $rightStart->lt($leftEnd);
     }
 
     public static function calculatePrice(
@@ -642,20 +973,27 @@ class Booking extends Model
         $basePrice = $basePrice !== null
             ? (float) $basePrice
             : match ($serviceType) {
-                'basic' => 500.0,
-                'deep' => 1200.0,
-                'moveinout' => 2000.0,
-                'postconstruction' => 1800.0,
+                'basic', 'basic-clean' => 35.0,
+                'deep' => 95.0,
+                'moveinout' => 80.0,
+                'postconstruction' => 105.0,
                 'commercial' => 1600.0,
-                'weeklymaintenance' => 900.0,
+                'weeklymaintenance' => 500.0,
                 default => 0.0,
             };
-        $propertyFee = (float) (self::PROPERTY_FEES[$propertyType] ?? 0.0);
-        $roomsFee = max(0, ((int) $rooms) - 1) * 50;
-        $bathroomsFee = max(0, ((int) $bathrooms) - 1) * 100;
+        $isPerSquareMeter = Service::usesPerSquareMeterPricing($serviceType);
+        $isFlatRateRange = Service::usesFlatRateRangePricing($serviceType);
+        if ($isFlatRateRange) {
+            $range = Service::priceRangeForSlug($serviceType);
+            $basePrice = ((int) $rooms) >= 3 ? (float) ($range['max'] ?? $basePrice) : (float) ($range['min'] ?? $basePrice);
+        }
+        $basePrice = $isPerSquareMeter ? 0.0 : $basePrice;
+        $propertyFee = $isFlatRateRange ? 0.0 : (float) (self::PROPERTY_FEES[$propertyType] ?? 0.0);
+        $roomsFee = $isFlatRateRange ? 0.0 : max(0, ((int) $rooms) - 1) * 50;
+        $bathroomsFee = $isFlatRateRange ? 0.0 : max(0, ((int) $bathrooms) - 1) * 100;
         $floorArea = max(0, (int) $floorArea);
         $includedFloorArea = self::includedFloorArea();
-        $billableFloorArea = max(0, $floorArea - $includedFloorArea);
+        $billableFloorArea = $isFlatRateRange ? 0 : self::billableFloorAreaForService($serviceType, $floorArea);
         $floorAreaRate = self::floorAreaRateForService($serviceType);
         $floorAreaFee = $billableFloorArea * $floorAreaRate;
         $addOnBreakdown = self::addOnBreakdown($addOns);

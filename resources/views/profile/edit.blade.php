@@ -79,7 +79,7 @@
                             </div>
                             <div>
                                 <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Phone</label>
-                                <input type="text" name="phone" value="{{ old('phone', $user->phone) }}" placeholder="09XXXXXXXXX" class="client-profile-input">
+                                <input type="text" name="phone" value="{{ old('phone', $user->phone) }}" placeholder="09XXXXXXXXX" inputmode="numeric" pattern="[0-9]{11}" maxlength="11" class="client-profile-input">
                             </div>
                             <div>
                                 <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Birthday</label>
@@ -113,20 +113,14 @@
                                 <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Street</label>
                                 <input type="text" name="street" value="{{ old('street', $user->street) }}" required class="client-profile-input">
                             </div>
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <div>
-                                    <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Barangay</label>
-                                    <select name="barangay" required class="client-profile-input">
-                                        <option value="">Select barangay</option>
-                                        @foreach($barangays as $value => $label)
-                                            <option value="{{ $value }}" {{ $currentBarangay === $value ? 'selected' : '' }}>{{ $label }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">ZIP Code</label>
-                                    <input type="text" name="zip_code" value="{{ old('zip_code', $user->zip_code) }}" required class="client-profile-input">
-                                </div>
+                            <div>
+                                <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Barangay</label>
+                                <select name="barangay" required class="client-profile-input">
+                                    <option value="">Select barangay</option>
+                                    @foreach($barangays as $value => $label)
+                                        <option value="{{ $value }}" {{ $currentBarangay === $value ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                         </div>
                     </div>

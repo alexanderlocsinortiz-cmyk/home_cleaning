@@ -13,13 +13,13 @@ class DeviceTokenSecurityTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->tokenService = new DeviceTokenService();
+        $this->tokenService = new DeviceTokenService;
     }
 
     /**
      * Test that device tokens are hashed and not stored in plaintext
      */
-    public function testTokenIsHashedBeforeStorage(): void
+    public function test_token_is_hashed_before_storage(): void
     {
         $plainToken = 'TEST-TOKEN-12345';
         $hashedToken = $this->tokenService->hashToken($plainToken);
@@ -38,16 +38,16 @@ class DeviceTokenSecurityTest extends TestCase
     /**
      * Test token expiration logic
      */
-    public function testTokenExpirationChecking(): void
+    public function test_token_expiration_checking(): void
     {
         // Create mock device with expired token
-        $device = new Device();
+        $device = new Device;
         $device->token_expires_at = now()->subMinutes(30);
 
         $this->assertTrue($device->isTokenExpired());
 
         // Create mock device with valid token
-        $device2 = new Device();
+        $device2 = new Device;
         $device2->token_expires_at = now()->addDays(7);
 
         $this->assertFalse($device2->isTokenExpired());
@@ -56,18 +56,18 @@ class DeviceTokenSecurityTest extends TestCase
     /**
      * Test signature validation with correct HMAC-SHA256
      */
-    public function testSignatureValidationSuccess(): void
+    public function test_signature_validation_success(): void
     {
         $timestamp = (string) time();
         $body = json_encode(['punch_type' => 'in', 'user_id' => 123]);
         $secret = 'secret-key-xyz';
 
         // Create signature as device would
-        $dataToSign = $timestamp . $body;
+        $dataToSign = $timestamp.$body;
         $signature = hash_hmac('sha256', $dataToSign, $secret);
 
         // Create mock device
-        $device = new Device();
+        $device = new Device;
         $device->secret_key = $secret;
 
         // Validate should succeed
@@ -84,7 +84,7 @@ class DeviceTokenSecurityTest extends TestCase
     /**
      * Test signature validation fails with tampered body
      */
-    public function testSignatureValidationFailsWithTamperedData(): void
+    public function test_signature_validation_fails_with_tampered_data(): void
     {
         $timestamp = (string) time();
         $body = json_encode(['punch_type' => 'in', 'user_id' => 123]);
@@ -92,11 +92,11 @@ class DeviceTokenSecurityTest extends TestCase
         $secret = 'secret-key-xyz';
 
         // Create signature for original body
-        $dataToSign = $timestamp . $body;
+        $dataToSign = $timestamp.$body;
         $signature = hash_hmac('sha256', $dataToSign, $secret);
 
         // Create mock device
-        $device = new Device();
+        $device = new Device;
         $device->secret_key = $secret;
 
         // Validate should fail because body was changed
@@ -113,18 +113,18 @@ class DeviceTokenSecurityTest extends TestCase
     /**
      * Test signature validation fails with expired timestamp
      */
-    public function testSignatureValidationFailsWithExpiredTimestamp(): void
+    public function test_signature_validation_fails_with_expired_timestamp(): void
     {
         $oldTimestamp = (string) (time() - 400);  // 400 seconds ago (beyond 5 min window)
         $body = json_encode(['punch_type' => 'in']);
         $secret = 'secret-key-xyz';
 
         // Create valid signature
-        $dataToSign = $oldTimestamp . $body;
+        $dataToSign = $oldTimestamp.$body;
         $signature = hash_hmac('sha256', $dataToSign, $secret);
 
         // Create mock device
-        $device = new Device();
+        $device = new Device;
         $device->secret_key = $secret;
 
         // Validate should fail due to old timestamp
@@ -141,7 +141,7 @@ class DeviceTokenSecurityTest extends TestCase
     /**
      * Test that token verification uses constant-time comparison
      */
-    public function testTokenVerificationIsConstantTime(): void
+    public function test_token_verification_is_constant_time(): void
     {
         $plainToken = 'correct-token';
         $hashedToken = $this->tokenService->hashToken($plainToken);
@@ -159,7 +159,7 @@ class DeviceTokenSecurityTest extends TestCase
     /**
      * Test token pair generation creates both access and refresh tokens
      */
-    public function testTokenPairGeneration(): void
+    public function test_token_pair_generation(): void
     {
         $tokenPair = $this->tokenService->generateTokenPair();
 
@@ -181,16 +181,16 @@ class DeviceTokenSecurityTest extends TestCase
     /**
      * Test replay attack prevention with 5-minute window
      */
-    public function testReplayAttackPrevention(): void
+    public function test_replay_attack_prevention(): void
     {
         $timestamp = (string) (time() - 400);  // 400 seconds ago
         $body = json_encode(['punch_type' => 'in']);
         $secret = 'secret-key-xyz';
 
-        $dataToSign = $timestamp . $body;
+        $dataToSign = $timestamp.$body;
         $signature = hash_hmac('sha256', $dataToSign, $secret);
 
-        $device = new Device();
+        $device = new Device;
         $device->secret_key = $secret;
 
         // Attack attempt with old timestamp should be rejected

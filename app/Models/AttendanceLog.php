@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class AttendanceLog extends Model
 {
     use HasFactory;
+
     protected $fillable = [
         'staff_id',
         'user_id',
@@ -42,4 +43,3 @@ class AttendanceLog extends Model
         return $this->belongsTo(Device::class);
     }
 }
-

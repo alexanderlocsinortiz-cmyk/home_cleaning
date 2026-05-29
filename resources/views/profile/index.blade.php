@@ -6,8 +6,8 @@
     $birthday = optional($user->date_of_birth)->format('M d, Y') ?: 'Not set';
     $gender = $user->gender ? ucfirst(str_replace('_', ' ', $user->gender)) : 'Not set';
     $barangayLabel = $user->barangay ? ($barangays[$user->barangay] ?? $user->barangay) : 'Not set';
-    $address = $user->street && $user->barangay && $user->zip_code
-        ? $user->street . ', ' . ($barangays[$user->barangay] ?? $user->barangay) . ', ' . $user->city . ' ' . $user->zip_code
+    $address = $user->street && $user->barangay
+        ? $user->street . ', ' . ($barangays[$user->barangay] ?? $user->barangay) . ', ' . $user->city
         : 'Not set';
     $isVerified = ! is_null($user->email_verified_at);
 @endphp

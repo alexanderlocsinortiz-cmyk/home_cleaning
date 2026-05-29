@@ -82,7 +82,7 @@ class AnalyticsController extends Controller
 
         return response($csv, 200)
             ->header('Content-Type', 'text/csv')
-            ->header('Content-Disposition', 'attachment; filename="analytics_' . now()->timestamp . '.csv"');
+            ->header('Content-Disposition', 'attachment; filename="analytics_'.now()->timestamp.'.csv"');
     }
 
     private function resolveDateRange(): int

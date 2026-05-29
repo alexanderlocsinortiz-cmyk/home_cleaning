@@ -179,7 +179,7 @@
                 <div class="flex flex-col gap-3 sm:flex-row">
                     <button
                         type="submit"
-                        class="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-200/70 transition hover:-translate-y-0.5 hover:bg-primary-dark"
+                        class="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-200/70 transition hover:-translate-y-0.5 hover:bg-blue-700"
                     >
                         <i class="fas fa-floppy-disk text-xs"></i>
                         Save changes
@@ -197,7 +197,7 @@
             <aside class="space-y-6 xl:sticky xl:top-28">
                 <section class="cleanflow-panel p-6">
                     <div class="mb-5 flex items-center gap-3">
-                        <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-600 text-sm font-bold text-white shadow-md">
+                        <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-sm font-bold text-white shadow-md">
                             {{ $initials }}
                         </div>
                         <div>
@@ -207,7 +207,7 @@
                     </div>
 
                     <div class="rounded-3xl border border-slate-100 bg-slate-50/90 p-5 text-center">
-                        <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary-600 text-2xl font-black text-white shadow-lg">
+                        <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-600 text-2xl font-black text-white shadow-lg">
                             {{ $initials }}
                         </div>
                         <div class="mt-4 text-lg font-bold text-slate-900">{{ $user->display_name }}</div>
@@ -237,9 +237,9 @@
                     </div>
                 </section>
 
-                <section class="cleanflow-panel border border-accent-100 bg-accent-50/80 p-6">
+                <section class="cleanflow-panel border border-amber-100 bg-amber-50/80 p-6">
                     <div class="mb-4 flex items-center gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-accent-600 shadow-sm">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-sm">
                             <i class="fas fa-lightbulb text-base"></i>
                         </div>
                         <div>

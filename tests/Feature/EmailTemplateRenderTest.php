@@ -50,7 +50,7 @@ class EmailTemplateRenderTest extends TestCase
             'subject' => 'Booking Update - Home Cleaning Service',
             'message' => 'Your booking has a new status update.',
             'type' => 'booking_status',
-            'link' => url('/bookings/' . $booking->id),
+            'link' => url('/bookings/'.$booking->id),
             'sent_at' => now(),
         ]);
 
@@ -65,8 +65,8 @@ class EmailTemplateRenderTest extends TestCase
         $this->assertStringContainsString('Your booking has a new status update.', $quickNotificationMarkup);
         $this->assertStringContainsString('Verify Your Email', $verifyEmailMarkup);
         $this->assertStringContainsString('123456', $verifyEmailMarkup);
-        $this->assertStringNotContainsString('ð', $quickNotificationMarkup . $verifyEmailMarkup);
-        $this->assertStringNotContainsString('â', $quickNotificationMarkup . $verifyEmailMarkup);
+        $this->assertStringNotContainsString('ð', $quickNotificationMarkup.$verifyEmailMarkup);
+        $this->assertStringNotContainsString('â', $quickNotificationMarkup.$verifyEmailMarkup);
     }
 
     /**

@@ -15,7 +15,7 @@ class AttendanceEnrollmentFlowTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_create_a_fingerprint_enrollment_request_from_the_attendance_page(): void
+    public function test_admin_sends_fingerprint_terms_before_enrollment_can_continue(): void
     {
         $admin = $this->createUser('admin', 'admin-enroll@example.com', 'adminenroll');
         $staff = $this->createUser('staff', 'staff-enroll@example.com', 'staffenroll');
@@ -33,7 +33,56 @@ class AttendanceEnrollmentFlowTest extends TestCase
             'user_id' => $staff->id,
             'requested_by' => $admin->id,
             'template_id' => 7,
-            'status' => 'pending',
+            'status' => 'awaiting_consent',
+        ]);
+
+        $enrollmentRequest = DeviceEnrollmentRequest::where('user_id', $staff->id)->firstOrFail();
+        $this->assertNotNull($enrollmentRequest->consent_token);
+        $this->assertNotNull($enrollmentRequest->consent_requested_at);
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $staff->id,
+            'title' => 'Fingerprint enrollment consent required',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.attendance.enrollments.continue', $enrollmentRequest))
+            ->assertSessionHasErrors('enrollment');
+
+        $this->actingAs($staff)
+            ->post(route('staff.fingerprint-consent.accept', $enrollmentRequest), [
+                'accept_terms' => '1',
+            ])
+            ->assertRedirect(route('staff.fingerprint-consent.show', $enrollmentRequest));
+
+        $this->assertSame('consent_accepted', $enrollmentRequest->fresh()->status);
+        $this->assertNotNull($enrollmentRequest->fresh()->consent_accepted_at);
+
+        $this->actingAs($admin)
+            ->post(route('admin.attendance.enrollments.continue', $enrollmentRequest))
+            ->assertRedirect(route('admin.attendance'));
+
+        $this->assertSame('pending', $enrollmentRequest->fresh()->status);
+    }
+
+    public function test_device_cannot_fetch_enrollment_before_staff_consent_and_admin_continue(): void
+    {
+        $staff = $this->createUser('staff', 'staff-consent-fetch@example.com', 'staffconsentfetch');
+        $device = $this->createDevice('ESP32-CONSENT-FETCH', str_repeat('a', 64));
+
+        DeviceEnrollmentRequest::create([
+            'device_id' => $device->id,
+            'user_id' => $staff->id,
+            'template_id' => 8,
+            'status' => 'awaiting_consent',
+        ]);
+
+        $response = $this->withHeaders([
+            ...$this->signedDeviceHeaders($device, 'GET', '/api/iot/device/enrollment/next'),
+        ])->getJson('/api/iot/device/enrollment/next');
+
+        $response->assertOk()->assertJson([
+            'has_request' => false,
         ]);
     }
 

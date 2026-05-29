@@ -20,10 +20,10 @@
 @php
     $statusConfig = [
         'pending' => ['label' => 'Pending', 'badge' => 'bg-amber-100 text-amber-700', 'bar' => 'bg-amber-500', 'icon' => 'fa-hourglass-half'],
-        'confirmed' => ['label' => 'Confirmed', 'badge' => 'bg-accent-50 text-accent-700', 'bar' => 'bg-accent-500', 'icon' => 'fa-calendar-check'],
-        'in_progress' => ['label' => 'In Progress', 'badge' => 'bg-primary-100 text-primary-700', 'bar' => 'bg-primary-500', 'icon' => 'fa-soap'],
-        'completed' => ['label' => 'Completed', 'badge' => 'bg-accent-100 text-accent-800', 'bar' => 'bg-accent-600', 'icon' => 'fa-circle-check'],
-        'cancelled' => ['label' => 'Cancelled', 'badge' => 'bg-danger-100 text-danger-700', 'bar' => 'bg-danger-600', 'icon' => 'fa-ban'],
+        'confirmed' => ['label' => 'Confirmed', 'badge' => 'bg-blue-50 text-blue-700', 'bar' => 'bg-blue-500', 'icon' => 'fa-calendar-check'],
+        'in_progress' => ['label' => 'In Progress', 'badge' => 'bg-teal-100 text-teal-700', 'bar' => 'bg-teal-500', 'icon' => 'fa-soap'],
+        'completed' => ['label' => 'Completed', 'badge' => 'bg-emerald-100 text-emerald-700', 'bar' => 'bg-emerald-600', 'icon' => 'fa-circle-check'],
+        'cancelled' => ['label' => 'Cancelled', 'badge' => 'bg-red-100 text-red-700', 'bar' => 'bg-red-600', 'icon' => 'fa-ban'],
     ];
     $sc = $statusConfig[$booking->status] ?? ['label' => 'Unknown', 'badge' => 'bg-slate-100 text-slate-700', 'bar' => 'bg-slate-500', 'icon' => 'fa-circle-question'];
     $bookingCode = 'CF-' . str_pad($booking->id, 5, '0', STR_PAD_LEFT);
@@ -35,14 +35,16 @@
     $selectedAddOns = \App\Models\Booking::addOnBreakdown($booking->add_ons ?? []);
     $includedFloorArea = \App\Models\Booking::includedFloorArea();
     $floorArea = (int) ($booking->floor_area ?? 0);
-    $billableFloorArea = max(0, $floorArea - $includedFloorArea);
+    $isPerSquareMeterService = \App\Models\Service::usesPerSquareMeterPricing($booking->service_type);
+    $isFlatRateRangeService = \App\Models\Service::usesFlatRateRangePricing($booking->service_type);
+    $billableFloorArea = \App\Models\Booking::billableFloorAreaForService($booking->service_type, $floorArea);
     $floorAreaRate = \App\Models\Booking::floorAreaRateForService($booking->service_type);
     $paymentMethodLabel = \App\Models\Booking::paymentMethodLabel($booking->payment_method);
     $paymentStatusLabel = \App\Models\Booking::paymentStatusLabel($booking->payment_status);
     $servicePlanLabel = \App\Models\Booking::servicePlanLabel($booking->service_plan);
     $subscriptionSummary = $booking->subscriptionSummary();
     $paymentStatusClasses = [
-        'paid' => 'bg-accent-100 text-accent-800',
+        'paid' => 'bg-emerald-100 text-emerald-700',
         'pending' => 'bg-amber-100 text-amber-700',
     ];
     $staffInitials = $booking->staff
@@ -52,11 +54,12 @@
     $afterProofs = $booking->serviceProofs->where('stage', 'after')->where('media_type', 'image')->values();
     $completionVideos = $booking->serviceProofs->where('stage', 'after')->where('media_type', 'video')->values();
     $activityLogs = $booking->activityLogs;
-    $bookingMessages = $booking->messages;
-    $canSendBookingMessage = $booking->staff_id && (
-        ($isClient && (int) $booking->user_id === (int) $viewer->id)
-        || ($isStaff && (int) $booking->staff_id === (int) $viewer->id)
-    );
+    $directionsDestination = ($booking->service_latitude && $booking->service_longitude)
+        ? $booking->service_latitude . ',' . $booking->service_longitude
+        : $booking->street_address . ', ' . ucfirst($booking->barangay) . ', Valencia City, Bukidnon';
+    $directionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' . urlencode($directionsDestination);
+    $canOpenLiveVideo = $booking->canAccessLiveVideo($viewer) && (! $isClient || $booking->dailyRoomIsActive());
+    $liveVideoLabel = $isClient ? 'Watch Live Video' : 'Open Live Video';
 @endphp
 
 <div class="cleanflow-page-shell min-h-[calc(100vh-81px)] px-6 py-8">
@@ -117,18 +120,26 @@
                         Scheduled for {{ $scheduledDate->format('F d, Y') }} at {{ $scheduledTime->format('h:i A') }}
                     </p>
                 </div>
-                <a href="{{ $backUrl }}" class="cleanflow-ghost-button self-start lg:self-auto">
-                <i class="fa-solid fa-arrow-left"></i>
-                {{ $backLabel }}
-                </a>
+                <div class="flex flex-wrap gap-3 self-start lg:self-auto">
+                    @if($canOpenLiveVideo)
+                    <a href="{{ route('bookings.live-video', $booking) }}" class="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-blue-700 shadow-lg transition hover:bg-blue-50">
+                        <i class="fa-solid fa-video"></i>
+                        {{ $liveVideoLabel }}
+                    </a>
+                    @endif
+                    <a href="{{ $backUrl }}" class="cleanflow-ghost-button">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    {{ $backLabel }}
+                    </a>
+                </div>
             </div>
         </div>
 
         <div class="booking-show-summary-grid mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div class="cleanflow-panel border-l-4 border-primary-300 bg-primary-50/80 p-5">
-                <div class="text-xs font-semibold uppercase tracking-[0.18em] text-primary-700">Current Status</div>
+            <div class="cleanflow-panel border-l-4 border-blue-300 bg-blue-50/80 p-5">
+                <div class="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">Current Status</div>
                 <div class="mt-3 flex items-center gap-3">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-primary-600 shadow-sm">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
                         <i class="fa-solid {{ $sc['icon'] }}"></i>
                     </div>
                     <div>
@@ -151,10 +162,10 @@
                 </div>
             </div>
 
-            <div class="cleanflow-panel border-l-4 border-accent-300 bg-accent-50/80 p-5">
-                <div class="text-xs font-semibold uppercase tracking-[0.18em] text-accent-700">Assigned Cleaner</div>
+            <div class="cleanflow-panel border-l-4 border-blue-300 bg-blue-50/80 p-5">
+                <div class="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">Assigned Cleaner</div>
                 <div class="mt-3 flex items-center gap-3">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-accent-600 shadow-sm">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
                         <i class="fa-solid fa-user-check"></i>
                     </div>
                     <div>
@@ -178,7 +189,7 @@
             </div>
         </div>
 
-        <div class="booking-show-grid grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div class="booking-show-grid grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div class="space-y-6">
                 <div class="detail-card cleanflow-panel overflow-hidden">
                     <div class="{{ $sc['bar'] }} px-6 py-4 text-white">
@@ -263,6 +274,12 @@
                                 </div>
                                 <div class="text-base font-semibold text-slate-900">{{ $booking->street_address }}</div>
                                 <div class="mt-1 text-sm text-slate-500">{{ ucfirst($booking->barangay) }}, Valencia City</div>
+                                @if($isStaff)
+                                <a href="{{ $directionsUrl }}" target="_blank" rel="noopener" class="mt-4 inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-100">
+                                    <i class="fa-solid fa-route"></i>
+                                    Get Directions
+                                </a>
+                                @endif
                             </div>
 
                             <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
@@ -338,7 +355,7 @@
 
                     @if($booking->staff)
                     <div class="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:flex-row sm:items-center">
-                        <div class="flex h-14 w-14 items-center justify-center rounded-full bg-primary-600 text-sm font-bold text-white shadow-sm">
+                        <div class="flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">
                             {{ $staffInitials }}
                         </div>
                         <div class="flex-1">
@@ -516,7 +533,7 @@
                     </div>
 
                     <div id="map-container" class="hidden space-y-4">
-                        <div id="arrival-status" class="hidden rounded-xl border border-green-200 bg-green-50 p-4">
+                        <div id="arrival-status" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                             <div class="flex items-center gap-2.5">
                                 <span class="text-[22px] text-emerald-600"><i class="fa-solid fa-route"></i></span>
                                 <div>
@@ -535,7 +552,7 @@
                     </div>
 
                     <div id="map-container" class="hidden space-y-4">
-                        <div id="arrival-status" class="hidden rounded-xl border border-green-200 bg-green-50 p-4">
+                        <div id="arrival-status" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                             <div class="flex items-center gap-2.5">
                                 <span class="text-[22px] text-emerald-600"><i class="fa-solid fa-route"></i></span>
                                 <div>
@@ -715,77 +732,6 @@
                     @endif
                 </div>
 
-                <div id="booking-messages" class="detail-card cleanflow-panel p-5">
-                    <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                            <h2 class="text-lg font-semibold text-slate-900">Booking Messages</h2>
-                            <p class="text-sm text-slate-500">Conversation between the client and the assigned cleaner for this booking.</p>
-                        </div>
-                        <span class="self-start rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            {{ $bookingMessages->count() }} message{{ $bookingMessages->count() === 1 ? '' : 's' }}
-                        </span>
-                    </div>
-
-                    @if(! $booking->staff_id)
-                    <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-8 text-sm text-slate-500">
-                        Messaging will become available after a cleaner is assigned to this booking.
-                    </div>
-                    @else
-                    <div class="max-h-[360px] space-y-4 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                        @forelse($bookingMessages as $message)
-                        @php
-                            $sentByViewer = (int) $message->sender_id === (int) $viewer->id;
-                            $senderRole = ucfirst($message->sender?->role ?? 'User');
-                        @endphp
-                        <div class="flex {{ $sentByViewer ? 'justify-end' : 'justify-start' }}">
-                            <div class="max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow-sm {{ $sentByViewer ? 'bg-emerald-600 text-white' : 'border border-slate-200 bg-white text-slate-700' }}">
-                                <div class="mb-1 text-[11px] font-semibold uppercase tracking-wide {{ $sentByViewer ? 'text-white/75' : 'text-slate-400' }}">
-                                    {{ $message->sender?->display_name ?? 'Unknown user' }} &bull; {{ $senderRole }}
-                                </div>
-                                <div class="leading-6">{{ $message->message }}</div>
-                                <div class="mt-2 text-[11px] {{ $sentByViewer ? 'text-white/65' : 'text-slate-400' }}">
-                                    {{ $message->created_at->format('M d, Y h:i A') }}
-                                </div>
-                            </div>
-                        </div>
-                        @empty
-                        <div class="px-4 py-8 text-center text-sm text-slate-500">
-                            No messages yet. Use this area for booking-related coordination only.
-                        </div>
-                        @endforelse
-                    </div>
-
-                    @if($canSendBookingMessage)
-                    <form action="{{ route('bookings.messages.store', $booking) }}" method="POST" class="mt-4">
-                        @csrf
-                        <label for="booking-message" class="mb-2 block text-sm font-semibold text-slate-700">Send Message</label>
-                        <textarea
-                            id="booking-message"
-                            name="message"
-                            rows="3"
-                            maxlength="1000"
-                            required
-                            class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-hidden transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-                            placeholder="Write a message about this booking...">{{ old('message') }}</textarea>
-                        <div class="mt-3 flex justify-end">
-                            <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700">
-                                <i class="fa-solid fa-paper-plane"></i>
-                                Send Message
-                            </button>
-                        </div>
-                    </form>
-                    @elseif($isAdmin)
-                    <div class="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500">
-                        Admin users can review the conversation but cannot send messages in the client-staff thread.
-                    </div>
-                    @else
-                    <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
-                        Only the booking client and assigned cleaner can send messages in this thread.
-                    </div>
-                    @endif
-                    @endif
-                </div>
-
                 <div class="detail-card cleanflow-panel p-5">
                     <div class="mb-5">
                         <h2 class="text-lg font-semibold text-slate-900">Staff Action History</h2>
@@ -824,13 +770,21 @@
                     </div>
 
                     <div class="space-y-4">
+                        @unless($isPerSquareMeterService)
                         <div class="flex items-start justify-between gap-3 text-sm">
                             <div>
-                                <span class="text-slate-500">Base service price</span>
-                                <div class="text-xs text-slate-400">{{ $booking->service_label }}</div>
+                                <span class="text-slate-500">{{ $isFlatRateRangeService ? 'Flat service price' : 'Base service price' }}</span>
+                                <div class="text-xs text-slate-400">
+                                    @if($isFlatRateRangeService)
+                                        Standard 2-3 bedroom home flat-rate package
+                                    @else
+                                        {{ $booking->service_label }}
+                                    @endif
+                                </div>
                             </div>
                             <span class="font-medium text-slate-800">&#8369;{{ number_format($booking->base_price ?? 0, 2) }}</span>
                         </div>
+                        @endunless
                         <div class="flex items-start justify-between gap-3 text-sm">
                             <div>
                                 <span class="text-slate-500">Property type adjustment</span>
@@ -856,7 +810,13 @@
                             <div>
                                 <span class="text-slate-500">Floor area adjustment</span>
                                 <div class="text-xs text-slate-400">
-                                    {{ $billableFloorArea }} billable sqm x &#8369;{{ number_format($floorAreaRate, 2) }}/sqm after {{ $includedFloorArea }} sqm included
+                                    @if($isFlatRateRangeService)
+                                        Included in the flat-rate package
+                                    @elseif($isPerSquareMeterService)
+                                        {{ $billableFloorArea }} sqm x &#8369;{{ number_format($floorAreaRate, 2) }}/sqm
+                                    @else
+                                        {{ $billableFloorArea }} billable sqm x &#8369;{{ number_format($floorAreaRate, 2) }}/sqm after {{ $includedFloorArea }} sqm included
+                                    @endif
                                 </div>
                             </div>
                             <span class="font-medium text-slate-800">{{ ($booking->floor_area_fee ?? 0) > 0 ? '+' : '' }}&#8369;{{ number_format($booking->floor_area_fee ?? 0, 2) }}</span>
@@ -917,7 +877,11 @@ const serviceAddress = @json($booking->street_address . ', ' . ucfirst($booking-
 const barangayCenters = @json($barangayCenters);
 const bookingBarangay = @json($booking->barangay);
 const defaultMapCenter = @json($defaultMapCenter);
-const destinationCenter = barangayCenters[bookingBarangay] || defaultMapCenter;
+const serviceLatitude = @json($booking->service_latitude);
+const serviceLongitude = @json($booking->service_longitude);
+const destinationCenter = serviceLatitude && serviceLongitude
+    ? { lat: Number(serviceLatitude), lng: Number(serviceLongitude) }
+    : (barangayCenters[bookingBarangay] || defaultMapCenter);
 const destLat = destinationCenter.lat;
 const destLng = destinationCenter.lng;
 
@@ -1010,7 +974,7 @@ async function showClientMap(lat, lng, updatedAt) {
 
             if (clientLine) clientMap.removeLayer(clientLine);
             clientLine = L.polyline(coords, {
-                color: '#1D9E75',
+                color: '#2563EB',
                 weight: 5,
                 opacity: 0.8
             }).addTo(clientMap);
@@ -1027,15 +991,15 @@ async function showClientMap(lat, lng, updatedAt) {
             if (arrivalText) {
                 if (distance < 0.3) {
                     arrivalText.innerHTML = '<strong>Staff has arrived!</strong>';
-                    arrivalText.style.color = '#09637e';
+                    arrivalText.style.color = '#1E40AF';
                     if (arrivalSub) arrivalSub.textContent = 'Your cleaner is at your location.';
                 } else if (duration <= 5) {
                     arrivalText.innerHTML = '<strong>Staff is arriving soon!</strong>';
-                    arrivalText.style.color = '#088395';
+                    arrivalText.style.color = '#2563EB';
                     if (arrivalSub) arrivalSub.textContent = `About ${duration} min away - ${distance} km`;
                 } else {
                     arrivalText.innerHTML = '<strong>Staff is on the way</strong>';
-                    arrivalText.style.color = '#088395';
+                    arrivalText.style.color = '#2563EB';
                     if (arrivalSub) arrivalSub.textContent = `About ${duration} min away - ${distance} km`;
                 }
             }
@@ -1043,20 +1007,20 @@ async function showClientMap(lat, lng, updatedAt) {
         } else {
             if (clientLine) clientMap.removeLayer(clientLine);
             clientLine = L.polyline([[lat, lng], [destLat, destLng]], {
-                color: '#088395', weight: 3, dashArray: '6, 8', opacity: 0.7
+                color: '#2563EB', weight: 3, dashArray: '6, 8', opacity: 0.7
             }).addTo(clientMap);
         }
     } catch (e) {
         if (clientLine) clientMap.removeLayer(clientLine);
         clientLine = L.polyline([[lat, lng], [destLat, destLng]], {
-            color: '#088395', weight: 3, dashArray: '6, 8', opacity: 0.7
+            color: '#2563EB', weight: 3, dashArray: '6, 8', opacity: 0.7
         }).addTo(clientMap);
     }
 
     const bounds = L.latLngBounds([[lat, lng], [destLat, destLng]]);
     clientMap.fitBounds(bounds, { padding: [40, 40] });
     requestAnimationFrame(() => clientMap.invalidateSize());
-    updateClientStatus('Live - Updated ' + (updatedAt || 'just now'), '#088395', '#e7f4f6');
+    updateClientStatus('Live - Updated ' + (updatedAt || 'just now'), '#2563EB', '#EFF6FF');
 }
 
 async function showAdminMap(lat, lng, updatedAt) {
@@ -1070,8 +1034,8 @@ async function showAdminMap(lat, lng, updatedAt) {
     if (info) info.textContent = `\u{1F4CD} Last updated: ${updatedAt || 'just now'} \u2014 Coordinates: ${parseFloat(lat).toFixed(5)}, ${parseFloat(lng).toFixed(5)}`;
     if (statusEl) {
         statusEl.textContent = '\u{1F7E2} Live';
-        statusEl.style.color = '#088395';
-        statusEl.style.background = '#e7f4f6';
+        statusEl.style.color = '#2563EB';
+        statusEl.style.background = '#EFF6FF';
     }
 
     if (!adminMap) {
@@ -1107,12 +1071,12 @@ async function showAdminMap(lat, lng, updatedAt) {
             if (adminLine) adminMap.removeLayer(adminLine);
             adminLine = L.layerGroup([
                 L.polyline(coords, {
-                    color: '#a16207',
+                    color: '#1E40AF',
                     weight: 8,
                     opacity: 0.32
                 }),
                 L.polyline(coords, {
-                    color: '#facc15',
+                    color: '#60A5FA',
                     weight: 5,
                     opacity: 0.95
                 }),
@@ -1125,10 +1089,10 @@ async function showAdminMap(lat, lng, updatedAt) {
             if (adminLine) adminMap.removeLayer(adminLine);
             adminLine = L.layerGroup([
                 L.polyline([[lat, lng], [destLat, destLng]], {
-                    color: '#a16207', weight: 6, opacity: 0.28
+                    color: '#1E40AF', weight: 6, opacity: 0.28
                 }),
                 L.polyline([[lat, lng], [destLat, destLng]], {
-                    color: '#facc15', weight: 3, dashArray: '6, 8', opacity: 0.85
+                    color: '#60A5FA', weight: 3, dashArray: '6, 8', opacity: 0.85
                 }),
             ]).addTo(adminMap);
         }
@@ -1136,10 +1100,10 @@ async function showAdminMap(lat, lng, updatedAt) {
         if (adminLine) adminMap.removeLayer(adminLine);
         adminLine = L.layerGroup([
             L.polyline([[lat, lng], [destLat, destLng]], {
-                color: '#a16207', weight: 6, opacity: 0.28
+                color: '#1E40AF', weight: 6, opacity: 0.28
             }),
             L.polyline([[lat, lng], [destLat, destLng]], {
-                color: '#facc15', weight: 3, dashArray: '6, 8', opacity: 0.85
+                color: '#60A5FA', weight: 3, dashArray: '6, 8', opacity: 0.85
             }),
         ]).addTo(adminMap);
     }
@@ -1156,7 +1120,7 @@ async function pollLocation() {
         const data = await res.json();
 
         if (!data.tracking) {
-            updateClientStatus('Waiting for location...', '#94a3b8', '#f8fafc');
+            updateClientStatus('Waiting for location...', '#60A5FA', '#EFF6FF');
             return;
         }
 
@@ -1180,7 +1144,7 @@ function setRating(value) {
     if (!starsInput) return;
     starsInput.value = value;
     document.querySelectorAll('.star-btn').forEach((btn) => {
-        btn.style.color = parseInt(btn.dataset.value, 10) <= value ? '#088395' : '#e2e8f0';
+        btn.style.color = parseInt(btn.dataset.value, 10) <= value ? '#3B82F6' : '#DBEAFE';
     });
 }
 

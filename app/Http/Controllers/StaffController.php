@@ -10,7 +10,9 @@ class StaffController extends Controller
 {
     public function index()
     {
-        $staff = User::where('role', 'staff')
+        $staffQuery = User::where('role', 'staff');
+
+        $staff = (clone $staffQuery)
             ->with(['assignedBookings.rating'])
             ->orderByDesc('created_at')
             ->paginate(10);
@@ -23,18 +25,22 @@ class StaffController extends Controller
             return $s;
         });
 
-        $barangays = config('cleanflow.barangays');
+        $staffStats = [
+            'total' => (clone $staffQuery)->count(),
+            'rated_on_page' => $staff->getCollection()
+                ->filter(fn (User $member) => (int) $member->total_ratings > 0)
+                ->count(),
+        ];
 
-        return view('admin.staff.index', compact('staff', 'barangays'));
+        return view('admin.staff.index', compact('staff', 'staffStats'));
     }
 
     public function create()
     {
         $staff = null;
-        $barangays = config('cleanflow.barangays');
         $roles = ['staff'];
 
-        return view('admin.staff.create', compact('staff', 'barangays', 'roles'));
+        return view('admin.staff.create', compact('staff', 'roles'));
     }
 
     public function store(Request $request)
@@ -46,7 +52,6 @@ class StaffController extends Controller
             'phone' => 'required|string|max:20',
             'username' => 'required|string|unique:users,username',
             'password' => 'required|string|min:8',
-            'barangay' => 'required|string',
         ]);
 
         User::create([
@@ -57,7 +62,6 @@ class StaffController extends Controller
             'username' => $request->username,
             'password' => bcrypt($request->password),
             'role' => 'staff',
-            'barangay' => $request->barangay,
             'street' => null,
             'city' => 'Valencia City',
             'zip_code' => null,
@@ -73,24 +77,20 @@ class StaffController extends Controller
     {
         abort_if($staff->role !== 'staff', 404);
 
-        $barangays = config('cleanflow.barangays');
         $roles = ['staff'];
 
-        return view('admin.staff.edit', compact('staff', 'barangays', 'roles'));
+        return view('admin.staff.edit', compact('staff', 'roles'));
     }
 
     public function update(Request $request, User $staff)
     {
         abort_if($staff->role !== 'staff', 404);
 
-        $barangays = array_keys(config('cleanflow.barangays'));
-
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($staff->id)],
             'phone' => ['nullable', 'string', 'max:30'],
-            'barangay' => ['required', Rule::in($barangays)],
             'username' => ['required', 'string', 'min:5', 'max:20', Rule::unique('users', 'username')->ignore($staff->id)],
             'password' => ['nullable', 'string', 'min:8'],
         ]);
@@ -100,7 +100,6 @@ class StaffController extends Controller
             'last_name' => $validated['last_name'],
             'email' => $validated['email'],
             'phone' => $validated['phone'],
-            'barangay' => $validated['barangay'],
             'username' => $validated['username'],
             'role' => 'staff',
             'password' => $validated['password'] ?? $staff->password,

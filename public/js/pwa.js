@@ -44,7 +44,7 @@
             'width:min(100vw - 32px, 360px)',
             'padding:18px',
             'border-radius:22px',
-            'background:linear-gradient(135deg, #0f6e56 0%, #16946d 55%, #0891b2 100%)',
+            'background:#1E40AF',
             'color:#ffffff',
             'box-shadow:0 22px 45px rgba(15, 23, 42, 0.24)',
             'font-family:"Segoe UI", Tahoma, Geneva, Verdana, sans-serif',
@@ -63,7 +63,7 @@
 
         const actionButton = createActionButton(actionLabel, actionHandler);
         actionButton.style.background = '#ffffff';
-        actionButton.style.color = '#0f172a';
+        actionButton.style.color = '#1E3A8A';
 
         const dismissButton = createActionButton('Not now', onDismiss);
         dismissButton.style.background = 'rgba(255,255,255,0.18)';

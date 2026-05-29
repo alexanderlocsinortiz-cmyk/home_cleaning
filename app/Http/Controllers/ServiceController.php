@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Service;
+use App\Models\ServiceAddOn;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class ServiceController extends Controller
@@ -11,25 +13,15 @@ class ServiceController extends Controller
     public function index()
     {
         $services = Service::orderBy('created_at', 'desc')->get();
+        $addOns = ServiceAddOn::orderBy('sort_order')->orderBy('label')->get();
         $packageCatalog = Service::packageCatalog();
-        $missingPackages = collect($packageCatalog)
-            ->reject(fn (array $metadata, string $slug) => $services->contains('slug', $slug))
-            ->map(fn (array $metadata, string $slug) => Service::packageMetadataFor($slug))
-            ->values();
 
-        return view('admin.services.index', compact('services', 'packageCatalog', 'missingPackages'));
+        return view('admin.services.index', compact('services', 'addOns', 'packageCatalog'));
     }
 
-    public function create(Request $request)
+    public function create()
     {
-        $packageCatalog = Service::packageCatalog();
-        $selectedTemplate = $request->query('template');
-        $selectedTemplate = is_string($selectedTemplate) && array_key_exists($selectedTemplate, $packageCatalog)
-            ? $selectedTemplate
-            : null;
-        $selectedPackage = $selectedTemplate ? Service::packageMetadataFor($selectedTemplate) : null;
-
-        return view('admin.services.create', compact('packageCatalog', 'selectedPackage', 'selectedTemplate'));
+        return view('admin.services.create');
     }
 
     public function store(Request $request)
@@ -38,6 +30,7 @@ class ServiceController extends Controller
             'name' => 'required|string|max:100',
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:1',
+            'duration_minutes' => 'required|integer|min:30|max:720',
             'is_active' => 'nullable|boolean',
         ]);
 
@@ -58,6 +51,7 @@ class ServiceController extends Controller
                 ? $request->description
                 : ($packageMetadata['default_description'] ?? null),
             'price' => $request->price,
+            'duration_minutes' => $request->duration_minutes,
             'is_active' => $request->has('is_active') ? 1 : 0,
         ]);
 
@@ -81,6 +75,7 @@ class ServiceController extends Controller
             'name' => 'required|string|max:100',
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:1',
+            'duration_minutes' => 'required|integer|min:30|max:720',
             'is_active' => 'nullable|boolean',
         ]);
 
@@ -101,6 +96,7 @@ class ServiceController extends Controller
                 ? $request->description
                 : ($packageMetadata['default_description'] ?? null),
             'price' => $request->price,
+            'duration_minutes' => $request->duration_minutes,
             'is_active' => $request->has('is_active') ? 1 : 0,
         ]);
 
@@ -112,9 +108,97 @@ class ServiceController extends Controller
     {
         $service = Service::findOrFail($id);
 
-        $service->update(['is_active' => false]);
+        if ($service->is_active) {
+            $service->update(['is_active' => false]);
+
+            return redirect()->route('admin.services.index')
+                ->with('success', 'Service deactivated successfully. It is hidden from new bookings.');
+        }
+
+        $service->delete();
 
         return redirect()->route('admin.services.index')
-            ->with('success', 'Service archived successfully. Existing booking history remains intact.');
+            ->with('success', 'Service deleted successfully.');
+    }
+
+    public function reactivate(Service $service)
+    {
+        $service->update(['is_active' => true]);
+
+        return redirect()->route('admin.services.index')
+            ->with('success', 'Service reactivated successfully. Clients can book it again.');
+    }
+
+    public function storeAddOn(Request $request)
+    {
+        $validated = $request->validate([
+            'label' => 'required|string|max:100',
+            'description' => 'nullable|string|max:500',
+            'price' => 'required|numeric|min:0|max:999999.99',
+            'sort_order' => 'nullable|integer|min:0|max:9999',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $key = ServiceAddOn::keyForLabel($validated['label']);
+
+        if (ServiceAddOn::where('key', $key)->exists()) {
+            throw ValidationException::withMessages([
+                'label' => 'An add-on with this label already exists.',
+            ]);
+        }
+
+        ServiceAddOn::create([
+            'key' => $key,
+            'label' => $validated['label'],
+            'description' => $validated['description'] ?? null,
+            'price' => $validated['price'],
+            'sort_order' => $validated['sort_order'] ?? 0,
+            'is_active' => $request->has('is_active'),
+        ]);
+
+        return redirect()->route('admin.services.index')
+            ->with('success', 'Add-on added successfully.');
+    }
+
+    public function updateAddOn(Request $request, ServiceAddOn $addOn)
+    {
+        $validated = $request->validate([
+            'label' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('service_add_ons', 'label')->ignore($addOn->id),
+            ],
+            'description' => 'nullable|string|max:500',
+            'price' => 'required|numeric|min:0|max:999999.99',
+            'sort_order' => 'nullable|integer|min:0|max:9999',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $addOn->update([
+            'label' => $validated['label'],
+            'description' => $validated['description'] ?? null,
+            'price' => $validated['price'],
+            'sort_order' => $validated['sort_order'] ?? 0,
+            'is_active' => $request->has('is_active'),
+        ]);
+
+        return redirect()->route('admin.services.index')
+            ->with('success', 'Add-on updated successfully.');
+    }
+
+    public function destroyAddOn(ServiceAddOn $addOn)
+    {
+        if ($addOn->is_active) {
+            $addOn->update(['is_active' => false]);
+
+            return redirect()->route('admin.services.index')
+                ->with('success', 'Add-on deactivated successfully. It is hidden from new bookings.');
+        }
+
+        $addOn->delete();
+
+        return redirect()->route('admin.services.index')
+            ->with('success', 'Add-on deleted successfully.');
     }
 }

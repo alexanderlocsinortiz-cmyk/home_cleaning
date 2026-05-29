@@ -5,6 +5,31 @@
 @section('page-subtitle', 'Booking activity audit trail')
 
 @section('content')
+@php
+    $actionClasses = [
+        'status_updated' => 'bg-blue-50 text-blue-700 ring-blue-200',
+        'staff_assigned' => 'bg-cyan-50 text-cyan-700 ring-cyan-200',
+        'payment_updated' => 'bg-violet-50 text-violet-700 ring-violet-200',
+        'review_updated' => 'bg-amber-50 text-amber-800 ring-amber-200',
+        'proof_uploaded' => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+        'rescheduled' => 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+    ];
+
+    $statusClasses = [
+        'pending' => 'bg-slate-100 text-slate-700 ring-slate-200',
+        'confirmed' => 'bg-blue-50 text-blue-700 ring-blue-200',
+        'in_progress' => 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+        'completed' => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+        'cancelled' => 'bg-rose-50 text-rose-700 ring-rose-200',
+        'paid' => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+        'approved' => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+        'late' => 'bg-amber-50 text-amber-800 ring-amber-200',
+        'blocked' => 'bg-rose-50 text-rose-700 ring-rose-200',
+    ];
+
+    $labelFor = fn ($value) => str($value)->replace('_', ' ')->title();
+@endphp
+
 <div class="admin-page-content cleanflow-page-shell space-y-6">
     <section class="cleanflow-hero overflow-hidden px-6 py-7 text-white sm:px-8">
         <div class="cleanflow-hero-content flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
@@ -31,22 +56,54 @@
         </div>
     </section>
 
-    <section class="grid gap-4 md:grid-cols-4">
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Booking Today</div>
-            <div class="mt-2 text-3xl font-black text-slate-900">{{ number_format($stats['booking_today']) }}</div>
+    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-2xl border border-slate-200 border-l-4 border-l-blue-600 bg-white p-5 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <div class="text-xs font-semibold uppercase text-slate-400">Booking Today</div>
+                    <div class="mt-2 text-4xl font-black leading-none text-slate-900">{{ number_format($stats['booking_today']) }}</div>
+                    <div class="mt-2 text-sm text-slate-500">Booking changes recorded today</div>
+                </div>
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+            </div>
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Attendance Today</div>
-            <div class="mt-2 text-3xl font-black text-slate-900">{{ number_format($stats['attendance_today']) }}</div>
+        <div class="rounded-2xl border border-slate-200 border-l-4 border-l-teal-600 bg-white p-5 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <div class="text-xs font-semibold uppercase text-slate-400">Attendance Today</div>
+                    <div class="mt-2 text-4xl font-black leading-none text-slate-900">{{ number_format($stats['attendance_today']) }}</div>
+                    <div class="mt-2 text-sm text-slate-500">Staff punches recorded today</div>
+                </div>
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-teal-600 text-white">
+                    <i class="fas fa-fingerprint"></i>
+                </div>
+            </div>
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Booking Shown</div>
-            <div class="mt-2 text-3xl font-black text-slate-900">{{ number_format($stats['booking_filtered']) }}</div>
+        <div class="rounded-2xl border border-slate-200 border-l-4 border-l-indigo-600 bg-white p-5 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <div class="text-xs font-semibold uppercase text-slate-400">Booking Shown</div>
+                    <div class="mt-2 text-4xl font-black leading-none text-slate-900">{{ number_format($stats['booking_filtered']) }}</div>
+                    <div class="mt-2 text-sm text-slate-500">Booking logs in this view</div>
+                </div>
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white">
+                    <i class="fas fa-list-check"></i>
+                </div>
+            </div>
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div class="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Attendance Shown</div>
-            <div class="mt-2 text-3xl font-black text-slate-900">{{ number_format($stats['attendance_filtered']) }}</div>
+        <div class="rounded-2xl border border-slate-200 border-l-4 border-l-amber-400 bg-white p-5 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <div class="text-xs font-semibold uppercase text-slate-400">Attendance Shown</div>
+                    <div class="mt-2 text-4xl font-black leading-none text-slate-900">{{ number_format($stats['attendance_filtered']) }}</div>
+                    <div class="mt-2 text-sm text-slate-500">Attendance logs in this view</div>
+                </div>
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-400 text-white">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -54,7 +111,7 @@
         <div class="mb-5 flex flex-wrap gap-2">
             @foreach(['all' => 'All Logs', 'bookings' => 'Booking Logs', 'attendance' => 'Attendance Logs'] as $source => $label)
                 <a href="{{ route('admin.logs', array_merge(request()->except(['source', 'booking_page', 'attendance_page']), ['source' => $source])) }}"
-                   class="rounded-full border px-4 py-2 text-sm font-bold transition {{ $filters['source'] === $source ? 'border-accent-600 bg-accent-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50' }}">
+                   class="rounded-full border px-4 py-2 text-sm font-bold transition {{ $filters['source'] === $source ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50' }}">
                     {{ $label }}
                 </a>
             @endforeach
@@ -97,7 +154,7 @@
             </div>
 
             <div class="flex gap-2">
-                <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-accent-700">
+                <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700">
                     <i class="fas fa-filter"></i>
                     Filter
                 </button>
@@ -109,70 +166,88 @@
     </section>
 
     @if($filters['source'] !== 'attendance')
-    <section class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div class="flex flex-col gap-2 border-b border-slate-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <h3 class="text-lg font-extrabold text-slate-900">Booking Activity Logs</h3>
+                <h3 class="text-xl font-extrabold text-slate-950">Booking Activity Logs</h3>
                 <p class="mt-1 text-sm text-slate-500">Status, payment, assignment, review, and booking workflow changes.</p>
             </div>
-            <div class="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{{ number_format($bookingLogs->total()) }} records</div>
+            <div class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+                {{ number_format($bookingLogs->total()) }} records
+            </div>
         </div>
 
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-slate-100">
                 <thead class="bg-slate-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Time</th>
-                        <th class="px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Action</th>
-                        <th class="px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Details</th>
-                        <th class="px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Actor</th>
-                        <th class="px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Booking</th>
+                        <th class="w-[150px] px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Time</th>
+                        <th class="w-[170px] px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Action</th>
+                        <th class="min-w-[420px] px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Details</th>
+                        <th class="w-[180px] px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Actor</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 bg-white">
                     @forelse($bookingLogs as $log)
-                        <tr class="hover:bg-slate-50/70">
+                        @php
+                            $metadata = collect($log->metadata ?? [])->reject(fn ($value) => is_array($value));
+                            $bookingCode = $log->booking_id ? 'CF-'.str_pad($log->booking_id, 5, '0', STR_PAD_LEFT) : null;
+                            $contextParts = collect([
+                                $bookingCode,
+                                $log->booking?->user?->display_name,
+                                $log->booking?->barangay,
+                            ])->filter();
+                            $statusFrom = $metadata->get('from_status') ?? $metadata->get('from_payment_status');
+                            $statusTo = $metadata->get('to_status') ?? $metadata->get('to_payment_status') ?? $metadata->get('review_status');
+                        @endphp
+                        <tr class="transition hover:bg-slate-50/70">
                             <td class="whitespace-nowrap px-6 py-4 align-top text-sm">
                                 <div class="font-semibold text-slate-900">{{ $log->created_at->format('M d, Y') }}</div>
-                                <div class="text-xs text-slate-500">{{ $log->created_at->format('h:i A') }}</div>
+                                <div class="mt-0.5 text-xs text-slate-500">{{ $log->created_at->format('h:i A') }}</div>
                             </td>
                             <td class="whitespace-nowrap px-6 py-4 align-top">
-                                <span class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-                                    {{ str_replace('_', ' ', ucfirst($log->action)) }}
+                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 {{ $actionClasses[$log->action] ?? 'bg-slate-100 text-slate-700 ring-slate-200' }}">
+                                    {{ $labelFor($log->action) }}
                                 </span>
                             </td>
-                            <td class="min-w-[280px] px-6 py-4 align-top">
-                                <div class="text-sm font-semibold text-slate-900">{{ $log->description }}</div>
-                                @if(!empty($log->metadata))
+                            <td class="px-6 py-4 align-top">
+                                <div class="text-sm font-semibold leading-6 text-slate-900">{{ $log->description }}</div>
+                                @if($contextParts->isNotEmpty())
+                                    <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium text-slate-500">
+                                        @foreach($contextParts as $part)
+                                            <span>{{ $part }}</span>
+                                        @endforeach
+                                    </div>
+                                @endif
+                                @if($statusFrom || $statusTo)
+                                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                                        @if($statusFrom)
+                                            <span class="rounded-full px-2 py-0.5 text-[11px] font-bold ring-1 {{ $statusClasses[$statusFrom] ?? 'bg-slate-100 text-slate-700 ring-slate-200' }}">{{ $labelFor($statusFrom) }}</span>
+                                        @endif
+                                        <span class="text-xs text-slate-300">to</span>
+                                        @if($statusTo)
+                                            <span class="rounded-full px-2 py-0.5 text-[11px] font-bold ring-1 {{ $statusClasses[$statusTo] ?? 'bg-slate-100 text-slate-700 ring-slate-200' }}">{{ $labelFor($statusTo) }}</span>
+                                        @endif
+                                    </div>
+                                @endif
+                                @if($metadata->isNotEmpty())
                                     <div class="mt-2 flex flex-wrap gap-1.5">
-                                        @foreach($log->metadata as $key => $value)
-                                            @if(!is_array($value))
-                                                <span class="rounded-full bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-500">
-                                                    {{ str_replace('_', ' ', $key) }}: {{ $value ?: 'none' }}
-                                                </span>
-                                            @endif
+                                        @foreach($metadata->except(['from_status', 'to_status', 'from_payment_status', 'to_payment_status', 'review_status']) as $key => $value)
+                                            <span class="rounded-md bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-100">
+                                                {{ $labelFor($key) }}: {{ blank($value) ? 'none' : str_replace('_', ' ', (string) $value) }}
+                                            </span>
                                         @endforeach
                                     </div>
                                 @endif
                             </td>
                             <td class="whitespace-nowrap px-6 py-4 align-top text-sm">
                                 <div class="font-semibold text-slate-900">{{ $log->actor_name ?? $log->actor?->display_name ?? 'System' }}</div>
-                                <div class="text-xs text-slate-500">{{ $log->actor_role ? ucfirst($log->actor_role) : 'Automated' }}</div>
-                            </td>
-                            <td class="whitespace-nowrap px-6 py-4 align-top text-sm">
-                                @if($log->booking)
-                                    <a href="{{ route('bookings.show', $log->booking_id) }}" class="font-bold text-accent-700 hover:text-accent-900">
-                                        CF-{{ str_pad($log->booking_id, 5, '0', STR_PAD_LEFT) }}
-                                    </a>
-                                    <div class="text-xs text-slate-500">{{ $log->booking->user?->display_name ?? 'Unknown client' }}</div>
-                                @else
-                                    <span class="text-slate-400">Deleted booking</span>
-                                @endif
+                                <div class="mt-0.5 text-xs text-slate-500">{{ $log->actor_role ? ucfirst($log->actor_role) : 'Automated' }}</div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-6 py-14 text-center">
+                            <td colspan="4" class="px-6 py-14 text-center">
                                 <div class="text-sm font-bold text-slate-700">No booking logs found</div>
                                 <div class="mt-1 text-sm text-slate-500">Booking activity will appear here after status, payment, staff, or review changes are recorded.</div>
                             </td>
@@ -191,59 +266,66 @@
     @endif
 
     @if($filters['source'] !== 'bookings')
-    <section class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div class="flex flex-col gap-2 border-b border-slate-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <h3 class="text-lg font-extrabold text-slate-900">Attendance Logs</h3>
+                <h3 class="text-xl font-extrabold text-slate-950">Attendance Logs</h3>
                 <p class="mt-1 text-sm text-slate-500">Biometric and manual punch activity from staff attendance.</p>
             </div>
-            <div class="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{{ number_format($attendanceLogs->total()) }} records</div>
+            <div class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+                {{ number_format($attendanceLogs->total()) }} records
+            </div>
         </div>
 
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-slate-100">
                 <thead class="bg-slate-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Time</th>
-                        <th class="px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Punch</th>
-                        <th class="px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Staff</th>
-                        <th class="px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Device</th>
-                        <th class="px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Status</th>
-                        <th class="px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Source</th>
+                        <th class="w-[150px] px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Time</th>
+                        <th class="w-[150px] px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Action</th>
+                        <th class="min-w-[420px] px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Details</th>
+                        <th class="w-[220px] px-6 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Staff</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 bg-white">
                     @forelse($attendanceLogs as $log)
-                        <tr class="hover:bg-slate-50/70">
+                        @php
+                            $attendanceStatus = $log->status ?: 'present';
+                            $loggedAt = $log->logged_at ?? $log->created_at;
+                            $deviceLabel = $log->device
+                                ? trim(($log->device->name ?? 'Unknown device').' '.($log->device->serial_number ? '('.$log->device->serial_number.')' : ''))
+                                : 'Unknown device';
+                            $statusClass = $statusClasses[$attendanceStatus] ?? 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+                            $source = $log->source ?? 'device';
+                        @endphp
+                        <tr class="transition hover:bg-slate-50/70">
                             <td class="whitespace-nowrap px-6 py-4 align-top text-sm">
-                                <div class="font-semibold text-slate-900">{{ optional($log->logged_at ?? $log->created_at)->format('M d, Y') }}</div>
-                                <div class="text-xs text-slate-500">{{ optional($log->logged_at ?? $log->created_at)->format('h:i A') }}</div>
+                                <div class="font-semibold text-slate-900">{{ optional($loggedAt)->format('M d, Y') }}</div>
+                                <div class="mt-0.5 text-xs text-slate-500">{{ optional($loggedAt)->format('h:i A') }}</div>
                             </td>
                             <td class="whitespace-nowrap px-6 py-4 align-top">
-                                <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold {{ $log->punch_type === 'in' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700' }}">
+                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 {{ $log->punch_type === 'in' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-slate-100 text-slate-700 ring-slate-200' }}">
                                     Time {{ ucfirst($log->punch_type) }}
                                 </span>
                             </td>
+                            <td class="px-6 py-4 align-top">
+                                <div class="text-sm font-semibold leading-6 text-slate-900">
+                                    Staff timed {{ $log->punch_type === 'in' ? 'in' : 'out' }} successfully.
+                                </div>
+                                <div class="mt-2 flex flex-wrap gap-1.5">
+                                    <span class="rounded-full px-2 py-0.5 text-[11px] font-bold ring-1 {{ $statusClass }}">{{ $labelFor($attendanceStatus) }}</span>
+                                    <span class="rounded-md bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-100">Source: {{ $labelFor($source) }}</span>
+                                    <span class="rounded-md bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-100">Device: {{ $deviceLabel }}</span>
+                                </div>
+                            </td>
                             <td class="whitespace-nowrap px-6 py-4 align-top text-sm">
                                 <div class="font-semibold text-slate-900">{{ $log->user?->display_name ?? 'Unknown staff' }}</div>
-                                <div class="text-xs text-slate-500">{{ $log->user?->email ?? '-' }}</div>
-                            </td>
-                            <td class="whitespace-nowrap px-6 py-4 align-top text-sm">
-                                <div class="font-semibold text-slate-900">{{ $log->device?->name ?? 'Unknown device' }}</div>
-                                <div class="text-xs text-slate-500">{{ $log->device?->serial_number ?? '-' }}</div>
-                            </td>
-                            <td class="whitespace-nowrap px-6 py-4 align-top">
-                                <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold {{ $log->status === 'late' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700' }}">
-                                    {{ ucfirst($log->status ?? 'present') }}
-                                </span>
-                            </td>
-                            <td class="whitespace-nowrap px-6 py-4 align-top text-sm font-semibold text-slate-700">
-                                {{ ucfirst($log->source ?? 'device') }}
+                                <div class="mt-0.5 text-xs text-slate-500">{{ $log->user?->email ?? '-' }}</div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-14 text-center">
+                            <td colspan="4" class="px-6 py-14 text-center">
                                 <div class="text-sm font-bold text-slate-700">No attendance logs found</div>
                                 <div class="mt-1 text-sm text-slate-500">Punch records will appear after staff use the attendance device or manual logs are added.</div>
                             </td>

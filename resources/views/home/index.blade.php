@@ -29,11 +29,10 @@
     };
 
     $instantQuotePackages = [
-        ['slug' => 'basic', 'label' => 'Basic', 'base' => 570, 'area_rate' => 8],
-        ['slug' => 'deep', 'label' => 'Deep', 'base' => 1200, 'area_rate' => 12],
-        ['slug' => 'commercial', 'label' => 'Office', 'base' => 1600, 'area_rate' => 13],
-        ['slug' => 'postconstruction', 'label' => 'Post-Con', 'base' => 1800, 'area_rate' => 14],
-        ['slug' => 'moveinout', 'label' => 'Move-in', 'base' => 2000, 'area_rate' => 15],
+        ['slug' => 'basic-clean', 'label' => 'Basic', 'base' => 0, 'area_rate' => 35, 'pricing_unit' => 'sqm'],
+        ['slug' => 'deep', 'label' => 'Deep', 'base' => 0, 'area_rate' => 95, 'pricing_unit' => 'sqm'],
+        ['slug' => 'moveinout', 'label' => 'Move-in', 'base' => 0, 'area_rate' => 80, 'pricing_unit' => 'sqm'],
+        ['slug' => 'postconstruction', 'label' => 'Post-Con', 'base' => 0, 'area_rate' => 105, 'pricing_unit' => 'sqm'],
     ];
 
     $instantQuotePropertyOptions = [
@@ -41,7 +40,8 @@
         ['key' => 'apartment', 'label' => 'Apartment', 'fee' => 200],
         ['key' => 'boarding_house', 'label' => 'Boarding House', 'fee' => 300],
     ];
-    $defaultInstantQuoteTotal = (int) (($instantQuotePackages[0]['base'] ?? 0) + ($instantQuotePropertyOptions[0]['fee'] ?? 0));
+    $defaultInstantQuoteFloorArea = 30;
+    $defaultInstantQuoteTotal = (int) (($instantQuotePackages[0]['base'] ?? 0) + (($instantQuotePackages[0]['area_rate'] ?? 0) * $defaultInstantQuoteFloorArea) + ($instantQuotePropertyOptions[0]['fee'] ?? 0));
 
     $serviceCardLabel = $isAuthenticated && $userRole === 'client'
         ? 'Book This Service'
@@ -68,17 +68,17 @@
     $heroBenefits = [
         [
             'icon' => 'fa-id-card',
-            'title' => 'NBI-Cleared Cleaning Team',
+            'title' => 'Trusted & Reliable',
             'text' => 'Every cleaner passes an NBI background check before being assigned to a client home.',
         ],
         [
             'icon' => 'fa-calendar-check',
-            'title' => 'Booking Confirmation Updates',
+            'title' => 'High Quality Cleaning',
             'text' => 'You stay informed from schedule confirmation to service completion.',
         ],
         [
             'icon' => 'fa-camera',
-            'title' => 'Photo Proof of Service',
+            'title' => 'On-Time Service',
             'text' => 'Completed visits can include before-and-after photos for extra peace of mind.',
         ],
     ];
@@ -90,47 +90,24 @@
         'One-time or recurring cleaning plans',
     ];
 
-    $trustSignals = [
-        [
-            'icon' => 'fa-tags',
-            'title' => 'Upfront starting prices',
-            'description' => 'See package pricing early, then use the instant quote to estimate your real total.',
-        ],
-        [
-            'icon' => 'fa-location-dot',
-            'title' => 'All ' . $stats['barangays'] . ' barangays covered',
-            'description' => 'Service is available across every barangay in Valencia City.',
-        ],
-        [
-            'icon' => 'fa-bolt',
-            'title' => 'Flexible booking options',
-            'description' => 'Choose one-time, weekly, bi-weekly, or monthly cleaning based on your routine.',
-        ],
-        [
-            'icon' => 'fa-user-shield',
-            'title' => 'Local support team',
-            'description' => 'Cleaner assignments and schedule confirmations are handled in-house by our Valencia City team.',
-        ],
-    ];
-
     $workflowSteps = [
         [
             'title' => 'Get an instant quote',
             'desc' => 'Choose the service, home type, and add-ons. See your estimate before you commit.',
             'icon' => 'fa-receipt',
-            'classes' => 'bg-primary-100 text-primary-600',
+            'classes' => 'bg-blue-100 text-blue-600',
         ],
         [
             'title' => 'Pick your schedule',
             'desc' => 'Choose the date and time that fit your week, then confirm the details for your home.',
             'icon' => 'fa-calendar-check',
-            'classes' => 'bg-primary-100 text-primary-600',
+            'classes' => 'bg-blue-100 text-blue-600',
         ],
         [
             'title' => 'Relax while we clean',
             'desc' => 'Your NBI-cleared cleaner arrives, completes the job, and sends photo proof when done.',
             'icon' => 'fa-circle-check',
-            'classes' => 'bg-primary-100 text-primary-600',
+            'classes' => 'bg-blue-100 text-blue-600',
         ],
     ];
 
@@ -179,39 +156,47 @@
 @endphp
 
 <div class="home-page bg-slate-50">
-    <section class="home-hero-shell relative overflow-hidden text-white">
-        <div class="hero-section container-pad relative z-10 mx-auto max-w-5xl px-6 pt-16 pb-14 lg:pt-24 lg:pb-20">
-            <div class="mx-auto space-y-6 text-center reveal-on-scroll">
+    <section class="home-hero-shell relative overflow-hidden">
+        <img
+            class="home-hero-bg"
+            src="{{ asset('images/landing-cleaning-hero.png') }}?v=20260510"
+            alt=""
+            aria-hidden="true"
+        >
+        <div class="home-hero-bg-overlay" aria-hidden="true"></div>
+        <div class="hero-section container-pad relative z-10 mx-auto max-w-7xl px-6 pt-16 pb-16 lg:min-h-[760px] lg:pt-28 lg:pb-24">
+            <div class="max-w-xl space-y-6 reveal-on-scroll">
                 @if($showEarlyLaunchBanner)
-                <div class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/85">
+                <div class="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-700 shadow-sm">
                     <i class="fas fa-bullhorn"></i>
                     Early launch in progress: limited daily slots may open first to reviewed bookings
                 </div>
                 @endif
-                <span class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary-50">
-                    <i class="fas fa-house text-white"></i>
-                    Trusted home cleaning for Valencia City
+                <span class="inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-blue-600">
+                    <i class="fas fa-sparkles"></i>
+                    A clean home, a happy home
                 </span>
-                <h1 class="mx-auto max-w-3xl text-4xl font-extrabold leading-[1.06] text-white sm:text-5xl lg:text-5xl">
-                    Professional Home Cleaning — Priced Upfront, Done Right
+                <h1 class="max-w-xl text-5xl font-black leading-[1.04] text-slate-950 sm:text-6xl lg:text-7xl">
+                    Professional <span class="text-blue-600">Home Cleaning</span> Services
                 </h1>
-                <p class="mx-auto max-w-2xl text-base leading-8 text-primary-50/90 lg:text-lg">
-                    Get an instant quote, pick your schedule, and let an NBI-cleared local team handle the rest. No surprises on price. No strangers you can't verify.
+                <p class="max-w-lg text-base leading-8 text-slate-600 lg:text-lg">
+                    We provide top-quality cleaning services to make your home spotless, fresh, and comfortable.
                 </p>
-                <div class="hero-buttons flex flex-wrap items-center justify-center gap-3">
-                    <a href="{{ $primaryCtaUrl }}" class="sales-primary-button inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 font-semibold text-white transition hover:-translate-y-0.5">
-                        <i class="fas fa-broom"></i>
-                        <span>{{ $primaryCtaLabel }}</span>
+                <p class="sr-only">Trusted home cleaning for Valencia City.</p>
+                <div class="hero-buttons flex flex-wrap items-center gap-3">
+                    <a href="{{ $primaryCtaUrl }}" class="sales-primary-button inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-base font-bold text-white transition hover:-translate-y-0.5">
+                        <i class="fas fa-sparkles text-sm"></i>
+                        <span>Book a Cleaning</span>
                     </a>
-                    <a href="{{ $secondaryCtaUrl }}" class="sales-secondary-button inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 font-medium transition">
+                    <a href="{{ $secondaryCtaUrl }}" class="inline-flex items-center justify-center gap-2 rounded-full border border-blue-100 bg-white/80 px-6 py-3 font-semibold text-blue-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-white">
                         <i class="fas fa-tags"></i>
                         <span>{{ $secondaryCtaLabel }}</span>
                     </a>
                 </div>
-                <p class="text-sm font-medium text-white/75">
+                <p class="text-sm font-medium text-slate-500">
                     See your price first. Book only when you're ready.
                 </p>
-                <div class="flex flex-wrap justify-center gap-2 pt-1 text-xs text-primary-50/90 lg:text-sm">
+                <div class="hidden">
                     @foreach($heroTrustPoints as $point)
                     <div class="home-trust-pill inline-flex items-center gap-2 rounded-full px-3 py-2">
                         <i class="fas fa-check-circle text-white"></i>
@@ -219,16 +204,13 @@
                     </div>
                     @endforeach
                 </div>
-                <div class="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    @foreach($heroBenefits as $benefit)
-                    <div class="flex items-start gap-3 rounded-2xl border border-white/15 bg-white/10 p-4 text-left backdrop-blur-sm">
-                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
+                <div class="mt-10 grid max-w-xl grid-cols-3 gap-5">
+                    @foreach(array_slice($heroBenefits, 0, 3) as $benefit)
+                    <div class="min-w-0">
+                        <div class="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600 shadow-sm ring-1 ring-blue-100">
                             <i class="fas {{ $benefit['icon'] }}"></i>
                         </div>
-                        <div>
-                            <div class="text-sm font-bold text-white">{{ $benefit['title'] }}</div>
-                            <div class="mt-1 text-xs leading-5 text-white/70">{{ $benefit['text'] }}</div>
-                        </div>
+                        <div class="mt-3 text-sm font-bold leading-5 text-slate-900">{{ $benefit['title'] }}</div>
                     </div>
                     @endforeach
                 </div>
@@ -262,7 +244,7 @@
                             <p class="mt-4 text-sm leading-7 text-slate-500">{{ $step['desc'] }}</p>
                         </div>
                         @if(!$loop->last)
-                        <div class="workflow-arrow absolute -right-6 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-primary-100 bg-white text-primary-600 shadow-sm xl:flex">
+                        <div class="workflow-arrow absolute -right-6 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-blue-100 bg-white text-blue-600 shadow-sm xl:flex">
                             <i class="fas fa-arrow-right"></i>
                         </div>
                         @endif
@@ -276,19 +258,66 @@
         </div>
     </section>
 
-    <section class="stats-section bg-slate-50 py-14">
+    <section class="reviews-section bg-slate-50 py-16">
         <div class="container-pad mx-auto max-w-7xl px-6">
-            <div class="stats-grid grid grid-cols-2 gap-6 md:grid-cols-4">
-                @foreach($trustSignals as $signal)
-                <div class="stats-card rounded-3xl border p-6 text-left shadow-sm reveal-on-scroll">
-                    <div class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
-                        <i class="fas {{ $signal['icon'] }}"></i>
-                    </div>
-                    <div class="mt-4 text-lg font-extrabold text-slate-900">{{ $signal['title'] }}</div>
-                    <div class="mt-2 text-sm leading-6 text-slate-500">{{ $signal['description'] }}</div>
+            <div class="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div class="max-w-2xl reveal-on-scroll">
+                    <div class="text-sm font-extrabold uppercase tracking-wide text-blue-600">Reviews</div>
+                    <h2 class="mt-3 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">What clients say after the clean</h2>
+                    <p class="mt-3 text-base leading-7 text-slate-500">Recent feedback from completed bookings keeps the service honest.</p>
                 </div>
-                @endforeach
+                <div class="rounded-2xl border border-blue-100 bg-white px-5 py-4 text-left shadow-sm reveal-on-scroll md:text-right">
+                    <div class="text-3xl font-black text-blue-700">
+                        {{ !empty($reviewStats['average']) ? number_format($reviewStats['average'], 1) : '-' }}
+                    </div>
+                    <div class="mt-1 text-sm font-semibold text-slate-500">
+                        {{ (int) ($reviewStats['count'] ?? 0) }} submitted review{{ (int) ($reviewStats['count'] ?? 0) === 1 ? '' : 's' }}
+                    </div>
+                </div>
             </div>
+
+            @if($landingReviews->count())
+                <div class="testimonials-grid grid gap-6 md:grid-cols-3">
+                    @foreach($landingReviews as $review)
+                        @php
+                            $clientFirst = $review->client?->first_name;
+                            $clientLastInitial = $review->client?->last_name ? mb_substr($review->client->last_name, 0, 1) . '.' : '';
+                            $clientName = $clientFirst ? trim($clientFirst . ' ' . $clientLastInitial) : 'Verified client';
+                            $serviceName = $review->booking?->service?->name ?? 'Home cleaning';
+                        @endphp
+                        <article class="testimonial-card rounded-3xl border border-blue-100 bg-white p-6 shadow-sm reveal-on-scroll">
+                            <div class="flex items-center justify-between gap-4">
+                                <div class="flex gap-1 text-blue-500">
+                                    @for($i = 1; $i <= 5; $i++)
+                                        <i class="fas fa-star {{ $i <= $review->stars ? '' : 'text-slate-200' }}"></i>
+                                    @endfor
+                                </div>
+                                <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">{{ $review->stars }}/5</span>
+                            </div>
+                            <p class="mt-5 text-base leading-8 text-slate-600">"{{ $review->comment }}"</p>
+                            <div class="mt-6 flex items-center gap-3 border-t border-slate-100 pt-5">
+                                <div class="flex h-11 w-11 items-center justify-center rounded-full bg-blue-100 text-sm font-black text-blue-700">
+                                    {{ mb_substr($clientName, 0, 1) }}
+                                </div>
+                                <div>
+                                    <div class="font-bold text-slate-900">{{ $clientName }}</div>
+                                    <div class="text-sm text-slate-500">{{ $serviceName }}</div>
+                                </div>
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+            @else
+                <div class="rounded-3xl border border-blue-100 bg-white p-8 text-center shadow-sm reveal-on-scroll">
+                    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <h3 class="mt-4 text-xl font-black text-slate-950">No public reviews yet</h3>
+                    <p class="mx-auto mt-2 max-w-xl text-sm leading-7 text-slate-500">
+                        Customer reviews will appear here after completed bookings receive written feedback.
+                    </p>
+                </div>
+            @endif
         </div>
     </section>
 
@@ -309,11 +338,11 @@
                 @endphp
                 <article class="service-card reveal-on-scroll flex h-full flex-col rounded-3xl border border-slate-200 p-8 shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-xl">
                     <div class="flex items-start justify-between gap-4">
-                        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-100 text-primary-600">
+                        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
                             <i class="fas {{ $package['icon'] ?? 'fa-broom' }} text-xl"></i>
                         </div>
                         @if(!empty($package['badge']))
-                        <span class="rounded-full bg-primary-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-primary-700">
+                        <span class="rounded-full bg-blue-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-blue-700">
                             {{ $package['badge'] }}
                         </span>
                         @endif
@@ -324,14 +353,20 @@
                     <div class="mt-5 space-y-3">
                         @foreach($features as $feature)
                         <div class="flex items-start gap-3 text-sm leading-6 text-slate-500">
-                            <i class="fas fa-check-circle mt-1 text-primary-500"></i>
+                            <i class="fas fa-check-circle mt-1 text-blue-500"></i>
                             <span>{{ $feature }}</span>
                         </div>
                         @endforeach
                     </div>
                     @endif
-                    <div class="mt-5 text-base font-semibold text-primary-600">
-                        Starting at &#8369;{{ number_format($service->price, 0) }}
+                    <div class="mt-5 text-base font-semibold text-blue-600">
+                        @if(\App\Models\Service::usesPerSquareMeterPricing($service->slug))
+                            &#8369;{{ number_format($service->price, 0) }} per sqm
+                        @elseif(\App\Models\Service::usesFlatRateRangePricing($service->slug) && ($range = \App\Models\Service::priceRangeForSlug($service->slug)))
+                            &#8369;{{ number_format($range['min'], 0) }} - &#8369;{{ number_format($range['max'], 0) }} flat rate
+                        @else
+                            Starting at &#8369;{{ number_format($service->price, 0) }}
+                        @endif
                     </div>
                     <div class="service-note mt-5 rounded-2xl bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-600">
                         {{ $package['highlight'] ?? 'This package can be requested directly through our Valencia City cleaning team.' }}
@@ -354,11 +389,11 @@
                 </p>
             </div>
             <div class="mt-12 reveal-on-scroll">
-                <div class="relative overflow-hidden rounded-4xl border border-white/45 bg-linear-to-br from-white/75 via-sky-50/70 to-slate-100/80 p-6 shadow-[0_20px_50px_rgba(15,23,42,0.14)] backdrop-blur-xl lg:p-8">
-                    <div class="absolute inset-x-0 top-0 h-1.5 bg-linear-to-r from-primary-500 via-cyan-400 to-primary-600"></div>
+                <div class="relative overflow-hidden rounded-4xl border border-blue-100 bg-white/90 p-6 shadow-[0_20px_50px_rgba(15,23,42,0.14)] backdrop-blur-xl lg:p-8">
+                    <div class="absolute inset-x-0 top-0 h-1.5 bg-blue-600"></div>
                     <div class="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
                         <div>
-                            <div class="inline-flex items-center gap-2 rounded-full border border-primary-200/70 bg-white/70 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-700">
+                            <div class="inline-flex items-center gap-2 rounded-full border border-blue-200/70 bg-white/70 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-700">
                                 <i class="fas fa-bolt"></i>
                                 Instant Quote
                             </div>
@@ -374,11 +409,23 @@
                                         @foreach($instantQuotePackages as $package)
                                         <label class="cursor-pointer">
                                             <input type="radio" name="iq_package" value="{{ $package['slug'] }}" class="peer sr-only" {{ $loop->first ? 'checked' : '' }}>
-                                            <span class="block rounded-2xl border border-slate-200 bg-white/80 px-3 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md peer-checked:border-primary-400 peer-checked:bg-primary-50/80">
+                                            <span class="block rounded-2xl border border-slate-200 bg-white/80 px-3 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md peer-checked:border-blue-400 peer-checked:bg-blue-50/80">
                                                 <span class="block text-sm font-bold text-slate-900">{{ $package['label'] }}</span>
-                                                <span class="mt-0.5 block text-xs text-slate-500">&#8369;{{ number_format($package['base'], 0) }} base</span>
-                                                <span class="mt-1 block text-[11px] text-slate-500">
-                                                    @if($package['area_rate'] > 0)
+                                                <span class="mt-0.5 block text-xs text-slate-500">
+                                                    @if(($package['pricing_unit'] ?? null) === 'sqm')
+                                                    Per square meter
+                                                    @elseif(($package['pricing_unit'] ?? null) === 'flat_range')
+                                                    Flat rate
+                                                    @else
+                                                    &#8369;{{ number_format($package['base'], 0) }} base
+                                                    @endif
+                                                </span>
+                                                <span class="mt-1 block text-xs font-semibold text-blue-700">
+                                                    @if(($package['pricing_unit'] ?? null) === 'sqm')
+                                                    &#8369;{{ number_format($package['area_rate'], 0) }}/sqm
+                                                    @elseif(($package['pricing_unit'] ?? null) === 'flat_range')
+                                                    &#8369;{{ number_format($package['base'], 0) }} - &#8369;{{ number_format($package['max_base'], 0) }}
+                                                    @elseif($package['area_rate'] > 0)
                                                     &#8369;{{ number_format($package['area_rate'], 0) }}/sqm over {{ $includedFloorArea }}
                                                     @else
                                                     No sqm excess fee
@@ -438,13 +485,13 @@
                                         @foreach($pricingAddOns as $key => $addOn)
                                         <label class="cursor-pointer">
                                             <input type="checkbox" name="iq_add_ons[]" value="{{ $key }}" class="peer sr-only">
-                                            <span class="flex h-full items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md peer-checked:border-primary-500 peer-checked:bg-primary-50">
-                                                <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 peer-checked:bg-primary-100 peer-checked:text-primary-700">
+                                            <span class="flex h-full items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md peer-checked:border-blue-500 peer-checked:bg-blue-50">
+                                                <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 peer-checked:bg-blue-100 peer-checked:text-blue-700">
                                                     <i class="fas {{ $instantQuoteAddOnIcons[$key] ?? 'fa-sparkles' }}"></i>
                                                 </span>
                                                 <span class="min-w-0">
                                                     <span class="block text-sm font-semibold text-slate-900">{{ $addOn['label'] }}</span>
-                                                    <span class="mt-0.5 block text-xs text-primary-700">+&#8369;{{ number_format($addOn['price'], 0) }}</span>
+                                                    <span class="mt-0.5 block text-xs text-blue-700">+&#8369;{{ number_format($addOn['price'], 0) }}</span>
                                                 </span>
                                             </span>
                                         </label>
@@ -455,7 +502,7 @@
                         </div>
 
                         <aside class="instant-quote-summary hidden rounded-3xl border border-white/70 bg-white/78 p-5 shadow-lg backdrop-blur-md lg:block sm:p-6">
-                            <div class="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">Total Estimate</div>
+                            <div class="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Total Estimate</div>
                             <div id="iq_total" class="mt-3 text-4xl font-extrabold tracking-tight text-slate-900">&#8369;{{ number_format($defaultInstantQuoteTotal, 0) }}</div>
                             <div class="mt-2 text-xs font-medium text-slate-500">For Valencia City service areas. Final total is confirmed before the booking is submitted.</div>
 
@@ -478,11 +525,11 @@
                 <div class="instant-quote-mobile-sheet__inner">
                     <div class="flex items-start justify-between gap-4">
                         <div class="min-w-0">
-                            <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-700">Total Estimate</div>
+                            <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-700">Total Estimate</div>
                             <div id="iq_mobile_total" class="mt-2 truncate text-2xl font-extrabold tracking-tight text-slate-900">&#8369;{{ number_format($defaultInstantQuoteTotal, 0) }}</div>
                             <div class="mt-1 text-[11px] text-slate-500">Live estimate while you compare add-ons and home size.</div>
                         </div>
-                        <div class="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary-700">Sticky</div>
+                        <div class="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-700">Sticky</div>
                     </div>
                     <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50/95 p-4">
                         <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Live Breakdown</div>
@@ -528,17 +575,16 @@
         </div>
     </section>
 
-    <section class="home-cta-shell cta-section py-24 text-white">
-        <div class="container-pad mx-auto max-w-4xl px-6 text-center reveal-on-scroll">
-            <h2 class="text-4xl font-extrabold lg:text-5xl">See your price. Book only when you're ready.</h2>
-            <p class="mx-auto mt-6 max-w-2xl text-lg leading-8 text-white/80">
+    <section class="home-cta-shell cta-section py-14 text-white md:py-16">
+        <div class="container-pad mx-auto max-w-3xl px-6 text-center reveal-on-scroll">
+            <h2 class="home-cta-title text-3xl font-extrabold lg:text-4xl">See your price. Book only when you're ready.</h2>
+            <p class="home-cta-copy mx-auto mt-4 max-w-2xl text-base leading-7">
                 NBI-cleared cleaners. Upfront pricing. No commitment until you confirm.
             </p>
-            <div class="cta-buttons mt-10 flex flex-wrap justify-center gap-4">
-                <a href="{{ $primaryCtaUrl }}" class="sales-primary-button rounded-2xl px-8 py-3.5 font-semibold text-white transition hover:-translate-y-0.5">{{ $primaryCtaLabel }}</a>
-                <a href="{{ route('login') }}" class="sales-secondary-button rounded-2xl px-8 py-3.5 font-medium transition">Login</a>
+            <div class="cta-buttons mt-7 flex flex-wrap justify-center gap-4">
+                <a href="{{ $primaryCtaUrl }}" class="sales-primary-button rounded-2xl px-7 py-3 font-semibold text-white transition hover:-translate-y-0.5">{{ $primaryCtaLabel }}</a>
             </div>
-            <div class="cta-note mt-8 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm text-white/80">
+            <div class="cta-note mt-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm text-white/80">
                 <i class="fas fa-comment-dots text-white/60"></i>
                 <span>Need help first? Message us during operating hours.</span>
             </div>
@@ -656,11 +702,11 @@
         totalAnimationFrame = requestAnimationFrame(frame);
     };
 
-    const buildBreakdown = ({ packageBase, propertyFee, sqmExcessCost, roomBathCost, addOnsCost }) => {
+    const buildBreakdown = ({ packageBase, propertyFee, sqmExcessCost, roomBathCost, addOnsCost, areaLabel = 'Excess Area' }) => {
         const lineItems = [
             packageBase > 0 ? { label: 'Package Base', value: packageBase } : null,
             propertyFee > 0 ? { label: 'Property Fee', value: propertyFee } : null,
-            sqmExcessCost > 0 ? { label: 'Excess Area', value: sqmExcessCost } : null,
+            sqmExcessCost > 0 ? { label: areaLabel, value: sqmExcessCost } : null,
             roomBathCost > 0 ? { label: 'Room/Bath Add-ons', value: roomBathCost } : null,
             addOnsCost > 0 ? { label: 'Service Add-ons', value: addOnsCost } : null,
         ].filter(Boolean);
@@ -700,24 +746,32 @@
         const bathrooms = Math.max(1, Number.parseInt(bathroomsSelect.value, 10) || 1);
         const selectedAddOns = addOnInputs.filter((input) => input.checked).map((input) => input.value);
 
-        const packageBase = Number(selectedPackage?.base ?? 0);
+        const packageBase = selectedPackage?.pricing_unit === 'flat_range' && bedrooms >= 3
+            ? Number(selectedPackage?.max_base ?? selectedPackage?.base ?? 0)
+            : Number(selectedPackage?.base ?? 0);
         const propertyFee = Number(selectedProperty?.fee ?? 0);
         const areaRate = Number(selectedPackage?.area_rate ?? 0);
 
-        const excessSqm = Math.max(0, floorArea - includedArea);
+        const excessSqm = selectedPackage?.pricing_unit === 'flat_range'
+            ? 0
+            : selectedPackage?.pricing_unit === 'sqm' ? floorArea : Math.max(0, floorArea - includedArea);
         const sqmExcessCost = excessSqm * areaRate;
 
         const extraBedroomCount = Math.max(0, bedrooms - 1);
         const extraBathroomCount = Math.max(0, bathrooms - 1);
-        const roomBathCost = (extraBedroomCount * extraBedroomRate) + (extraBathroomCount * extraBathroomRate);
+        const roomBathCost = selectedPackage?.pricing_unit === 'flat_range'
+            ? 0
+            : (extraBedroomCount * extraBedroomRate) + (extraBathroomCount * extraBathroomRate);
         const addOnsCost = selectedAddOns.reduce((total, key) => total + Number(addOnCatalog[key]?.price ?? 0), 0);
 
-        const totalEstimate = packageBase + propertyFee + sqmExcessCost + roomBathCost + addOnsCost;
+        const appliedPropertyFee = selectedPackage?.pricing_unit === 'flat_range' ? 0 : propertyFee;
+        const totalEstimate = packageBase + appliedPropertyFee + sqmExcessCost + roomBathCost + addOnsCost;
 
         floorAreaSlider.value = String(floorArea);
         floorAreaValue.textContent = `${floorArea} sqm`;
         animateTotalTo(totalEstimate, animateTotal);
-        buildBreakdown({ packageBase, propertyFee, sqmExcessCost, roomBathCost, addOnsCost });
+        const areaLabel = selectedPackage?.pricing_unit === 'sqm' ? 'Floor Area' : 'Excess Area';
+        buildBreakdown({ packageBase, propertyFee: appliedPropertyFee, sqmExcessCost, roomBathCost, addOnsCost, areaLabel });
 
         const prefillParams = new URLSearchParams({
             service_type: selectedPackage?.slug ?? 'basic',
@@ -759,4 +813,3 @@
 </script>
 @endpush
 @endsection
-

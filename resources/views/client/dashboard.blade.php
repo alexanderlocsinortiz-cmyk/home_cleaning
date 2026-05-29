@@ -11,56 +11,55 @@
     $completedBookings = $bookings->where('status', 'completed')->count();
     $upcomingBookings = $bookings->whereIn('status', ['pending', 'confirmed', 'in_progress'])->count();
     $recentBookings = $bookings->take(4);
-    $recentNotifications = $notifications->take(5);
     $completionRate = $totalBookings > 0 ? round(($completedBookings / $totalBookings) * 100) : 0;
     $activeBooking = $bookings->whereIn('status', ['confirmed', 'in_progress'])->first();
     $userBarangayLabel = $user->barangay ? ucfirst(str_replace('_', ' ', $user->barangay)) : 'Not set';
     $statusClasses = [
         'pending'     => 'bg-amber-100 text-amber-700',
-        'confirmed'   => 'bg-accent-50 text-accent-700',
-        'in_progress' => 'bg-primary-100 text-primary-700',
-        'completed'   => 'bg-accent-100 text-accent-800',
-        'cancelled'   => 'bg-danger-100 text-danger-700',
+        'confirmed'   => 'bg-blue-100 text-blue-700',
+        'in_progress' => 'bg-teal-100 text-teal-700',
+        'completed'   => 'bg-emerald-100 text-emerald-700',
+        'cancelled'   => 'bg-red-100 text-red-700',
     ];
     $paymentStatusClasses = [
         'pending' => 'bg-amber-100 text-amber-700',
-        'paid'    => 'bg-accent-100 text-accent-800',
+        'paid'    => 'bg-emerald-100 text-emerald-700',
     ];
     $stats = [
         [
             'label' => 'Total',
             'value' => $totalBookings,
             'description' => 'All requests',
-            'cardClasses' => 'border-primary-200 bg-primary-50/85',
-            'iconClasses' => 'bg-primary-100 text-primary-600',
-            'valueClasses' => 'text-primary-700',
+            'cardClasses' => 'border-slate-200 bg-slate-50',
+            'iconClasses' => 'bg-blue-100 text-blue-600',
+            'valueClasses' => 'text-slate-900',
             'icon' => 'fa-calendar-days',
         ],
         [
             'label' => 'Completed',
             'value' => $completedBookings,
             'description' => 'Finished visits',
-            'cardClasses' => 'border-primary-200 bg-primary-50/85',
-            'iconClasses' => 'bg-primary-100 text-primary-600',
-            'valueClasses' => 'text-primary-700',
+            'cardClasses' => 'border-emerald-200 bg-emerald-50',
+            'iconClasses' => 'bg-emerald-100 text-emerald-600',
+            'valueClasses' => 'text-emerald-700',
             'icon' => 'fa-circle-check',
         ],
         [
             'label' => 'Upcoming',
             'value' => $upcomingBookings,
             'description' => 'Scheduled now',
-            'cardClasses' => 'border-amber-200 bg-primary-50/85',
-            'iconClasses' => 'bg-primary-100 text-primary-600',
-            'valueClasses' => 'text-primary-700',
+            'cardClasses' => 'border-amber-200 bg-amber-50',
+            'iconClasses' => 'bg-amber-100 text-amber-600',
+            'valueClasses' => 'text-amber-700',
             'icon' => 'fa-clock',
         ],
         [
             'label' => 'Completion',
             'value' => $completionRate . '%',
             'description' => 'Jobs finished',
-            'cardClasses' => 'border-primary-200 bg-primary-50/85',
-            'iconClasses' => 'bg-primary-100 text-primary-600',
-            'valueClasses' => 'text-primary-700',
+            'cardClasses' => 'border-slate-200 bg-slate-50',
+            'iconClasses' => 'bg-purple-100 text-purple-600',
+            'valueClasses' => 'text-slate-900',
             'icon' => 'fa-chart-line',
         ],
     ];
@@ -70,32 +69,24 @@
             'description' => 'Schedule a new visit.',
             'href' => route('bookings.create'),
             'icon' => 'fa-broom',
-            'iconClasses' => 'bg-primary-100 text-primary-600',
-            'textClasses' => 'text-primary-700',
+            'iconClasses' => 'bg-blue-100 text-blue-600',
+            'textClasses' => 'text-blue-700',
         ],
         [
             'label' => 'My Bookings',
             'description' => 'Review your requests.',
             'href' => route('bookings.index'),
             'icon' => 'fa-clipboard-list',
-            'iconClasses' => 'bg-primary-100 text-primary-600',
-            'textClasses' => 'text-primary-700',
+            'iconClasses' => 'bg-blue-100 text-blue-600',
+            'textClasses' => 'text-blue-700',
         ],
         [
             'label' => 'Service Areas',
             'description' => 'Check covered barangays.',
             'href' => route('client.service-areas'),
             'icon' => 'fa-location-dot',
-            'iconClasses' => 'bg-primary-100 text-primary-600',
-            'textClasses' => 'text-primary-700',
-        ],
-        [
-            'label' => 'Edit Profile',
-            'description' => 'Update account details.',
-            'href' => route('client.profile.edit'),
-            'icon' => 'fa-user-pen',
-            'iconClasses' => 'bg-primary-100 text-primary-600',
-            'textClasses' => 'text-primary-700',
+            'iconClasses' => 'bg-blue-100 text-blue-600',
+            'textClasses' => 'text-blue-700',
         ],
     ];
 @endphp
@@ -159,7 +150,7 @@
                 </div>
 
                 <div class="flex flex-wrap gap-3">
-                    <a href="{{ route('bookings.create') }}" class="inline-flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-600">
+                    <a href="{{ route('bookings.create') }}" class="inline-flex items-center gap-2 rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-600">
                         <i class="fas fa-broom"></i>
                         Book a Service
                     </a>
@@ -195,7 +186,7 @@
                         <h2 class="text-xl font-bold text-slate-900">Recent Bookings</h2>
                         <p class="mt-1 text-sm text-slate-500">Your latest requests and booking updates.</p>
                     </div>
-                    <a href="{{ route('bookings.index') }}" class="text-sm font-medium text-primary-600 hover:underline">View all</a>
+                    <a href="{{ route('bookings.index') }}" class="text-sm font-medium text-blue-600 hover:underline">View all</a>
                 </div>
 
                 @if($recentBookings->count())
@@ -203,12 +194,12 @@
                     @foreach($recentBookings as $booking)
                     <div class="flex flex-col gap-4 py-4 transition hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between">
                         <div class="flex min-w-0 items-start gap-3">
-                            <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100 text-primary-700">
+                            <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
                                 <i class="fas fa-broom"></i>
                             </div>
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <span class="font-mono text-sm font-bold text-primary-600">CF-{{ str_pad($booking->id, 5, '0', STR_PAD_LEFT) }}</span>
+                                    <span class="font-mono text-sm font-bold text-slate-700">CF-{{ str_pad($booking->id, 5, '0', STR_PAD_LEFT) }}</span>
                                     <span class="rounded-full px-3 py-1 text-xs font-semibold {{ $statusClasses[$booking->status] ?? 'bg-slate-100 text-slate-600' }}">
                                         {{ ucwords(str_replace('_', ' ', $booking->status)) }}
                                     </span>
@@ -234,19 +225,19 @@
                                 <div class="text-base font-bold text-slate-900">&#8369;{{ number_format($booking->price, 0) }}</div>
                                 <div class="text-xs text-slate-500">Total price</div>
                             </div>
-                            <a href="{{ route('bookings.show', $booking->id) }}" class="text-sm font-medium text-primary-600 hover:underline">View &rarr;</a>
+                            <a href="{{ route('bookings.show', $booking->id) }}" class="text-sm font-medium text-blue-600 hover:underline">View &rarr;</a>
                         </div>
                     </div>
                     @endforeach
                 </div>
                 @else
                 <div class="py-12 text-center">
-                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                         <i class="fas fa-broom text-xl"></i>
                     </div>
                     <h3 class="mt-4 text-lg font-bold text-slate-900">No bookings yet</h3>
                     <p class="mx-auto mt-2 max-w-md text-sm text-slate-500">Once you schedule a service, the latest status, payment details, and cleaner assignment will appear here.</p>
-                    <a href="{{ route('bookings.create') }}" class="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-700">
+                    <a href="{{ route('bookings.create') }}" class="mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700">
                         <i class="fas fa-plus"></i>
                         Book a Service
                     </a>
@@ -278,46 +269,13 @@
                         </div>
                         <div class="flex items-center justify-between gap-4">
                             <span class="text-sm text-slate-500">Completion</span>
-                            <span class="text-sm font-semibold {{ $completionRate >= 70 ? 'text-primary-600' : ($completionRate >= 40 ? 'text-primary-600' : 'text-slate-500') }}">{{ $completionRate }}%</span>
+                            <span class="text-sm font-semibold {{ $completionRate >= 70 ? 'text-emerald-600' : ($completionRate >= 40 ? 'text-amber-600' : 'text-slate-500') }}">{{ $completionRate }}%</span>
                         </div>
-                        <a href="{{ route('client.profile.edit') }}" class="inline-flex items-center gap-2 text-sm font-medium text-primary-600 hover:underline">
+                        <a href="{{ route('client.profile.edit') }}" class="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline">
                             <i class="fas fa-user-pen"></i>
                             Edit Profile
                         </a>
                     </div>
-                </section>
-
-                <section class="cleanflow-panel p-5">
-                    <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <div class="text-lg font-bold text-slate-900">Booking Updates</div>
-                            <div class="mt-1 text-sm text-slate-500">Recent cleaner, payment, and service updates.</div>
-                        </div>
-                        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
-                            <i class="fas fa-bell"></i>
-                        </div>
-                    </div>
-
-                    @if($recentNotifications->count())
-                    <div class="mt-4 space-y-3">
-                        @foreach($recentNotifications as $notification)
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                            <div class="text-sm font-semibold text-slate-900">{{ $notification->title }}</div>
-                            <div class="mt-1 text-xs leading-5 text-slate-500">{{ $notification->message }}</div>
-                            <div class="mt-2 flex items-center justify-between gap-3 text-[11px] text-slate-400">
-                                <span>{{ optional($notification->created_at)->diffForHumans() }}</span>
-                                @if($notification->link)
-                                <a href="{{ url($notification->link) }}" class="font-semibold text-primary-600 hover:underline">View</a>
-                                @endif
-                            </div>
-                        </div>
-                        @endforeach
-                    </div>
-                    @else
-                    <div class="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-                        Booking confirmations, cleaner assignment updates, and proof-of-service notices will appear here.
-                    </div>
-                    @endif
                 </section>
 
                 <section class="cleanflow-panel p-5">
@@ -342,15 +300,15 @@
         </div>
 
         @if($activeBooking)
-        <section class="cleanflow-panel flex flex-col gap-4 border-primary-200 bg-primary-50/90 px-6 py-5 md:flex-row md:items-center md:justify-between">
+        <section class="cleanflow-panel flex flex-col gap-4 border-blue-200 bg-blue-50/90 px-6 py-5 md:flex-row md:items-center md:justify-between">
             <div>
-                <div class="text-sm font-semibold uppercase tracking-[0.16em] text-primary-700">Active Booking</div>
+                <div class="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">Active Booking</div>
                 <div class="mt-2 text-xl font-bold text-slate-900">{{ $activeBooking->service_label }}</div>
                 <div class="mt-1 text-sm text-slate-600">
                     CF-{{ str_pad($activeBooking->id, 5, '0', STR_PAD_LEFT) }} on {{ \Carbon\Carbon::parse($activeBooking->scheduled_date)->format('M d, Y') }}
                 </div>
             </div>
-            <a href="{{ route('bookings.show', $activeBooking->id) }}" class="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-700">
+            <a href="{{ route('bookings.show', $activeBooking->id) }}" class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700">
                 <i class="fas fa-location-arrow"></i>
                 Track Booking
             </a>
@@ -358,11 +316,11 @@
         @elseif($upcomingBookings === 0)
         <section class="cleanflow-panel flex flex-col gap-4 border-slate-200 bg-white px-6 py-5 md:flex-row md:items-center md:justify-between">
             <div>
-                <div class="text-sm font-semibold uppercase tracking-[0.16em] text-primary-700">Ready to Schedule</div>
+                <div class="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">Ready to Schedule</div>
                 <div class="mt-2 text-xl font-bold text-slate-900">Plan your next cleaning service.</div>
                 <div class="mt-1 text-sm text-slate-600">You do not have any upcoming bookings right now.</div>
             </div>
-            <a href="{{ route('bookings.create') }}" class="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-700">
+            <a href="{{ route('bookings.create') }}" class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700">
                 <i class="fas fa-plus"></i>
                 Book a Service
             </a>

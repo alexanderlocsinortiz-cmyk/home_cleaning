@@ -10,16 +10,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('bookings', function (Blueprint $table) {
-            if (!Schema::hasColumn('bookings', 'risk_reasons')) {
+            if (! Schema::hasColumn('bookings', 'risk_reasons')) {
                 $table->json('risk_reasons')->nullable()->after('notes');
             }
-            if (!Schema::hasColumn('bookings', 'manual_review_status')) {
+            if (! Schema::hasColumn('bookings', 'manual_review_status')) {
                 $table->string('manual_review_status', 20)->default('not_required')->after('risk_reasons');
             }
-            if (!Schema::hasColumn('bookings', 'reviewed_by')) {
+            if (! Schema::hasColumn('bookings', 'reviewed_by')) {
                 $table->foreignId('reviewed_by')->nullable()->after('manual_review_status')->constrained('users')->nullOnDelete();
             }
-            if (!Schema::hasColumn('bookings', 'reviewed_at')) {
+            if (! Schema::hasColumn('bookings', 'reviewed_at')) {
                 $table->timestamp('reviewed_at')->nullable()->after('reviewed_by');
             }
         });

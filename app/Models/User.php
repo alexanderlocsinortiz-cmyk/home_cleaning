@@ -30,6 +30,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'username',
         'role',
         'fingerprint_template_id',
+        'access_restricted_until',
+        'access_restriction_reason',
+        'staff_restricted_pages',
         'password',
     ];
 
@@ -50,8 +53,20 @@ class User extends Authenticatable implements MustVerifyEmail
         'email_verified_at' => 'datetime',
         'email_verification_code_expires_at' => 'datetime',
         'fingerprint_template_id' => 'integer',
+        'access_restricted_until' => 'datetime',
+        'staff_restricted_pages' => 'array',
         'password' => 'hashed',
     ];
+
+    public function hasActiveAccessRestriction(): bool
+    {
+        return $this->access_restricted_until !== null && $this->access_restricted_until->isFuture();
+    }
+
+    public function isStaffPageRestricted(string $page): bool
+    {
+        return in_array($page, $this->staff_restricted_pages ?? [], true);
+    }
 
     /**
      * Get the user's full name.
@@ -134,6 +149,16 @@ class User extends Authenticatable implements MustVerifyEmail
     public function unreadNotifications()
     {
         return $this->notifications()->unread();
+    }
+
+    public function accessRestrictionHistories()
+    {
+        return $this->hasMany(AccessRestrictionHistory::class, 'target_user_id');
+    }
+
+    public function accessRestrictionActions()
+    {
+        return $this->hasMany(AccessRestrictionHistory::class, 'actor_user_id');
     }
 
     public function bookingMessages()

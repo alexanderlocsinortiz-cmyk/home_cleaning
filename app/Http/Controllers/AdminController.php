@@ -8,13 +8,14 @@ use App\Models\Booking;
 use App\Models\Device;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
     use AttendanceHelpers;
 
-    public function dashboard()
+    public function dashboard(Request $request)
     {
         $dashboardNow = Carbon::now($this->attendanceTimezone());
         $dashboardStats = $this->dashboardStats();
@@ -41,10 +42,135 @@ class AdminController extends Controller
             ->distinct('user_id')
             ->count('user_id');
 
+        // 30-day analytics window
+        $analyticsStart = Carbon::now()->subDays(29)->startOfDay();
+        $analyticsBookings = Booking::query()
+            ->with(['rating:id,booking_id,stars', 'service:id,slug,name'])
+            ->where('created_at', '>=', $analyticsStart)
+            ->orderBy('created_at')
+            ->get();
+
+        // Customer satisfaction (30-day)
+        $analyticsRatings = $analyticsBookings->pluck('rating')->filter()->values();
+        $analyticsAvgRating = $analyticsRatings->count() > 0 ? round($analyticsRatings->avg('stars'), 1) : null;
+        $analyticsRatingCount = $analyticsRatings->count();
+
+        // All-time cancelled count
+        $cancelledCount = Booking::where('status', 'cancelled')->count();
+
+        // Service popularity is all-time to match the total bookings shown in the card.
+        $servicePopularity = Booking::query()
+            ->with('service:id,slug,name')
+            ->get()
+            ->groupBy('service_type')
+            ->map(fn ($group, $type) => [
+                'name' => $group->first()?->service?->name ?? ucfirst(str_replace('_', ' ', $type ?? 'Other')),
+                'bookings' => $group->count(),
+            ])
+            ->sortByDesc('bookings')
+            ->take(5)
+            ->values();
+
+        // Staff performance with ratings (30-day, top 5)
+        $staffPerformance = User::where('role', 'staff')
+            ->get(['id', 'first_name', 'last_name'])
+            ->map(function (User $member) use ($analyticsBookings) {
+                $assigned = $analyticsBookings->where('staff_id', $member->id);
+                if ($assigned->isEmpty()) {
+                    return null;
+                }
+                $completed = $assigned->where('status', 'completed')->count();
+                $ratings = $assigned->pluck('rating')->filter();
+
+                return [
+                    'name' => $member->display_name,
+                    'completed' => $completed,
+                    'rating' => $ratings->count() > 0 ? round($ratings->avg('stars'), 1) : null,
+                ];
+            })
+            ->filter()
+            ->sortByDesc('completed')
+            ->take(5)
+            ->values();
+
+        // Booking trend data uses scheduled service dates, so restored historical bookings still appear.
+        $trendBookings = Booking::query()
+            ->select(['id', 'scheduled_date', 'status'])
+            ->whereNotNull('scheduled_date')
+            ->orderBy('scheduled_date')
+            ->get();
+        $bookingsByDate = $trendBookings->groupBy(fn (Booking $b) => Carbon::parse($b->scheduled_date)->toDateString());
+        $chartLabels = $chartDateLabels = $chartBookingsData = [];
+        $firstTrendDate = $trendBookings->isNotEmpty()
+            ? Carbon::parse($trendBookings->first()->scheduled_date)->startOfDay()
+            : Carbon::now()->startOfDay();
+        $lastTrendDate = $trendBookings->isNotEmpty()
+            ? Carbon::parse($trendBookings->last()->scheduled_date)->startOfDay()
+            : Carbon::now()->startOfDay();
+        $chartCursor = $firstTrendDate->copy();
+        while ($chartCursor->lte($lastTrendDate)) {
+            $dateStr = $chartCursor->toDateString();
+            $day = $bookingsByDate->get($dateStr, collect());
+            $chartDateLabels[] = $dateStr;
+            $chartLabels[] = $chartCursor->format('M d');
+            $chartBookingsData[] = $day->count();
+            $chartCursor->addDay();
+        }
+
+        $availableRevenueMonths = Booking::query()
+            ->where('status', 'completed')
+            ->whereNotNull('scheduled_date')
+            ->orderByDesc('scheduled_date')
+            ->pluck('scheduled_date')
+            ->map(fn ($date) => Carbon::parse($date)->format('Y-m'))
+            ->unique()
+            ->values();
+        $currentMonthKey = $dashboardNow->format('Y-m');
+        $requestedRevenueMonth = $request->query('revenue_month');
+        $selectedRevenueMonth = $requestedRevenueMonth
+            ?: ($availableRevenueMonths->contains($currentMonthKey) ? $currentMonthKey : ($availableRevenueMonths->first() ?? $currentMonthKey));
+        if (! preg_match('/^\d{4}-\d{2}$/', (string) $selectedRevenueMonth)) {
+            $selectedRevenueMonth = $currentMonthKey;
+        }
+
+        $revenueMonthStart = Carbon::createFromFormat('Y-m-d', $selectedRevenueMonth.'-01')->startOfMonth();
+        $revenueMonthEnd = $revenueMonthStart->copy()->endOfMonth();
+        $revenueBookings = Booking::query()
+            ->where('status', 'completed')
+            ->whereBetween('scheduled_date', [$revenueMonthStart->toDateString(), $revenueMonthEnd->toDateString()])
+            ->get(['id', 'scheduled_date', 'price']);
+        $revenueByDate = $revenueBookings->groupBy(fn (Booking $b) => Carbon::parse($b->scheduled_date)->toDateString());
+        $revenueLabels = $revenueDateLabels = $chartRevenueData = [];
+        $revenueCursor = $revenueMonthStart->copy();
+        while ($revenueCursor->lte($revenueMonthEnd)) {
+            $dateStr = $revenueCursor->toDateString();
+            $day = $revenueByDate->get($dateStr, collect());
+            $revenueDateLabels[] = $dateStr;
+            $revenueLabels[] = $revenueCursor->format('M d');
+            $chartRevenueData[] = round($day->sum(fn (Booking $b) => (float) ($b->price ?? 0)), 2);
+            $revenueCursor->addDay();
+        }
+        $selectedRevenueTotal = round(array_sum($chartRevenueData), 2);
+        $selectedRevenueCompletedCount = $revenueBookings->count();
+        $selectedRevenueMonthLabel = $revenueMonthStart->format('F Y');
+
+        // Recent activity (last 8 bookings sorted by updated_at)
+        $recentActivity = Booking::with(['user:id,first_name,last_name', 'service:id,name,slug'])
+            ->latest('updated_at')
+            ->take(8)
+            ->get();
+
         return view('admin.dashboard', compact(
             'dashboardNow', 'dashboardStats', 'recentBookings', 'topStaff',
             'totalEarnings', 'pendingEscalationSummary', 'tomorrowJobs',
-            'unassignedBookings', 'presentStaffCount'
+            'unassignedBookings', 'presentStaffCount',
+            'analyticsAvgRating', 'analyticsRatingCount', 'cancelledCount',
+            'servicePopularity', 'staffPerformance',
+            'chartLabels', 'chartDateLabels', 'chartBookingsData',
+            'availableRevenueMonths', 'selectedRevenueMonth', 'selectedRevenueMonthLabel',
+            'selectedRevenueTotal', 'selectedRevenueCompletedCount',
+            'revenueLabels', 'revenueDateLabels', 'chartRevenueData',
+            'recentActivity'
         ));
     }
 
@@ -73,16 +199,16 @@ class AdminController extends Controller
         ")->first();
 
         return [
-            'total_bookings'       => (int) ($bookingCounts->total_bookings ?? 0),
-            'pending_bookings'     => (int) ($bookingCounts->pending_bookings ?? 0),
-            'confirmed_bookings'   => (int) ($bookingCounts->confirmed_bookings ?? 0),
-            'completed_bookings'   => (int) ($bookingCounts->completed_bookings ?? 0),
+            'total_bookings' => (int) ($bookingCounts->total_bookings ?? 0),
+            'pending_bookings' => (int) ($bookingCounts->pending_bookings ?? 0),
+            'confirmed_bookings' => (int) ($bookingCounts->confirmed_bookings ?? 0),
+            'completed_bookings' => (int) ($bookingCounts->completed_bookings ?? 0),
             'in_progress_bookings' => (int) ($bookingCounts->in_progress_bookings ?? 0),
-            'total_earnings'       => (float) ($bookingCounts->total_earnings ?? 0),
-            'customers'            => (int) ($userCounts->customers ?? 0),
-            'verified_customers'   => (int) ($userCounts->verified_customers ?? 0),
-            'staff'                => (int) ($userCounts->staff ?? 0),
-            'active_devices'       => Device::where('is_active', true)->count(),
+            'total_earnings' => (float) ($bookingCounts->total_earnings ?? 0),
+            'customers' => (int) ($userCounts->customers ?? 0),
+            'verified_customers' => (int) ($userCounts->verified_customers ?? 0),
+            'staff' => (int) ($userCounts->staff ?? 0),
+            'active_devices' => Device::where('is_active', true)->count(),
         ];
     }
 

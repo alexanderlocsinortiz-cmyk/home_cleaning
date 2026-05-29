@@ -1,34 +1,40 @@
 {{--
 |--------------------------------------------------------------------------
-| CleanFlow UI Theme - OCEAN BLUE & TEAL PALETTE
+| CleanFlow UI Theme - BLUE SYSTEM PALETTE
 |--------------------------------------------------------------------------
 |
 | Color Palette:
-| - Primary:    #2563eb (Deep Ocean Blue)
-| - Accent:     #14b8a6 (Teal)
-| - Background: #f8fafc (Cool Slate)
-| - Dark:       #0f172a (Slate 900)
+| - Blue 900: #1E3A8A
+| - Blue 800: #1E40AF
+| - Blue 700: #1D4ED8
+| - Blue 600: #2563EB
+| - Blue 500: #3B82F6
+| - Blue 400: #60A5FA
+| - Blue 300: #93C5FD
+| - Blue 200: #BFDBFE
+| - Blue 100: #DBEAFE
+| - Blue 50:  #EFF6FF
 |
 --}}
 
 <style>
 /* ==========================================
-   OCEAN BLUE & TEAL PALETTE SYSTEM
+   BLUE SYSTEM PALETTE
    ========================================== */
 
 :root {
     --font-display: 'Inter', system-ui, sans-serif;
 
     /* Primary Colors */
-    --primary-color: #2563eb;
-    --accent-color: #14b8a6;
-    --success-color: #14b8a6;
-    --warning-color: #f59e0b;
-    --danger-color: #e11d48;
-    --highlight-color: #14b8a6;
+    --primary-color: #2563EB;
+    --accent-color: #2563EB;
+    --success-color: #2563EB;
+    --warning-color: #3B82F6;
+    --danger-color: #1D4ED8;
+    --highlight-color: #2563EB;
     --secondary-color: #475569;
-    --brand-navy: #1e3a8a;
-    --brand-progress: #2563eb;
+    --brand-navy: #1E3A8A;
+    --brand-progress: #2563EB;
 
     /* Background and text */
     --bg-color: #f8fafc;
@@ -38,11 +44,11 @@
 
     /* RGB Values for Opacity Variants */
     --primary-rgb: 37, 99, 235;
-    --accent-rgb: 20, 184, 166;
-    --success-rgb: 20, 184, 166;
-    --warning-rgb: 245, 158, 11;
-    --danger-rgb: 225, 29, 72;
-    --highlight-rgb: 20, 184, 166;
+    --accent-rgb: 37, 99, 235;
+    --success-rgb: 37, 99, 235;
+    --warning-rgb: 59, 130, 246;
+    --danger-rgb: 29, 78, 216;
+    --highlight-rgb: 37, 99, 235;
     --secondary-rgb: 71, 85, 105;
 
     /* Shadows */
@@ -99,7 +105,7 @@ body {
     overflow: hidden;
     border: 1px solid rgba(37, 99, 235, 0.15);
     border-radius: 1.75rem;
-    background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
+    background: #1E3A8A;
     box-shadow: 0 24px 48px rgba(37, 99, 235, 0.2);
 }
 
@@ -159,7 +165,7 @@ body {
 
 .cleanflow-alert--success {
     border: 1px solid var(--success-color);
-    background: rgba(20, 184, 166, 0.1);
+    background: rgba(37, 99, 235, 0.1);
     color: var(--success-color);
 }
 
@@ -189,7 +195,7 @@ body {
 }
 
 .btn-primary:hover {
-    background-color: #1d4ed8;
+    background-color: #1D4ED8;
 }
 
 .btn-secondary {

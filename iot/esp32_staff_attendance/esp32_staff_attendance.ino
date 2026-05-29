@@ -13,7 +13,7 @@
 // WiFi and Server
 constexpr char WIFI_SSID[] = "sander";
 constexpr char WIFI_PASSWORD[] = "san12345";
-constexpr char SERVER_URL[] = "http://192.168.137.1:8001/api/iot";
+constexpr char SERVER_URL[] = "http://10.135.199.1:8000/api/iot";
 constexpr char DEVICE_TOKEN[] = "yWGFNwAWgN7mQOtZF6evE7GwUC2lV7v1ok7QrwwyEjEATOdVl62hnwd2ueXty1Wm";
 
 // Pin Config
@@ -46,7 +46,7 @@ unsigned long lastAcceptedAt = 0;
 
 constexpr unsigned long HEARTBEAT_INTERVAL = 30000UL;
 constexpr unsigned long ENROLL_CHECK_INTERVAL = 5000UL;
-constexpr unsigned long SCAN_COOLDOWN_MS = 8000UL;
+constexpr unsigned long SCAN_COOLDOWN_MS = 10000UL;
 constexpr unsigned long ENROLLMENT_WAIT_MS = 30000UL;
 constexpr unsigned long REMOVE_FINGER_WAIT_MS = 15000UL;
 

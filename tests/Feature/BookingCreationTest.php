@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\AttendanceLog;
 use App\Models\Booking;
 use App\Models\BookingActivityLog;
 use App\Models\BookingServiceProof;
 use App\Models\Service;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -28,7 +30,7 @@ class BookingCreationTest extends TestCase
         Service::updateOrCreate(['slug' => 'postconstruction'], [
             'name' => 'Post Construction Cleaning',
             'description' => 'Detailed post-construction cleanup',
-            'price' => 1800,
+            'price' => 105,
             'is_active' => true,
         ]);
 
@@ -62,6 +64,40 @@ class BookingCreationTest extends TestCase
         $response->assertSee('Subscription Plan', false);
         $response->assertSee('Post Construction Cleaning', false);
         $response->assertSee('Eco-Friendly Supplies', false);
+    }
+
+    public function test_booking_form_prefills_address_from_client_profile(): void
+    {
+        Service::create([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $user = User::create([
+            'first_name' => 'Client',
+            'last_name' => 'User',
+            'email' => 'prefilled-address@example.com',
+            'phone' => '09171234568',
+            'date_of_birth' => '2000-01-01',
+            'gender' => 'female',
+            'street' => 'P-11 Kanayan',
+            'barangay' => 'Lourdes',
+            'city' => 'Valencia City',
+            'zip_code' => '8709',
+            'username' => 'prefilledaddress',
+            'role' => 'client',
+            'password' => Hash::make('password123'),
+        ]);
+        $user->forceFill(['email_verified_at' => now()])->save();
+
+        $response = $this->actingAs($user)->get(route('bookings.create'));
+
+        $response->assertOk();
+        $response->assertSee('value="Lourdes" selected', false);
+        $response->assertSee('value="P-11 Kanayan"', false);
     }
 
     public function test_authenticated_client_can_create_a_booking_with_calculated_price(): void
@@ -102,6 +138,8 @@ class BookingCreationTest extends TestCase
             'street_address' => '123 Rizal Street',
             'scheduled_date' => now()->addDays(3)->toDateString(),
             'scheduled_time' => '09:00',
+            'payment_method' => 'on_site_cash',
+            'service_plan' => 'one_time',
         ];
 
         $response = $this->actingAs($user)->post(route('bookings.store'), $payload);
@@ -115,14 +153,109 @@ class BookingCreationTest extends TestCase
         $this->assertSame('pending', $booking->status);
         $this->assertSame('not_required', $booking->manual_review_status);
         $this->assertNull($booking->risk_reasons);
-        $this->assertSame(1520.0, (float) $booking->price);
-        $this->assertSame(570.0, (float) $booking->base_price);
+        $this->assertSame(2525.0, (float) $booking->price);
+        $this->assertSame(0.0, (float) $booking->base_price);
         $this->assertSame(200.0, (float) $booking->property_fee);
         $this->assertSame(100.0, (float) $booking->rooms_fee);
         $this->assertSame(100.0, (float) $booking->bathrooms_fee);
-        $this->assertSame(120.0, (float) $booking->floor_area_fee);
-        $this->assertSame(430.0, (float) $booking->add_ons_fee);
+        $this->assertSame(1575.0, (float) $booking->floor_area_fee);
+        $this->assertSame(550.0, (float) $booking->add_ons_fee);
         $this->assertSame(['window_glass', 'refrigerator'], $booking->add_ons);
+    }
+
+    public function test_deep_clean_is_priced_per_square_meter(): void
+    {
+        Service::create([
+            'name' => 'Deep Clean',
+            'slug' => 'deep',
+            'description' => 'Detailed cleaning',
+            'price' => 95,
+            'duration_minutes' => 180,
+            'is_active' => true,
+        ]);
+
+        $pricing = Booking::calculatePrice('deep', 'house', 1, 1, 45, []);
+
+        $this->assertSame(0.0, $pricing['base_price']);
+        $this->assertSame(45, $pricing['billable_floor_area']);
+        $this->assertSame(95.0, $pricing['floor_area_rate']);
+        $this->assertSame(4275.0, $pricing['floor_area_fee']);
+        $this->assertSame(4275.0, $pricing['total']);
+    }
+
+    public function test_post_construction_cleaning_is_priced_per_square_meter(): void
+    {
+        Service::updateOrCreate(['slug' => 'postconstruction'], [
+            'name' => 'Post Construction Cleaning',
+            'description' => 'Detailed post-construction cleanup',
+            'price' => 105,
+            'duration_minutes' => 240,
+            'is_active' => true,
+        ]);
+
+        $pricing = Booking::calculatePrice('postconstruction', 'house', 1, 1, 45, []);
+
+        $this->assertSame(0.0, $pricing['base_price']);
+        $this->assertSame(45, $pricing['billable_floor_area']);
+        $this->assertSame(105.0, $pricing['floor_area_rate']);
+        $this->assertSame(4725.0, $pricing['floor_area_fee']);
+        $this->assertSame(4725.0, $pricing['total']);
+    }
+
+    public function test_move_in_move_out_cleaning_is_priced_per_square_meter(): void
+    {
+        Service::updateOrCreate(['slug' => 'moveinout'], [
+            'name' => 'Move-in/Move-out Clean',
+            'description' => 'Full property cleaning',
+            'price' => 80,
+            'duration_minutes' => 240,
+            'is_active' => true,
+        ]);
+
+        $pricing = Booking::calculatePrice('moveinout', 'apartment', 2, 2, 80, []);
+
+        $this->assertSame(0.0, $pricing['base_price']);
+        $this->assertSame(200.0, $pricing['property_fee']);
+        $this->assertSame(50.0, $pricing['rooms_fee']);
+        $this->assertSame(100.0, $pricing['bathrooms_fee']);
+        $this->assertSame(80, $pricing['billable_floor_area']);
+        $this->assertSame(80.0, $pricing['floor_area_rate']);
+        $this->assertSame(6400.0, $pricing['floor_area_fee']);
+        $this->assertSame(6750.0, $pricing['total']);
+    }
+
+    public function test_general_regular_cleaning_uses_per_session_range(): void
+    {
+        Service::updateOrCreate(['slug' => 'weeklymaintenance'], [
+            'name' => 'General/Regular Cleaning',
+            'description' => 'General or regular cleaning session',
+            'price' => 500,
+            'duration_minutes' => 240,
+            'is_active' => true,
+        ]);
+
+        $smallSessionPricing = Booking::calculatePrice('weeklymaintenance', 'apartment', 2, 2, 80, []);
+        $largerSessionPricing = Booking::calculatePrice('weeklymaintenance', 'apartment', 3, 2, 80, []);
+
+        $this->assertSame(500.0, $smallSessionPricing['base_price']);
+        $this->assertSame(0.0, $smallSessionPricing['property_fee']);
+        $this->assertSame(0.0, $smallSessionPricing['rooms_fee']);
+        $this->assertSame(0.0, $smallSessionPricing['bathrooms_fee']);
+        $this->assertSame(0.0, $smallSessionPricing['floor_area_fee']);
+        $this->assertSame(500.0, $smallSessionPricing['total']);
+
+        $this->assertSame(800.0, $largerSessionPricing['base_price']);
+        $this->assertSame(800.0, $largerSessionPricing['total']);
+    }
+
+    public function test_add_on_catalog_uses_final_suggested_prices(): void
+    {
+        $this->assertSame(200.0, (float) Booking::ADD_ON_CATALOG['window_glass']['price']);
+        $this->assertSame(350.0, (float) Booking::ADD_ON_CATALOG['refrigerator']['price']);
+        $this->assertSame(300.0, (float) Booking::ADD_ON_CATALOG['inside_cabinets']['price']);
+        $this->assertSame(400.0, (float) Booking::ADD_ON_CATALOG['sofa_vacuum']['price']);
+        $this->assertSame(300.0, (float) Booking::ADD_ON_CATALOG['pet_hair_removal']['price']);
+        $this->assertSame(150.0, (float) Booking::ADD_ON_CATALOG['eco_friendly_supplies']['price']);
     }
 
     public function test_booking_details_page_shows_price_breakdown_for_floor_area_and_add_ons(): void
@@ -157,7 +290,7 @@ class BookingCreationTest extends TestCase
             'rooms_fee' => 100,
             'bathrooms_fee' => 100,
             'floor_area_fee' => 120,
-            'add_ons_fee' => 430,
+            'add_ons_fee' => 550,
             'payment_method' => 'gcash',
             'payment_status' => 'paid',
             'payment_reference' => 'GCASH-TEST-12345',
@@ -167,7 +300,7 @@ class BookingCreationTest extends TestCase
             'subscription_occurrences' => 4,
             'subscription_group_id' => 'test-group',
             'subscription_sequence' => 1,
-            'price' => 1520,
+            'price' => 1640,
             'status' => 'pending',
         ]);
 
@@ -300,7 +433,7 @@ class BookingCreationTest extends TestCase
                 now()->addDays(12)->toDateString(),
                 now()->addDays(19)->toDateString(),
             ],
-            $bookings->pluck('scheduled_date')->all()
+            $bookings->pluck('scheduled_date')->map->toDateString()->all()
         );
     }
 
@@ -350,7 +483,7 @@ class BookingCreationTest extends TestCase
             'user_id' => $client->id,
             'title' => 'Preferred cleaner request received',
             'type' => 'info',
-            'link' => '/bookings/'.$booking->id,
+            'link' => route('bookings.show', $booking->id),
         ]);
     }
 
@@ -428,7 +561,7 @@ class BookingCreationTest extends TestCase
             'user_id' => $newClient->id,
             'title' => 'Preferred cleaner unavailable',
             'type' => 'warning',
-            'link' => '/bookings/'.$booking->id,
+            'link' => route('bookings.show', $booking->id),
         ]);
     }
 
@@ -865,6 +998,192 @@ class BookingCreationTest extends TestCase
 
         $response->assertRedirect(route('staff.dashboard'));
         $this->assertDatabaseCount('bookings', 0);
+    }
+
+    public function test_client_can_book_today_when_the_selected_time_is_still_upcoming(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-21 08:30:00', config('cleanflow.attendance_timezone', 'Asia/Manila')));
+
+        Service::create([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $client = $this->createVerifiedUser([
+            'email' => 'today-client@example.com',
+            'username' => 'todayclient',
+        ]);
+
+        $response = $this->actingAs($client)->post(route('bookings.store'), [
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 1,
+            'bathrooms' => 1,
+            'floor_area' => 30,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Rizal Street',
+            'scheduled_date' => '2026-05-21',
+            'scheduled_time' => '10:00',
+            'payment_method' => 'on_site_cash',
+            'service_plan' => 'one_time',
+        ]);
+
+        $response->assertRedirect(route('bookings.index'));
+        $booking = Booking::where('user_id', $client->id)->first();
+        $this->assertNotNull($booking);
+        $this->assertSame('2026-05-21', $booking->scheduled_date->toDateString());
+        $this->assertSame('10:00', $booking->scheduled_time);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_client_cannot_book_today_for_a_time_that_has_already_passed(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-21 10:30:00', config('cleanflow.attendance_timezone', 'Asia/Manila')));
+
+        Service::create([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $client = $this->createVerifiedUser([
+            'email' => 'past-time-client@example.com',
+            'username' => 'pasttimeclient',
+        ]);
+
+        $response = $this->actingAs($client)
+            ->from(route('bookings.create'))
+            ->post(route('bookings.store'), [
+                'service_type' => 'basic',
+                'property_type' => 'house',
+                'rooms' => 1,
+                'bathrooms' => 1,
+                'floor_area' => 30,
+                'barangay' => 'Poblacion',
+                'street_address' => '123 Rizal Street',
+                'scheduled_date' => '2026-05-21',
+                'scheduled_time' => '10:00',
+                'payment_method' => 'on_site_cash',
+                'service_plan' => 'one_time',
+            ]);
+
+        $response->assertRedirect(route('bookings.create'));
+        $response->assertSessionHasErrors('scheduled_time');
+        $this->assertDatabaseCount('bookings', 0);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_today_preferred_cleaner_without_attendance_is_marked_unavailable(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-21 08:30:00', config('cleanflow.attendance_timezone', 'Asia/Manila')));
+
+        Service::create([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $client = $this->createVerifiedUser([
+            'email' => 'today-preferred-client@example.com',
+            'username' => 'todaypreferredclient',
+        ]);
+
+        $preferredCleaner = $this->createVerifiedUser([
+            'first_name' => 'No',
+            'last_name' => 'Attendance',
+            'email' => 'no-attendance-cleaner@example.com',
+            'username' => 'noattendancecleaner',
+            'role' => 'staff',
+        ]);
+
+        $response = $this->actingAs($client)->post(route('bookings.store'), [
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 1,
+            'bathrooms' => 1,
+            'floor_area' => 30,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Rizal Street',
+            'scheduled_date' => '2026-05-21',
+            'scheduled_time' => '10:00',
+            'preferred_staff_id' => $preferredCleaner->id,
+            'payment_method' => 'on_site_cash',
+            'service_plan' => 'one_time',
+        ]);
+
+        $response->assertRedirect(route('bookings.index'));
+
+        $booking = Booking::where('user_id', $client->id)->first();
+        $this->assertSame($preferredCleaner->id, $booking->preferred_staff_id);
+        $this->assertSame('unavailable', $booking->preferred_staff_status);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_today_preferred_cleaner_with_attendance_can_be_requested_when_free(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-21 08:30:00', config('cleanflow.attendance_timezone', 'Asia/Manila')));
+
+        Service::create([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $client = $this->createVerifiedUser([
+            'email' => 'today-present-client@example.com',
+            'username' => 'todaypresentclient',
+        ]);
+
+        $preferredCleaner = $this->createVerifiedUser([
+            'first_name' => 'Present',
+            'last_name' => 'Cleaner',
+            'email' => 'present-cleaner@example.com',
+            'username' => 'presentcleaner',
+            'role' => 'staff',
+        ]);
+
+        AttendanceLog::create([
+            'user_id' => $preferredCleaner->id,
+            'punch_type' => 'in',
+            'logged_at' => Carbon::parse('2026-05-21 07:50:00', config('cleanflow.attendance_timezone', 'Asia/Manila'))->utc(),
+            'status' => 'present',
+            'source' => 'test',
+        ]);
+
+        $response = $this->actingAs($client)->post(route('bookings.store'), [
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 1,
+            'bathrooms' => 1,
+            'floor_area' => 30,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Rizal Street',
+            'scheduled_date' => '2026-05-21',
+            'scheduled_time' => '10:00',
+            'preferred_staff_id' => $preferredCleaner->id,
+            'payment_method' => 'on_site_cash',
+            'service_plan' => 'one_time',
+        ]);
+
+        $response->assertRedirect(route('bookings.index'));
+
+        $booking = Booking::where('user_id', $client->id)->first();
+        $this->assertSame($preferredCleaner->id, $booking->preferred_staff_id);
+        $this->assertSame('requested', $booking->preferred_staff_status);
+
+        Carbon::setTestNow();
     }
 
     private function createVerifiedUser(array $overrides): User

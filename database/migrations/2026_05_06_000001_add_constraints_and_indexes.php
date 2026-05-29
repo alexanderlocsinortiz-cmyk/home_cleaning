@@ -16,7 +16,7 @@ return new class extends Migration
         // Add foreign key constraints for data integrity (PostgreSQL and MySQL only)
         if (in_array($driver, ['pgsql', 'mysql'])) {
             Schema::table('attendance_logs', function (Blueprint $table) {
-                if (!$this->hasConstraint('attendance_logs', 'attendance_logs_device_id_foreign')) {
+                if (! $this->hasConstraint('attendance_logs', 'attendance_logs_device_id_foreign')) {
                     $table->foreign('device_id')
                         ->references('id')
                         ->on('devices')
@@ -25,7 +25,7 @@ return new class extends Migration
             });
 
             Schema::table('device_enrollment_requests', function (Blueprint $table) {
-                if (!$this->hasConstraint('device_enrollment_requests', 'device_enrollment_requests_device_id_foreign')) {
+                if (! $this->hasConstraint('device_enrollment_requests', 'device_enrollment_requests_device_id_foreign')) {
                     $table->foreign('device_id')
                         ->references('id')
                         ->on('devices')
@@ -88,9 +88,10 @@ return new class extends Migration
     {
         // Check if constraint exists in PostgreSQL
         $result = \DB::selectOne(
-            "SELECT constraint_name FROM information_schema.table_constraints WHERE table_name = ? AND constraint_name = ?",
+            'SELECT constraint_name FROM information_schema.table_constraints WHERE table_name = ? AND constraint_name = ?',
             [$table, $constraint]
         );
+
         return $result !== null;
     }
 };

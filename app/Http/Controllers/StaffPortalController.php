@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
+use App\Models\DeviceEnrollmentRequest;
 use App\Models\Notification;
 use App\Models\Rating;
 use App\Models\User;
@@ -57,8 +58,8 @@ class StaffPortalController extends Controller
             ->withCount('rating')
             ->first();
 
-        $avgRating = $ratingStats?->rating_avg_stars 
-            ? round($ratingStats->rating_avg_stars, 1) 
+        $avgRating = $ratingStats?->rating_avg_stars
+            ? round($ratingStats->rating_avg_stars, 1)
             : null;
         $totalRatings = $ratingStats?->rating_count ?? 0;
 
@@ -108,7 +109,7 @@ class StaffPortalController extends Controller
             $request->validate([
                 'after_photos' => ['required', 'array', 'min:1', 'max:4'],
                 'after_photos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-                'completion_video' => ['nullable', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm,video/x-msvideo', 'max:20480'],
+                'completion_video' => ['nullable', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm,video/x-msvideo', 'max:'.config('cleanflow.proof_uploads.max_video_kb', 10240)],
             ]);
         }
 
@@ -130,7 +131,9 @@ class StaffPortalController extends Controller
                     $actor->id
                 );
 
-                $booking->update(['status' => 'in_progress']);
+                $booking->status = 'in_progress';
+                $booking->markServiceStarted();
+                $booking->save();
 
                 $booking->logActivity(
                     $actor,
@@ -183,15 +186,16 @@ class StaffPortalController extends Controller
                 $videoUploaded = true;
             }
 
-            $updates = ['status' => 'completed'];
+            $booking->status = 'completed';
+            $booking->markServiceCompleted();
 
             if ($booking->payment_method === 'on_site_cash' && $booking->payment_status !== 'paid') {
-                $updates['payment_status'] = 'paid';
-                $updates['payment_reference'] = $booking->payment_reference ?: Booking::generatePaymentReference('on_site_cash');
-                $updates['paid_at'] = now();
+                $booking->payment_status = 'paid';
+                $booking->payment_reference = $booking->payment_reference ?: Booking::generatePaymentReference('on_site_cash');
+                $booking->paid_at = now();
             }
 
-            $booking->update($updates);
+            $booking->save();
 
             $booking->logActivity(
                 $actor,
@@ -225,6 +229,9 @@ class StaffPortalController extends Controller
                     'from_status' => 'in_progress',
                     'to_status' => 'completed',
                     'payment_status' => $booking->payment_status,
+                    'on_time_status' => $booking->on_time_status,
+                    'started_late_minutes' => $booking->started_late_minutes,
+                    'completed_late_minutes' => $booking->completed_late_minutes,
                 ]
             );
 
@@ -268,7 +275,7 @@ class StaffPortalController extends Controller
         $user = Auth::user();
         $status = $request->get('status', 'all');
 
-        $query = Booking::with(['user', 'rating', 'service'])
+        $query = Booking::with(['user', 'rating', 'service', 'serviceProofs'])
             ->withCount([
                 'serviceProofs as before_photo_count' => fn ($proofs) => $proofs
                     ->where('stage', 'before')
@@ -406,6 +413,49 @@ class StaffPortalController extends Controller
             ->update(['read_at' => now()]);
 
         return back()->with('success', 'All booking updates have been marked as read.');
+    }
+
+    public function fingerprintConsent(DeviceEnrollmentRequest $enrollmentRequest)
+    {
+        abort_unless($enrollmentRequest->user_id === Auth::id(), 403);
+
+        $enrollmentRequest->load(['device', 'requestedBy']);
+
+        return view('staff.fingerprint-consent', [
+            'enrollmentRequest' => $enrollmentRequest,
+            'user' => Auth::user(),
+        ]);
+    }
+
+    public function acceptFingerprintConsent(Request $request, DeviceEnrollmentRequest $enrollmentRequest)
+    {
+        abort_unless($enrollmentRequest->user_id === Auth::id(), 403);
+
+        $request->validate([
+            'accept_terms' => ['accepted'],
+        ], [
+            'accept_terms.accepted' => 'You must accept the biometric attendance terms before enrollment can continue.',
+        ]);
+
+        if ($enrollmentRequest->status !== 'awaiting_consent') {
+            return redirect()
+                ->route('staff.fingerprint-consent.show', $enrollmentRequest)
+                ->with('success', 'Fingerprint enrollment terms were already reviewed.');
+        }
+
+        $enrollmentRequest->update([
+            'status' => 'consent_accepted',
+            'consent_accepted_at' => now(),
+        ]);
+
+        Notification::where('user_id', Auth::id())
+            ->where('link', route('staff.fingerprint-consent.show', $enrollmentRequest))
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        return redirect()
+            ->route('staff.fingerprint-consent.show', $enrollmentRequest)
+            ->with('success', 'Terms accepted. Admin can now continue your fingerprint enrollment on the device.');
     }
 
     private function storeProofBatch(

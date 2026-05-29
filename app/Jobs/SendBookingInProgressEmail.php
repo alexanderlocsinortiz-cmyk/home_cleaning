@@ -30,8 +30,9 @@ class SendBookingInProgressEmail implements ShouldQueue
         try {
             $booking = Booking::with(['user', 'staff', 'service', 'preferredStaff'])->find($this->bookingId);
 
-            if (!$booking) {
+            if (! $booking) {
                 Log::warning('Booking not found for SendBookingInProgressEmail', ['booking_id' => $this->bookingId]);
+
                 return;
             }
 

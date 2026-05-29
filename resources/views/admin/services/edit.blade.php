@@ -32,7 +32,7 @@
     </section>
 
     @if($servicePackage)
-        <section class="rounded-[28px] border border-primary-200 bg-primary-50 px-6 py-6 shadow-sm">
+        <section class="rounded-[28px] border border-indigo-200 bg-indigo-50 px-6 py-6 shadow-sm">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                     <h3 class="text-lg font-extrabold text-slate-900">Recognized package template</h3>
@@ -40,11 +40,11 @@
                         This service matches one of the standard Week 5 package templates used in the public catalog and booking flow.
                     </p>
                 </div>
-                <span class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-emerald-700">
+                <span class="inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-indigo-700">
                     {{ $servicePackage['badge'] }}
                 </span>
             </div>
-            <div class="mt-4 text-sm font-bold text-emerald-800">{{ $servicePackage['name'] }}</div>
+            <div class="mt-4 text-sm font-bold text-indigo-800">{{ $servicePackage['name'] }}</div>
             <div class="mt-1 text-sm leading-6 text-slate-500">{{ $servicePackage['highlight'] }}</div>
         </section>
     @endif
@@ -70,7 +70,18 @@
                 <div>
                     <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Price (&#8369;) <span class="text-red-500">*</span></label>
                     <input type="number" name="price" value="{{ old('price', $service->price) }}" required min="1" step="0.01" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
+                    @if(($servicePackage['pricing_unit'] ?? null) === 'sqm')
+                        <p class="mt-1 text-xs text-slate-500">This service is billed per square meter.</p>
+                    @elseif(($servicePackage['pricing_unit'] ?? null) === 'flat_range')
+                        <p class="mt-1 text-xs text-slate-500">{{ $servicePackage['pricing_note'] ?? 'This service uses flat-rate range pricing.' }}</p>
+                    @endif
                     @error('price')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Estimated Duration (minutes) <span class="text-red-500">*</span></label>
+                    <input type="number" name="duration_minutes" value="{{ old('duration_minutes', $service->duration_minutes ?? \App\Models\Service::DEFAULT_DURATION_MINUTES) }}" required min="30" max="720" step="15" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
+                    <p class="mt-1 text-xs text-slate-500">Staff availability blocks this duration plus 60 minutes rest. Existing bookings keep their saved duration.</p>
+                    @error('duration_minutes')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
                 <label class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                     <input type="checkbox" name="is_active" id="is_active" value="1" {{ $service->is_active ? 'checked' : '' }} class="h-4 w-4 rounded text-emerald-600">

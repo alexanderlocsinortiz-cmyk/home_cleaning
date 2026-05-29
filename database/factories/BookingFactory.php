@@ -4,7 +4,6 @@ namespace Database\Factories;
 
 use App\Models\Booking;
 use App\Models\Service;
-use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -21,6 +20,7 @@ class BookingFactory extends Factory
             'status' => 'pending',
             'scheduled_date' => $this->faker->dateTimeBetween('now', '+7 days'),
             'scheduled_time' => $this->faker->time(),
+            'duration_minutes' => $this->faker->randomElement([60, 90, 120, 180, 240]),
             'base_price' => $this->faker->randomFloat(2, 500, 3000),
             'property_adjustment' => $this->faker->randomFloat(2, 0, 500),
             'room_bathroom_fees' => $this->faker->randomFloat(2, 0, 300),

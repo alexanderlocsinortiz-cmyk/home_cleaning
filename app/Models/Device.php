@@ -46,7 +46,7 @@ class Device extends Model
     // Check if device can authenticate
     public function canAuthenticate(): bool
     {
-        return $this->is_active && !$this->isTokenExpired();
+        return $this->is_active && ! $this->isTokenExpired();
     }
 
     // Generate new token and secret pair
@@ -68,6 +68,7 @@ class Device extends Model
     public function verifyToken(string $providedToken): bool
     {
         $providedHash = hash('sha256', $providedToken);
+
         return hash_equals($this->api_token, $providedHash);
     }
 }

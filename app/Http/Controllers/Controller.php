@@ -14,7 +14,7 @@ abstract class Controller
         $notification = \App\Models\Notification::create($data);
 
         // ✅ Invalidate user's notification count cache
-        Cache::forget('staff:unread_notif_' . $data['user_id']);
+        Cache::forget('staff:unread_notif_'.$data['user_id']);
 
         return $notification;
     }

@@ -1,6 +1,6 @@
 <meta name="application-name" content="Home Cleaning Service">
 <meta name="description" content="Book, track, and manage home cleaning services in Valencia City from any device.">
-<meta name="theme-color" content="#0F6E56">
+<meta name="theme-color" content="#1E40AF">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">

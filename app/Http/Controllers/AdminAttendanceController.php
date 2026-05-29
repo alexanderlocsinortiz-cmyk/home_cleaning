@@ -7,8 +7,8 @@ use App\Models\AttendanceLog;
 use App\Models\Device;
 use App\Models\DeviceEnrollmentRequest;
 use App\Models\User;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AdminAttendanceController extends Controller
@@ -119,8 +119,18 @@ class AdminAttendanceController extends Controller
             ])->withInput();
         }
 
+        $staffEnrollmentAlreadyRequested = DeviceEnrollmentRequest::where('user_id', $staff->id)
+            ->whereIn('status', ['awaiting_consent', 'consent_accepted', 'pending', 'in_progress'])
+            ->exists();
+
+        if ($staffEnrollmentAlreadyRequested) {
+            return back()->withErrors([
+                'user_id' => $staff->full_name.' already has an active fingerprint enrollment request.',
+            ])->withInput();
+        }
+
         $deviceBusy = DeviceEnrollmentRequest::where('device_id', $validated['device_id'])
-            ->whereIn('status', ['pending', 'in_progress'])
+            ->whereIn('status', ['pending', 'in_progress', 'consent_accepted'])
             ->exists();
 
         if ($deviceBusy) {
@@ -138,7 +148,7 @@ class AdminAttendanceController extends Controller
         }
 
         $templateQueued = DeviceEnrollmentRequest::where('template_id', $validated['template_id'])
-            ->whereIn('status', ['pending', 'in_progress'])
+            ->whereIn('status', ['awaiting_consent', 'consent_accepted', 'pending', 'in_progress'])
             ->exists();
 
         if ($templateQueued) {
@@ -147,17 +157,64 @@ class AdminAttendanceController extends Controller
             ])->withInput();
         }
 
-        DeviceEnrollmentRequest::create([
+        $enrollmentRequest = DeviceEnrollmentRequest::create([
             'device_id' => $validated['device_id'],
             'user_id' => $staff->id,
             'requested_by' => auth()->id(),
             'template_id' => $validated['template_id'],
-            'status' => 'pending',
+            'status' => 'awaiting_consent',
+            'consent_token' => Str::random(48),
+            'consent_requested_at' => now(),
+        ]);
+
+        $this->createNotification([
+            'user_id' => $staff->id,
+            'title' => 'Fingerprint enrollment consent required',
+            'message' => 'Please review and accept the biometric attendance terms before admin can continue your fingerprint enrollment.',
+            'type' => 'warning',
+            'link' => route('staff.fingerprint-consent.show', $enrollmentRequest),
         ]);
 
         return redirect()
             ->route('admin.attendance')
-            ->with('success', 'Fingerprint enrollment request created. Ask the staff member to scan the same finger twice on the device.');
+            ->with('success', 'Fingerprint consent request sent to '.$staff->display_name.'. Enrollment can continue only after the staff member accepts the terms.');
+    }
+
+    public function continueAttendanceEnrollmentRequest(DeviceEnrollmentRequest $enrollmentRequest)
+    {
+        if ($enrollmentRequest->status !== 'consent_accepted' || ! $enrollmentRequest->consent_accepted_at) {
+            return redirect()
+                ->route('admin.attendance')
+                ->withErrors(['enrollment' => 'The staff member must accept the fingerprint terms before enrollment can continue.']);
+        }
+
+        $deviceBusy = DeviceEnrollmentRequest::where('device_id', $enrollmentRequest->device_id)
+            ->where('id', '!=', $enrollmentRequest->id)
+            ->whereIn('status', ['pending', 'in_progress'])
+            ->exists();
+
+        if ($deviceBusy) {
+            return redirect()
+                ->route('admin.attendance')
+                ->withErrors(['device_id' => 'This device already has an enrollment in progress or waiting in queue.']);
+        }
+
+        $templateTaken = User::where('fingerprint_template_id', $enrollmentRequest->template_id)->exists();
+
+        if ($templateTaken) {
+            return redirect()
+                ->route('admin.attendance')
+                ->withErrors(['template_id' => 'That fingerprint slot is already assigned to a staff member.']);
+        }
+
+        $enrollmentRequest->update([
+            'status' => 'pending',
+            'error_message' => null,
+        ]);
+
+        return redirect()
+            ->route('admin.attendance')
+            ->with('success', 'Consent confirmed. Enrollment is now queued on the selected device.');
     }
 
     public function rotateAttendanceDeviceToken(Device $device)

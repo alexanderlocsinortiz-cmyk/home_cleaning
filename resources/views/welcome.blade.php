@@ -29,7 +29,7 @@
                     </div>
 
                     <div class="flex flex-wrap gap-3">
-                        <a href="{{ route('home') }}" class="inline-flex items-center gap-2 rounded-full bg-primary-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-primary-400">
+                        <a href="{{ route('home') }}" class="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-500">
                             Open Public Homepage
                         </a>
 
@@ -54,7 +54,7 @@
                                 <div class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Current Entry Points</div>
                                 <div class="mt-2 text-2xl font-black text-white">Live Application Routes</div>
                             </div>
-                            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-500/15 text-sm font-bold text-primary-300">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/15 text-sm font-bold text-blue-300">
                                 HC
                             </div>
                         </div>

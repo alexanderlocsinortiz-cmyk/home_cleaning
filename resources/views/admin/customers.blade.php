@@ -7,14 +7,14 @@
 @php
     $hasActiveFilters = $search !== '' || collect($filters)->contains(fn ($value) => $value !== '');
     $verificationClasses = [
-        'verified' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
-        'unverified' => 'border-amber-200 bg-amber-50 text-amber-700',
+        'verified'   => 'bg-emerald-100 text-emerald-700',
+        'unverified' => 'bg-amber-100 text-amber-700',
     ];
     $bookingStatusClasses = [
         'pending' => 'bg-amber-100 text-amber-700',
-        'confirmed' => 'bg-accent-50 text-accent-700',
-        'in_progress' => 'bg-primary-100 text-primary-700',
-        'completed' => 'bg-accent-100 text-accent-800',
+        'confirmed' => 'bg-blue-100 text-blue-700',
+        'in_progress' => 'bg-teal-100 text-teal-700',
+        'completed' => 'bg-emerald-100 text-emerald-700',
         'cancelled' => 'bg-danger-100 text-danger-700',
     ];
     $customerDirectory = $customers->getCollection()->mapWithKeys(function ($customer) use ($genderOptions) {
@@ -46,7 +46,6 @@
                 'last_booking_url' => $customer->latest_booking_id
                     ? route('bookings.show', $customer->latest_booking_id)
                     : null,
-                'verification_url' => route('admin.customers.verification.edit', $customer),
                 'delete_url' => route('admin.customers.destroy', $customer),
                 'can_delete' => $customer->bookings_count === 0,
             ],
@@ -83,7 +82,7 @@
                     <div class="mt-1 text-2xl font-black leading-none text-slate-900">{{ number_format($stats['total']) }}</div>
                     <div class="mt-1 text-xs text-slate-500">Registered client accounts.</div>
                 </div>
-                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white">
                     <i class="fas fa-users"></i>
                 </div>
             </div>
@@ -95,7 +94,7 @@
                     <div class="mt-1 text-2xl font-black leading-none text-slate-900">{{ number_format($stats['verified']) }}</div>
                     <div class="mt-1 text-xs text-slate-500">Ready client accounts.</div>
                 </div>
-                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-green-50 text-green-700">
+                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white">
                     <i class="fas fa-circle-check"></i>
                 </div>
             </div>
@@ -107,7 +106,7 @@
                     <div class="mt-1 text-2xl font-black leading-none text-slate-900">{{ number_format($stats['with_bookings']) }}</div>
                     <div class="mt-1 text-xs text-slate-500">Have service records.</div>
                 </div>
-                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-500 text-white">
                     <i class="fas fa-calendar-check"></i>
                 </div>
             </div>
@@ -119,7 +118,7 @@
                     <div class="mt-1 text-2xl font-black leading-none text-slate-900">{{ number_format($stats['new_this_month']) }}</div>
                     <div class="mt-1 text-xs text-slate-500">Since {{ now()->startOfMonth()->format('M d') }}.</div>
                 </div>
-                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-400 text-white">
                     <i class="fas fa-user-plus"></i>
                 </div>
             </div>
@@ -279,7 +278,7 @@
                                     </div>
                                 </td>
                                 <td class="px-4 py-3">
-                                    <span class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold {{ $verificationClass }}">
+                                    <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold {{ $verificationClass }}">
                                         <i class="fas {{ $isVerified ? 'fa-circle-check' : 'fa-clock' }}"></i>
                                         {{ $isVerified ? 'Verified' : 'Pending verification' }}
                                     </span>
@@ -331,10 +330,6 @@
                                                     <i class="fas fa-circle-info text-slate-400"></i>
                                                     Account overview
                                                 </button>
-                                                <a href="{{ route('admin.customers.verification.edit', $customer) }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
-                                                    <i class="fas fa-shield-halved text-slate-400"></i>
-                                                    Manage verification
-                                                </a>
                                                 @if($customer->bookings_count === 0)
                                                     <button type="button" onclick="openDeleteModal({{ $customer->id }})" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50">
                                                         <i class="fas fa-trash-can text-red-400"></i>
@@ -387,7 +382,7 @@
         <div class="border-b border-slate-100 px-6 py-5 sm:px-8">
             <div class="flex items-start justify-between gap-4">
                 <div class="flex items-start gap-4">
-                    <div id="detail-avatar" class="flex h-14 w-14 items-center justify-center rounded-3xl bg-primary-600 text-lg font-black text-white shadow-sm">--</div>
+                    <div id="detail-avatar" class="flex h-14 w-14 items-center justify-center rounded-3xl bg-blue-600 text-lg font-black text-white shadow-sm">--</div>
                     <div>
                         <div class="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-400">Customer Overview</div>
                         <h3 id="detail-name" class="mt-1 text-2xl font-black text-slate-900">Customer Name</h3>
@@ -470,10 +465,6 @@
                     <h4 class="text-base font-extrabold text-slate-900">Actions</h4>
                     <p class="mt-1 text-sm text-slate-500">Jump into the related admin workflows for this customer.</p>
                     <div class="mt-5 flex flex-col gap-3">
-                        <a id="detail-verification-link" href="#" class="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700">
-                            <i class="fas fa-shield-halved"></i>
-                            Manage Verification
-                        </a>
                         <a id="detail-last-booking-link" href="#" class="hidden items-center justify-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-700 transition hover:bg-blue-100">
                             <i class="fas fa-arrow-up-right-from-square"></i>
                             Open Latest Booking
@@ -610,9 +601,6 @@
         document.getElementById('detail-barangay').textContent = customer.barangay || '--';
         document.getElementById('detail-street').textContent = customer.street || '--';
         document.getElementById('detail-city-zip').textContent = [customer.city || 'Puerto Princesa City', customer.zip_code || ''].filter(Boolean).join(' - ');
-
-        const verificationLink = document.getElementById('detail-verification-link');
-        verificationLink.href = customer.verification_url;
 
         const lastBookingLink = document.getElementById('detail-last-booking-link');
         if (customer.last_booking_url) {

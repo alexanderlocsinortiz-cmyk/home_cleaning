@@ -55,10 +55,10 @@
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <div class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Staff Tracked</div>
-                    <div class="mt-2 text-4xl font-black leading-none text-green-600">{{ $staffList->count() }}</div>
+                    <div class="mt-2 text-4xl font-black leading-none text-emerald-600">{{ $staffList->count() }}</div>
                     <div class="mt-2 text-sm text-slate-500">Total staff members</div>
                 </div>
-                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-50 text-green-700">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
                     <i class="fas fa-user-group"></i>
                 </div>
             </div>
@@ -160,7 +160,7 @@
                         <tr class="border-t border-slate-100 transition hover:bg-slate-50/70">
                             <td class="px-5 py-4">
                                 <div class="flex items-center gap-3">
-                                    <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary-600 text-sm font-black text-white">
+                                    <div class="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white">
                                         {{ strtoupper(substr($summary->user->first_name ?? 'S', 0, 1)) }}
                                     </div>
                                     <div class="font-semibold text-slate-900">{{ $summary->user->first_name ?? 'Unknown' }} {{ $summary->user->last_name ?? '' }}</div>
@@ -171,7 +171,7 @@
                                 <div class="text-xs text-slate-400">{{ $summary->display_date->format('l') }}</div>
                             </td>
                             <td class="px-5 py-4">
-                                <span class="font-semibold {{ $summary->display_time_in ? 'text-green-600' : 'text-slate-400' }}">{{ $summary->display_time_in ?? '-' }}</span>
+                                <span class="font-semibold {{ $summary->display_time_in ? 'text-emerald-600' : 'text-slate-400' }}">{{ $summary->display_time_in ?? '-' }}</span>
                             </td>
                             <td class="px-5 py-4">
                                 <span class="font-semibold {{ $summary->display_time_out ? 'text-red-600' : 'text-slate-400' }}">{{ $summary->display_time_out ?? '-' }}</span>
@@ -181,7 +181,7 @@
                             </td>
                             <td class="px-5 py-4">
                                 @if($summary->display_status === 'present')
-                                    <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">Present</span>
+                                    <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">Present</span>
                                 @elseif($summary->display_status === 'late')
                                     <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">Late</span>
                                 @else
@@ -233,7 +233,7 @@
                             </td>
                             <td class="px-5 py-4">
                                 @if($log->punch_type === 'in')
-                                    <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">Time In</span>
+                                    <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">Time In</span>
                                 @else
                                     <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">Time Out</span>
                                 @endif
@@ -244,7 +244,7 @@
                             </td>
                             <td class="px-5 py-4">
                                 @if($log->display_status === 'present')
-                                    <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">Present</span>
+                                    <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">Present</span>
                                 @elseif($log->display_status === 'late')
                                     <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">Late</span>
                                 @else

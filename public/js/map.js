@@ -4,10 +4,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     const colors = {
-        service_center: '#e53935',
-        residential: '#1D9E75',
-        commercial: '#fb8c00',
-        office: '#16a34a',
+        service_center: '#1E3A8A',
+        residential: '#2563EB',
+        commercial: '#3B82F6',
+        office: '#60A5FA',
     };
     const barangayData = Array.isArray(window.barangayData) ? window.barangayData : [];
     const mapConfig = window.cleanflowMapConfig || {};
@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const maxBounds = mapConfig.maxBounds ?? [[7.75, 124.95], [8.05, 125.25]];
 
     function makeIcon(type) {
-        const color = colors[type] || '#1D9E75';
+        const color = colors[type] || '#2563EB';
 
         return L.divIcon({
             className: '',

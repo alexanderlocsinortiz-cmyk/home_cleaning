@@ -11,23 +11,23 @@
 
     $statusClasses = [
         'pending' => 'border border-amber-200 bg-amber-50 text-amber-700',
-        'confirmed' => 'border border-accent-200 bg-accent-50 text-accent-700',
-        'in_progress' => 'border border-primary-200 bg-primary-50 text-primary-700',
-        'completed' => 'border border-accent-300 bg-accent-100 text-accent-800',
-        'cancelled' => 'border border-danger-200 bg-danger-50 text-danger-700',
+        'confirmed' => 'border border-blue-200 bg-blue-50 text-blue-700',
+        'in_progress' => 'border border-teal-200 bg-teal-50 text-teal-700',
+        'completed' => 'border border-emerald-200 bg-emerald-50 text-emerald-700',
+        'cancelled' => 'border border-red-200 bg-red-50 text-red-700',
     ];
 
     $paymentStatusClasses = [
         'pending' => 'border border-amber-200 bg-amber-50 text-amber-700',
-        'paid' => 'border border-accent-300 bg-accent-100 text-accent-800',
+        'paid' => 'border border-emerald-200 bg-emerald-50 text-emerald-700',
     ];
 
     $stats = [
         [
             'label' => 'Total bookings',
             'count' => $totalCount,
-            'cardClasses' => 'border-l-4 border-secondary-300 bg-secondary-50/80',
-            'iconClasses' => 'bg-secondary-100 text-secondary-700',
+            'cardClasses' => 'border-l-4 border-slate-300 bg-slate-50/80',
+            'iconClasses' => 'bg-slate-100 text-slate-700',
             'icon' => 'fa-calendar-days',
         ],
         [
@@ -40,22 +40,22 @@
         [
             'label' => 'Confirmed',
             'count' => $confirmedCount,
-            'cardClasses' => 'border-l-4 border-accent-300 bg-accent-50/80',
-            'iconClasses' => 'bg-accent-100 text-accent-700',
+            'cardClasses' => 'border-l-4 border-teal-300 bg-teal-50/80',
+            'iconClasses' => 'bg-teal-100 text-teal-700',
             'icon' => 'fa-circle-check',
         ],
         [
             'label' => 'In progress',
             'count' => $inProgressCount,
-            'cardClasses' => 'border-l-4 border-primary-300 bg-primary-50/80',
-            'iconClasses' => 'bg-primary-100 text-primary-700',
+            'cardClasses' => 'border-l-4 border-blue-300 bg-blue-50/80',
+            'iconClasses' => 'bg-blue-100 text-blue-700',
             'icon' => 'fa-spinner',
         ],
         [
             'label' => 'Completed',
             'count' => $completedCount,
-            'cardClasses' => 'border-l-4 border-accent-400 bg-accent-100/80',
-            'iconClasses' => 'bg-accent-200 text-accent-800',
+            'cardClasses' => 'border-l-4 border-emerald-300 bg-emerald-50/80',
+            'iconClasses' => 'bg-emerald-100 text-emerald-700',
             'icon' => 'fa-check-double',
         ],
     ];
@@ -70,7 +70,7 @@
                 <i class="fas fa-circle-check mt-0.5 text-base"></i>
                 <div>
                     <p class="text-sm font-semibold">Booking update saved.</p>
-                    <p class="mt-1 text-sm text-emerald-800/80">{{ session('success') }}</p>
+                    <p class="mt-1 text-sm text-green-800/80">{{ session('success') }}</p>
                 </div>
             </div>
         @endif
@@ -139,7 +139,7 @@
                     </div>
                 </div>
 
-                <a href="{{ route('bookings.create') }}" class="cleanflow-ghost-button self-start xl:self-auto">
+                <a href="{{ route('bookings.create') }}" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/25 bg-white px-5 py-3 text-sm font-bold text-blue-700 shadow-lg shadow-blue-950/10 transition hover:-translate-y-0.5 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white self-start xl:self-auto">
                     <i class="fas fa-plus text-xs"></i>
                     New booking
                 </a>
@@ -190,15 +190,15 @@
                         </thead>
                         <tbody>
                             @foreach ($bookings as $booking)
-                                <tr class="border-b border-slate-100 transition hover:bg-emerald-50/35">
+                                <tr class="border-b border-slate-100 transition hover:bg-blue-50/35">
                                     <td class="px-6 py-4 align-top">
-                                        <a href="{{ route('bookings.show', $booking->id) }}" class="font-mono text-sm font-bold text-emerald-600 hover:underline">
+                                        <a href="{{ route('bookings.show', $booking->id) }}" class="font-mono text-sm font-bold text-blue-600 hover:underline">
                                             CF-{{ str_pad($booking->id, 5, '0', STR_PAD_LEFT) }}
                                         </a>
                                     </td>
                                     <td class="px-6 py-4 align-top">
                                         <div class="flex items-start gap-3">
-                                            <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                                            <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-700">
                                                 <i class="fas fa-broom text-sm"></i>
                                             </div>
                                             <div>
@@ -224,7 +224,7 @@
                                     <td class="px-6 py-4 align-top">
                                         @if ($booking->staff)
                                             <div class="flex items-center gap-2">
-                                                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-[11px] font-bold text-violet-700">
+                                                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-[11px] font-bold text-blue-700">
                                                     {{ strtoupper(substr($booking->staff->first_name, 0, 1)) }}
                                                 </div>
                                                 <div>
@@ -263,7 +263,7 @@
                                     </td>
                                     <td class="px-6 py-4 align-top">
                                         <div class="flex items-center justify-center gap-2">
-                                            <a href="{{ route('bookings.show', $booking->id) }}" class="inline-flex items-center gap-1 text-sm font-medium text-accent-600 hover:text-accent-700 hover:underline">
+                                            <a href="{{ route('bookings.show', $booking->id) }}" class="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline">
                                                 View
                                                 <i class="fas fa-arrow-right text-[11px]"></i>
                                             </a>
@@ -291,7 +291,7 @@
                 @endif
             @else
                 <div class="px-6 py-14 text-center">
-                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                         <i class="fas fa-broom text-xl"></i>
                     </div>
                     <h3 class="mt-4 text-lg font-bold text-slate-900">No bookings yet</h3>
@@ -299,7 +299,7 @@
                         When you submit your first request, its schedule, payment status, and cleaner updates will
                         appear here.
                     </p>
-                    <a href="{{ route('bookings.create') }}" class="mt-5 inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary-dark">
+                    <a href="{{ route('bookings.create') }}" class="mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">
                         <i class="fas fa-plus text-xs"></i>
                         Book your first service
                     </a>

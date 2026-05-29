@@ -9,7 +9,6 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class AdminBookingController extends Controller
@@ -68,23 +67,13 @@ class AdminBookingController extends Controller
             return $s;
         });
 
-        $busyStaffIdsBySlot = Booking::query()
-            ->whereIn('status', Booking::scheduleConflictStatuses())
-            ->whereNotNull('staff_id')
-            ->get(['id', 'staff_id', 'scheduled_date', 'scheduled_time'])
-            ->groupBy(fn (Booking $booking) => Booking::scheduleSlotKey($booking->scheduled_date, $booking->scheduled_time))
-            ->map(fn ($slotBookings) => $slotBookings->pluck('staff_id')
-                ->map(fn ($staffId) => (int) $staffId)
-                ->unique()
-                ->values()
-                ->all());
-
-        $activeBookings->getCollection()->transform(function (Booking $booking) use ($busyStaffIdsBySlot, $presentStaffIds) {
-            $slotKey = Booking::scheduleSlotKey($booking->scheduled_date, $booking->scheduled_time);
-            $busyStaffIds = array_values(array_filter(
-                $busyStaffIdsBySlot->get($slotKey, []),
-                fn (int $staffId) => $staffId !== (int) $booking->staff_id
-            ));
+        $activeBookings->getCollection()->transform(function (Booking $booking) use ($presentStaffIds) {
+            $busyStaffIds = Booking::busyStaffIdsForAssignment(
+                $booking->scheduled_date,
+                $booking->scheduled_time,
+                $booking->id,
+                (int) $booking->duration_minutes
+            );
 
             $booking->busy_staff_ids = $busyStaffIds;
             $booking->available_present_staff_count = count(array_diff($presentStaffIds, $busyStaffIds));
@@ -170,10 +159,15 @@ class AdminBookingController extends Controller
 
         if (
             $newStaffId
-            && Booking::staffHasScheduleConflict($newStaffId, $booking->scheduled_date, $booking->scheduled_time, $booking->id)
+            && Booking::staffHasScheduleConflict($newStaffId, $booking->scheduled_date, $booking->scheduled_time, $booking->id, (int) $booking->duration_minutes)
         ) {
+            $conflictingBooking = Booking::conflictingStaffBooking($newStaffId, $booking->scheduled_date, $booking->scheduled_time, $booking->id, (int) $booking->duration_minutes);
+            $conflictLabel = $conflictingBooking
+                ? ' CF-'.str_pad($conflictingBooking->id, 5, '0', STR_PAD_LEFT).' at '.Carbon::parse($conflictingBooking->scheduled_time)->format('h:i A')
+                : '';
+
             return back()->withErrors([
-                'staff_id' => 'This staff member is already assigned to another active booking at the same date and time.',
+                'staff_id' => 'This staff member is unavailable for this schedule'.$conflictLabel.'. Cleaners need the assigned booking time plus 1 hour rest before another assignment.',
             ]);
         }
 
@@ -196,16 +190,36 @@ class AdminBookingController extends Controller
             $paymentStatusChanged = true;
         }
 
-        $booking->status = $newStatus;
         $booking->staff_id = $newStaffId;
+
+        if ($statusChanged && $newStatus === 'confirmed') {
+            $booking->setExpectedServiceWindow();
+        }
+
+        if ($statusChanged && $newStatus === 'in_progress') {
+            $booking->markServiceStarted();
+        }
+
+        if ($statusChanged && $newStatus === 'completed') {
+            $booking->markServiceCompleted();
+        }
+
+        $booking->status = $newStatus;
         $booking->save();
 
         $actor = auth()->user();
+
+        if ($statusChanged && $newStatus === 'cancelled') {
+            $this->cancelSubscriptionGroupOccurrences($booking, $actor);
+        }
 
         if ($statusChanged) {
             $booking->logActivity($actor, 'status_updated', 'Status changed from '.str_replace('_', ' ', $oldStatus).' to '.str_replace('_', ' ', $newStatus).'.', [
                 'from_status' => $oldStatus,
                 'to_status' => $newStatus,
+                'on_time_status' => $booking->on_time_status,
+                'started_late_minutes' => $booking->started_late_minutes,
+                'completed_late_minutes' => $booking->completed_late_minutes,
             ]);
         }
 
@@ -272,6 +286,10 @@ class AdminBookingController extends Controller
 
             if ($newStatus === 'completed' && $oldStatus !== 'completed') {
                 $this->createClientStatusNotification($booking, 'completed');
+            }
+
+            if ($newStatus === 'cancelled' && $oldStatus !== 'cancelled') {
+                $this->createClientStatusNotification($booking, 'cancelled');
             }
 
             if ($paymentStatusChanged && $oldPaymentStatus !== $booking->payment_status) {
@@ -472,6 +490,11 @@ class AdminBookingController extends Controller
                 'Booking '.$bookingCode.' has been marked completed. You can now review the proof of service and leave feedback when you are ready.',
                 'success',
             ],
+            'cancelled' => [
+                'Booking cancelled',
+                'Booking '.$bookingCode.' has been cancelled. If this was unexpected, please contact support before creating another booking.',
+                'info',
+            ],
             default => [null, null, null],
         };
 
@@ -486,6 +509,30 @@ class AdminBookingController extends Controller
             'type' => $type,
             'link' => route('bookings.show', $booking->id),
         ]);
+    }
+
+    private function cancelSubscriptionGroupOccurrences(Booking $booking, ?User $actor): void
+    {
+        if (! $booking->subscription_group_id) {
+            return;
+        }
+
+        Booking::query()
+            ->where('subscription_group_id', $booking->subscription_group_id)
+            ->where('id', '!=', $booking->id)
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->get()
+            ->each(function (Booking $occurrence) use ($actor, $booking): void {
+                $oldStatus = $occurrence->status;
+                $occurrence->status = 'cancelled';
+                $occurrence->save();
+
+                $occurrence->logActivity($actor, 'status_updated', 'Subscription occurrence cancelled with booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).'.', [
+                    'from_status' => $oldStatus,
+                    'to_status' => 'cancelled',
+                    'subscription_group_id' => $booking->subscription_group_id,
+                ]);
+            });
     }
 
     private function createClientPaymentNotification(Booking $booking): void

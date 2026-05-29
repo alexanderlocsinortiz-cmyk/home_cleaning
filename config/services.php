@@ -35,4 +35,29 @@ return [
         ],
     ],
 
+    'paymongo' => [
+        'api_url' => env('PAYMONGO_API_URL', 'https://api.paymongo.com'),
+        'ca_bundle' => env('PAYMONGO_CA_BUNDLE', storage_path('app/cacert.pem')),
+        'disable_proxy' => env('PAYMONGO_DISABLE_PROXY', true),
+        'maya_method_type' => env('PAYMONGO_MAYA_METHOD_TYPE', 'paymaya'),
+        'public_key' => env('PAYMONGO_PUBLIC_KEY'),
+        'secret_key' => env('PAYMONGO_SECRET_KEY'),
+        'webhook_secret' => env('PAYMONGO_WEBHOOK_SECRET'),
+        'checkout_redirect_enabled' => env('PAYMONGO_CHECKOUT_REDIRECT_ENABLED', true),
+    ],
+
+    'google' => [
+        'maps_api_key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
+
+    'daily' => [
+        'api_url' => env('DAILY_API_URL', 'https://api.daily.co/v1'),
+        'api_key' => env('DAILY_API_KEY'),
+        'domain' => env('DAILY_DOMAIN'),
+        'ca_bundle' => env('DAILY_CA_BUNDLE', storage_path('app/cacert.pem')),
+        'disable_proxy' => env('DAILY_DISABLE_PROXY', true),
+        'room_ttl_hours' => (int) env('DAILY_ROOM_TTL_HOURS', 6),
+        'token_ttl_minutes' => (int) env('DAILY_TOKEN_TTL_MINUTES', 120),
+    ],
+
 ];

@@ -3,6 +3,152 @@
 @section('page-title', 'My Performance')
 @section('page-subtitle', 'Your ratings, ranking, and reviews')
 
+@push('styles')
+<style>
+    .staff-performance-page {
+        background: linear-gradient(90deg, rgba(219, 234, 254, 0.72), rgba(248, 250, 252, 0.96) 24%, rgba(239, 246, 255, 0.9));
+    }
+
+    .staff-performance-page [class*="tracking-"] {
+        letter-spacing: 0;
+    }
+
+    .performance-hero {
+        border: 1px solid #1e3a8a;
+        border-radius: 1.25rem;
+        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 64%, #2563eb 100%);
+        color: #fff;
+        box-shadow: 0 18px 36px rgba(30, 58, 138, 0.16);
+    }
+
+    .performance-hero-rank {
+        min-width: 11rem;
+        border: 1px solid rgba(191, 219, 254, 0.72);
+        border-radius: 1rem;
+        background: rgba(255, 255, 255, 0.12);
+        padding: 1rem;
+        text-align: center;
+    }
+
+    .performance-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    .performance-stat-card,
+    .performance-panel {
+        border: 1px solid #bfdbfe;
+        border-radius: 1.15rem;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 16px 34px rgba(30, 64, 175, 0.07);
+    }
+
+    .performance-stat-card {
+        min-height: 7.25rem;
+        border: 1px solid #e2e8f0;
+        border-left: 4px solid var(--stat-accent, #2563eb);
+        background: #fff;
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+    }
+
+    .performance-stat-card--rating {
+        --stat-accent: #d97706;
+        --stat-soft: rgba(254, 243, 199, 0.86);
+    }
+
+    .performance-stat-card--rank {
+        --stat-accent: #2563eb;
+        --stat-soft: rgba(219, 234, 254, 0.82);
+    }
+
+    .performance-stat-card--completion {
+        --stat-accent: #059669;
+        --stat-soft: rgba(209, 250, 229, 0.82);
+    }
+
+    .performance-stat-card--reviews {
+        --stat-accent: #0f766e;
+        --stat-soft: rgba(204, 251, 241, 0.8);
+    }
+
+    .performance-stat-icon {
+        background: var(--stat-accent, #2563eb);
+        color: #fff;
+    }
+
+    .performance-main-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .performance-score-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    .performance-empty-state {
+        min-height: 14rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .performance-tip {
+        display: flex;
+        gap: 0.9rem;
+        align-items: flex-start;
+        border: 1px solid #dbeafe;
+        border-radius: 1rem;
+        background: #f8fbff;
+        padding: 0.9rem;
+    }
+
+    .performance-tip-icon {
+        display: inline-flex;
+        width: 2rem;
+        height: 2rem;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: #ccfbf1;
+        color: #0f766e;
+    }
+
+    @media (max-width: 1180px) {
+        .performance-stat-grid,
+        .performance-score-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .performance-main-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 760px) {
+        .staff-performance-page {
+            padding: 1rem;
+        }
+
+        .performance-stat-grid,
+        .performance-score-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .performance-hero-rank {
+            width: 100%;
+        }
+    }
+</style>
+@endpush
+
 @section('content')
 @php
     $stats = [
@@ -11,96 +157,88 @@
             'value' => $avgRating ?? '-',
             'suffix' => $avgRating ? ' / 5' : '',
             'icon' => 'fa-star',
-            'cardClasses' => 'border-l-4 border-amber-300 bg-amber-50/80',
-            'iconClasses' => 'bg-amber-100 text-amber-700',
+            'variant' => 'rating',
         ],
         [
             'label' => 'My Rank',
             'value' => '#' . $myRank,
             'suffix' => ' of ' . $totalStaff,
             'icon' => 'fa-trophy',
-            'cardClasses' => 'border-l-4 border-secondary-300 bg-secondary-50/80',
-            'iconClasses' => 'bg-secondary-100 text-secondary-700',
+            'variant' => 'rank',
         ],
         [
             'label' => 'Completion Rate',
             'value' => $completionRate . '%',
             'suffix' => '',
             'icon' => 'fa-chart-line',
-            'cardClasses' => 'border-l-4 ' . ($completionRate >= 70 ? 'border-accent-300 bg-accent-50/80' : ($completionRate >= 40 ? 'border-amber-300 bg-amber-50/80' : 'border-danger-300 bg-danger-50/80')),
-            'iconClasses' => $completionRate >= 70
-                ? 'bg-accent-100 text-accent-700'
-                : ($completionRate >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-danger-100 text-danger-700'),
+            'variant' => 'completion',
         ],
         [
             'label' => 'Total Reviews',
             'value' => $totalRatings,
             'suffix' => '',
             'icon' => 'fa-comments',
-            'cardClasses' => 'border-l-4 border-primary-300 bg-primary-50/80',
-            'iconClasses' => 'bg-primary-100 text-primary-700',
+            'variant' => 'reviews',
         ],
     ];
 
-    $ratingBarColor = $avgRating >= 4.5 ? 'bg-accent-500' : ($avgRating >= 3 ? 'bg-amber-400' : 'bg-danger-400');
-    $rankTone = $myRank === 1 ? 'text-amber-600' : ($myRank <= 3 ? 'text-accent-600' : 'text-slate-700');
+    $ratingBarColor = $avgRating >= 4.5 ? 'bg-green-500' : ($avgRating >= 3 ? 'bg-amber-400' : 'bg-red-400');
+    $rankTone = $myRank === 1 ? 'text-amber-600' : ($myRank <= 3 ? 'text-blue-700' : 'text-slate-700');
     $rankBadge = $myRank === 1 ? 'First place' : ($myRank === 2 ? 'Second place' : ($myRank === 3 ? 'Third place' : 'Team ranking'));
+    $allRatings = $completedBookings->filter(fn ($booking) => $booking->rating);
 @endphp
 
-<div class="cleanflow-page-shell min-h-[calc(100vh-81px)] px-4 py-6 sm:px-6 sm:py-8">
-    <div class="mx-auto max-w-7xl space-y-6">
-        <section class="cleanflow-hero overflow-hidden px-6 py-7 text-white sm:px-8 lg:px-10">
-            <div class="cleanflow-hero-content flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-                <div class="max-w-3xl space-y-4">
+<div class="staff-performance-page cleanflow-page-shell min-h-[calc(100vh-81px)] px-4 py-5 sm:px-6 sm:py-7">
+    <div class="mx-auto max-w-[92rem] space-y-5">
+        <section class="performance-hero overflow-hidden px-6 py-6 sm:px-7">
+            <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                <div class="max-w-3xl">
                     <span class="cleanflow-kicker">
                         <i class="fas fa-medal text-[0.75rem]"></i>
                         Staff performance
                     </span>
-                    <div class="space-y-3">
-                        <h1 class="max-w-2xl text-3xl font-black tracking-tight sm:text-4xl">
-                            See how your service quality is trending
-                        </h1>
-                        <p class="max-w-2xl text-sm leading-7 text-white/80 sm:text-base">
-                            Track customer feedback, compare your ranking, and review recent comments from completed
-                            bookings so you always know where you’re doing well.
-                        </p>
-                    </div>
-                    <div class="flex flex-wrap gap-3 text-sm text-white/85">
-                        <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                    <h1 class="mt-4 max-w-2xl text-2xl font-black tracking-tight sm:text-3xl">
+                        Service quality scorecard
+                    </h1>
+                    <p class="mt-3 max-w-2xl text-sm leading-6 text-blue-100">
+                        Track customer feedback, rank, completed jobs, and recent reviews from one compact performance view.
+                    </p>
+                    <div class="mt-4 flex flex-wrap gap-2 text-sm text-blue-100">
+                        <span class="inline-flex items-center gap-2 rounded-full border border-blue-300 bg-blue-800 px-3 py-2">
                             <i class="fas fa-star text-xs"></i>
                             {{ $totalRatings }} review{{ $totalRatings === 1 ? '' : 's' }}
                         </span>
-                        <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                        <span class="inline-flex items-center gap-2 rounded-full border border-blue-300 bg-blue-800 px-3 py-2">
                             <i class="fas fa-check-double text-xs"></i>
                             {{ $completedCount }} completed job{{ $completedCount === 1 ? '' : 's' }}
                         </span>
-                        <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                        <span class="inline-flex items-center gap-2 rounded-full border border-blue-300 bg-blue-800 px-3 py-2">
                             <i class="fas fa-wallet text-xs"></i>
                             P{{ number_format($totalEarnings, 0) }} earned
                         </span>
                     </div>
                 </div>
 
-                <div class="rounded-2xl border border-white/15 bg-white/10 px-5 py-4 text-center backdrop-blur-sm">
-                    <div class="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">Current rank</div>
+                <div class="performance-hero-rank">
+                    <div class="text-xs font-semibold uppercase text-blue-100">Current rank</div>
                     <div class="mt-2 text-3xl font-black text-white">#{{ $myRank }}</div>
-                    <div class="mt-1 text-sm text-white/75">out of {{ $totalStaff }} staff members</div>
+                    <div class="mt-1 text-sm text-blue-100">out of {{ $totalStaff }} staff members</div>
                 </div>
             </div>
         </section>
 
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div class="performance-stat-grid">
             @foreach ($stats as $stat)
-                <section class="cleanflow-panel px-5 py-5 {{ $stat['cardClasses'] }}">
-                    <div class="flex items-start justify-between gap-4">
+                <section class="performance-stat-card performance-stat-card--{{ $stat['variant'] }} px-5 py-5">
+                    <div class="flex items-start justify-between gap-3">
                         <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{{ $stat['label'] }}</p>
-                            <strong class="mt-3 block text-3xl font-black tracking-tight text-slate-900">{{ $stat['value'] }}</strong>
+                            <p class="text-xs font-semibold uppercase text-slate-400">{{ $stat['label'] }}</p>
+                            <strong class="mt-2 block text-4xl font-black leading-none text-slate-900">{{ $stat['value'] }}</strong>
                             @if ($stat['suffix'])
                                 <p class="mt-1 text-sm text-slate-500">{{ $stat['suffix'] }}</p>
                             @endif
                         </div>
-                        <span class="inline-flex h-11 w-11 items-center justify-center rounded-2xl {{ $stat['iconClasses'] }}">
+                        <span class="performance-stat-icon inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl">
                             <i class="fas {{ $stat['icon'] }}"></i>
                         </span>
                     </div>
@@ -108,24 +246,24 @@
             @endforeach
         </div>
 
-        <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-            <section class="space-y-6">
-                <div class="grid gap-6 lg:grid-cols-2">
-                    <section class="cleanflow-panel p-6">
-                        <div class="mb-5 flex items-start justify-between gap-3">
+        <div class="performance-main-grid">
+            <section class="space-y-5">
+                <div class="performance-score-grid">
+                    <section class="performance-panel p-5">
+                        <div class="mb-4 flex items-start justify-between gap-3">
                             <div>
                                 <h2 class="text-lg font-bold text-slate-900">Rating summary</h2>
-                                <p class="mt-1 text-sm text-slate-500">A quick snapshot of your average rating and distribution.</p>
+                                <p class="mt-1 text-sm text-slate-500">Average score and star distribution.</p>
                             </div>
-                            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                            <span class="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase text-blue-700">
                                 {{ $totalRatings }} review{{ $totalRatings === 1 ? '' : 's' }}
                             </span>
                         </div>
 
                         @if ($avgRating)
-                            <div class="rounded-3xl border border-slate-100 bg-slate-50/80 p-6 text-center">
-                                <div class="text-6xl font-black tracking-tight text-slate-900">{{ $avgRating }}</div>
-                                <div class="mt-3 text-xl tracking-[0.2em] text-amber-500">
+                            <div class="rounded-[1.1rem] border border-blue-100 bg-blue-50 p-5 text-center">
+                                <div class="text-5xl font-black tracking-tight text-slate-900">{{ $avgRating }}</div>
+                                <div class="mt-3 text-xl text-amber-500">
                                     @for ($i = 1; $i <= 5; $i++)
                                         {!! $i <= round($avgRating) ? '&#9733;' : '&#9734;' !!}
                                     @endfor
@@ -150,7 +288,7 @@
                                 @endforeach
                             </div>
                         @else
-                            <div class="py-10 text-center">
+                            <div class="performance-empty-state">
                                 <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
                                     <i class="fas fa-star text-xl"></i>
                                 </div>
@@ -162,85 +300,73 @@
                         @endif
                     </section>
 
-                    <section class="cleanflow-panel p-6">
-                        <div class="mb-5 flex items-start justify-between gap-3">
+                    <section class="performance-panel p-5">
+                        <div class="mb-4 flex items-start justify-between gap-3">
                             <div>
                                 <h2 class="text-lg font-bold text-slate-900">Ranking</h2>
-                                <p class="mt-1 text-sm text-slate-500">Your current standing compared with the rest of the staff team.</p>
+                                <p class="mt-1 text-sm text-slate-500">Your standing compared with the staff team.</p>
                             </div>
-                            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                            <span class="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase text-blue-700">
                                 {{ $rankBadge }}
                             </span>
                         </div>
 
-                        <div class="rounded-3xl border border-slate-100 bg-slate-50/80 p-6 text-center">
-                            <div class="text-5xl">
-                                @if ($myRank === 1)
-                                    &#129351;
-                                @elseif ($myRank === 2)
-                                    &#129352;
-                                @elseif ($myRank === 3)
-                                    &#129353;
-                                @else
-                                    &#127942;
-                                @endif
+                        <div class="rounded-[1.1rem] border border-blue-100 bg-blue-50 p-5 text-center">
+                            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-blue-700 shadow-sm">
+                                <i class="fas fa-trophy text-2xl"></i>
                             </div>
-                            <div class="mt-4 text-6xl font-black tracking-tight {{ $rankTone }}">#{{ $myRank }}</div>
+                            <div class="mt-4 text-5xl font-black tracking-tight {{ $rankTone }}">#{{ $myRank }}</div>
                             <p class="mt-2 text-sm text-slate-500">out of {{ $totalStaff }} staff members</p>
                         </div>
 
-                        <div class="mt-5 grid gap-4 sm:grid-cols-2">
-                            <div class="rounded-[1.25rem] border border-slate-100 bg-white px-4 py-4 text-center shadow-sm">
+                        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                            <div class="rounded-[1rem] border border-blue-100 bg-white px-4 py-4 text-center shadow-sm">
                                 <div class="text-2xl font-black text-slate-900">{{ $completedCount }}</div>
-                                <div class="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Jobs done</div>
+                                <div class="mt-1 text-xs font-semibold uppercase text-slate-500">Jobs done</div>
                             </div>
-                            <div class="rounded-[1.25rem] border border-slate-100 bg-white px-4 py-4 text-center shadow-sm">
-                                <div class="text-2xl font-black {{ $completionRate >= 70 ? 'text-accent-700' : ($completionRate >= 40 ? 'text-amber-600' : 'text-danger-600') }}">
+                            <div class="rounded-[1rem] border border-blue-100 bg-white px-4 py-4 text-center shadow-sm">
+                                <div class="text-2xl font-black {{ $completionRate >= 70 ? 'text-emerald-700' : ($completionRate >= 40 ? 'text-amber-600' : 'text-red-600') }}">
                                     {{ $completionRate }}%
                                 </div>
-                                <div class="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Completion rate</div>
+                                <div class="mt-1 text-xs font-semibold uppercase text-slate-500">Completion rate</div>
                             </div>
                         </div>
                     </section>
                 </div>
 
-                <section class="cleanflow-panel overflow-hidden">
-                    <div class="flex flex-col gap-3 border-b border-slate-100 px-6 py-5 sm:flex-row sm:items-end sm:justify-between">
+                <section class="performance-panel overflow-hidden">
+                    <div class="flex flex-col gap-3 border-b border-blue-100 px-5 py-5 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <h2 class="text-xl font-bold text-slate-900">Customer reviews</h2>
                             <p class="mt-1 text-sm text-slate-500">Recent comments and review photos from completed bookings.</p>
                         </div>
-                        <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                        <span class="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase text-blue-700">
                             {{ $totalRatings }} total
                         </span>
                     </div>
 
-                    <div class="px-6 py-6">
-                        @php $allRatings = $completedBookings->filter(fn ($booking) => $booking->rating); @endphp
-
+                    <div class="px-5 py-5">
                         @if ($allRatings->count())
-                            <div class="space-y-5">
+                            <div class="space-y-4">
                                 @foreach ($allRatings as $booking)
-                                    <article class="rounded-[1.4rem] border border-slate-100 bg-slate-50/75 p-5 transition hover:border-slate-200 hover:bg-white hover:shadow-sm">
+                                    <article class="rounded-[1.1rem] border border-blue-100 bg-blue-50/50 p-5 transition hover:bg-white">
                                         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                             <div>
-                                                <div class="text-base tracking-[0.16em] text-amber-500">
+                                                <div class="text-base text-amber-500">
                                                     @for ($i = 1; $i <= 5; $i++)
                                                         {!! $i <= $booking->rating->stars ? '&#9733;' : '&#9734;' !!}
                                                     @endfor
                                                 </div>
-                                                <p class="mt-3 text-sm font-semibold text-slate-900">
-                                                    {{ $booking->user->display_name }}
-                                                </p>
+                                                <p class="mt-3 text-sm font-semibold text-slate-900">{{ $booking->user->display_name }}</p>
                                                 <p class="mt-1 text-sm text-slate-500">{{ $booking->service_label }}</p>
                                             </div>
-                                            <span class="text-xs font-medium uppercase tracking-[0.14em] text-slate-400">
+                                            <span class="text-xs font-medium uppercase text-slate-400">
                                                 {{ \Carbon\Carbon::parse($booking->updated_at)->format('M d, Y') }}
                                             </span>
                                         </div>
 
                                         @if ($booking->rating->comment)
-                                            <blockquote class="mt-4 rounded-[1.1rem] border border-slate-100 bg-white px-4 py-4 text-sm italic leading-7 text-slate-600 shadow-sm">
+                                            <blockquote class="mt-4 rounded-[1rem] border border-blue-100 bg-white px-4 py-4 text-sm italic leading-7 text-slate-600 shadow-sm">
                                                 "{{ $booking->rating->comment }}"
                                             </blockquote>
                                         @else
@@ -260,8 +386,8 @@
                                 @endforeach
                             </div>
                         @else
-                            <div class="py-10 text-center">
-                                <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-50 text-accent-600">
+                            <div class="performance-empty-state">
+                                <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
                                     <i class="fas fa-comments text-xl"></i>
                                 </div>
                                 <h3 class="mt-4 text-lg font-bold text-slate-900">No reviews yet</h3>
@@ -274,16 +400,16 @@
                 </section>
             </section>
 
-            <aside class="space-y-6">
-                <section class="cleanflow-panel p-6">
+            <aside class="space-y-5">
+                <section class="performance-panel p-5">
                     <div class="mb-4">
                         <h2 class="text-base font-bold text-slate-900">Performance snapshot</h2>
-                        <p class="mt-1 text-sm text-slate-500">A quick read of the numbers that matter most right now.</p>
+                        <p class="mt-1 text-sm text-slate-500">The numbers that matter most right now.</p>
                     </div>
 
                     <div class="space-y-3">
-                        <div class="client-profile-tip">
-                            <span class="client-profile-tip-icon">
+                        <div class="performance-tip">
+                            <span class="performance-tip-icon">
                                 <i class="fas fa-wallet text-xs"></i>
                             </span>
                             <div>
@@ -292,8 +418,8 @@
                             </div>
                         </div>
 
-                        <div class="client-profile-tip">
-                            <span class="client-profile-tip-icon">
+                        <div class="performance-tip">
+                            <span class="performance-tip-icon">
                                 <i class="fas fa-broom text-xs"></i>
                             </span>
                             <div>
@@ -302,8 +428,8 @@
                             </div>
                         </div>
 
-                        <div class="client-profile-tip">
-                            <span class="client-profile-tip-icon">
+                        <div class="performance-tip">
+                            <span class="performance-tip-icon">
                                 <i class="fas fa-user-group text-xs"></i>
                             </span>
                             <div>
@@ -314,32 +440,32 @@
                     </div>
                 </section>
 
-                <section class="cleanflow-panel border border-accent-100 bg-accent-50/80 p-6">
+                <section class="performance-panel border-amber-200 bg-amber-50/80 p-5">
                     <div class="mb-4 flex items-center gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-accent-600 shadow-sm">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-sm">
                             <i class="fas fa-lightbulb text-base"></i>
                         </div>
                         <div>
                             <h2 class="text-base font-bold text-slate-900">Keep momentum</h2>
-                            <p class="text-sm text-slate-500">Small service habits can steadily improve reviews and completion rate.</p>
+                            <p class="text-sm text-slate-500">Small habits improve reviews and completion rate.</p>
                         </div>
                     </div>
 
                     <div class="space-y-3">
-                        <div class="client-profile-tip">
-                            <span class="client-profile-tip-icon">
+                        <div class="performance-tip">
+                            <span class="performance-tip-icon">
                                 <i class="fas fa-check text-xs"></i>
                             </span>
                             <p class="text-sm leading-6 text-slate-600">
                                 Upload before and after proof consistently so clients feel confident leaving feedback.
                             </p>
                         </div>
-                        <div class="client-profile-tip">
-                            <span class="client-profile-tip-icon">
+                        <div class="performance-tip">
+                            <span class="performance-tip-icon">
                                 <i class="fas fa-clock text-xs"></i>
                             </span>
                             <p class="text-sm leading-6 text-slate-600">
-                                Stay on top of confirmed jobs early to keep your completion rate and service timing strong.
+                                Stay on top of confirmed jobs early to keep service timing strong.
                             </p>
                         </div>
                     </div>

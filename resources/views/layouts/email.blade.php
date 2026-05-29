@@ -2,33 +2,33 @@
     $tone = trim($__env->yieldContent('email-tone', 'emerald'));
     $palette = [
         'emerald' => [
-            'header' => '#1d4ed8',
-            'button' => '#2563eb',
+            'header' => '#1D4ED8',
+            'button' => '#2563EB',
             'buttonText' => '#ffffff',
         ],
         'cyan' => [
-            'header' => '#0d9488',
-            'button' => '#14b8a6',
+            'header' => '#3B82F6',
+            'button' => '#2563EB',
             'buttonText' => '#ffffff',
         ],
         'purple' => [
-            'header' => '#1e40af',
-            'button' => '#2563eb',
+            'header' => '#1E40AF',
+            'button' => '#2563EB',
             'buttonText' => '#ffffff',
         ],
         'amber' => [
-            'header' => '#1e3a8a',
-            'button' => '#2563eb',
+            'header' => '#1E3A8A',
+            'button' => '#2563EB',
             'buttonText' => '#ffffff',
         ],
         'slate' => [
-            'header' => '#1e293b',
-            'button' => '#2563eb',
+            'header' => '#1E40AF',
+            'button' => '#2563EB',
             'buttonText' => '#ffffff',
         ],
     ][$tone] ?? [
-        'header' => '#1d4ed8',
-        'button' => '#2563eb',
+        'header' => '#1D4ED8',
+        'button' => '#2563EB',
         'buttonText' => '#ffffff',
     ];
 @endphp
@@ -42,9 +42,9 @@
         body {
             margin: 0;
             padding: 24px 12px;
-            background: #ebf4f6;
+            background: #EFF6FF;
             font-family: Arial, sans-serif;
-            color: #143241;
+            color: #1E3A8A;
         }
 
         .email-shell {
@@ -53,7 +53,7 @@
             background: #ffffff;
             border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 18px 50px rgba(9, 99, 126, 0.12);
+            box-shadow: 0 18px 50px rgba(37, 99, 235, 0.12);
         }
 
         .email-header {
@@ -93,15 +93,15 @@
             margin: 0 0 16px;
             font-size: 15px;
             line-height: 1.7;
-            color: #475569;
+            color: #1E40AF;
         }
 
         .summary-card {
             margin: 24px 0;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #DBEAFE;
             border-radius: 16px;
             overflow: hidden;
-            background: #f8fafc;
+            background: #EFF6FF;
         }
 
         .summary-table {
@@ -111,7 +111,7 @@
 
         .summary-table td {
             padding: 12px 18px;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid #DBEAFE;
             font-size: 14px;
             vertical-align: top;
         }
@@ -121,12 +121,12 @@
         }
 
         .summary-label {
-            color: #64748b;
+            color: #3B82F6;
             width: 42%;
         }
 
         .summary-value {
-            color: #0f172a;
+            color: #1E3A8A;
             font-weight: bold;
             text-align: right;
         }
@@ -140,24 +140,24 @@
         }
 
         .status-pill--pending {
-            background: #d0e9ed;
-            color: #066271;
+            background: #DBEAFE;
+            color: #1D4ED8;
         }
 
         .status-pill--confirmed,
         .status-pill--success {
-            background: #e5f0f0;
-            color: #587f7f;
+            background: #DBEAFE;
+            color: #1D4ED8;
         }
 
         .status-pill--progress {
-            background: #dce9ec;
-            color: #09637e;
+            background: #BFDBFE;
+            color: #1E40AF;
         }
 
         .status-pill--neutral {
-            background: #e2e8f0;
-            color: #475569;
+            background: #DBEAFE;
+            color: #1E40AF;
         }
 
         .callout {
@@ -169,18 +169,18 @@
         }
 
         .callout--info {
-            background: #eff6ff;
-            color: #1d4ed8;
+            background: #EFF6FF;
+            color: #1D4ED8;
         }
 
         .callout--success {
-            background: #ecfdf5;
-            color: #047857;
+            background: #EFF6FF;
+            color: #1D4ED8;
         }
 
         .callout--warning {
-            background: #fff7ed;
-            color: #c2410c;
+            background: #EFF6FF;
+            color: #1D4ED8;
         }
 
         .cta-wrap {
@@ -207,7 +207,7 @@
             font-weight: bold;
             letter-spacing: 0.18em;
             text-transform: uppercase;
-            color: #64748b;
+            color: #3B82F6;
         }
 
         .code-value {
@@ -216,26 +216,26 @@
             font-size: 32px;
             font-weight: bold;
             letter-spacing: 0.42em;
-            color: #0f172a;
+            color: #1E3A8A;
         }
 
         .muted-note {
             font-size: 13px;
-            color: #64748b;
+            color: #3B82F6;
         }
 
         .email-footer {
             padding: 22px 28px;
-            background: #f8fafc;
+            background: #EFF6FF;
             text-align: center;
-            border-top: 1px solid #e2e8f0;
+            border-top: 1px solid #DBEAFE;
         }
 
         .email-footer p {
             margin: 4px 0;
             font-size: 12px;
             line-height: 1.6;
-            color: #94a3b8;
+            color: #60A5FA;
         }
     </style>
 </head>

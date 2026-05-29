@@ -12,13 +12,13 @@ return new class extends Migration
         // The notifications table already has user_id, so we don't need to add anything
         // Just add new optional fields for the SMS-to-email feature
         Schema::table('notifications', function (Blueprint $table) {
-            if (!Schema::hasColumn('notifications', 'booking_id')) {
+            if (! Schema::hasColumn('notifications', 'booking_id')) {
                 $table->foreignId('booking_id')->nullable()->constrained('bookings')->onDelete('cascade');
             }
-            if (!Schema::hasColumn('notifications', 'subject')) {
+            if (! Schema::hasColumn('notifications', 'subject')) {
                 $table->string('subject')->nullable();
             }
-            if (!Schema::hasColumn('notifications', 'sent_at')) {
+            if (! Schema::hasColumn('notifications', 'sent_at')) {
                 $table->timestamp('sent_at')->nullable();
             }
 

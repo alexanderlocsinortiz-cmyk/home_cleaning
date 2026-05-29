@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 @section('title','Edit Staff')
 @section('page-title','Edit Staff Member')
-@section('page-subtitle','Update staff account details, contact information, and service coverage')
+@section('page-subtitle','Update staff account details, contact information, and access settings')
 
 @section('content')
 <div class="admin-page-content cleanflow-page-shell max-w-5xl space-y-6 p-6">
@@ -21,7 +21,7 @@
                 </span>
                 <h2 class="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Update {{ $staff->full_name }} with confidence.</h2>
                 <p class="mt-3 max-w-2xl text-sm leading-7 text-white/82 sm:text-base">
-                    Refresh account details, contact information, and service coverage without leaving the operations workflow.
+                    Refresh account details, contact information, and access settings without leaving the operations workflow.
                 </p>
             </div>
             <a href="{{ route('admin.staff.index') }}" class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50">

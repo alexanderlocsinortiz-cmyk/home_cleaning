@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Device;
-use Illuminate\Support\Str;
 
 class DeviceTokenService
 {
@@ -63,13 +62,13 @@ class DeviceTokenService
         // Check timestamp is recent (within 5 minutes) to prevent replay attacks
         $requestTime = intval($timestamp);
         $timeDifference = abs(time() - $requestTime);
-        
+
         if ($timeDifference > 300) {  // 5 minute window
             return false;
         }
 
         // Recreate signature using device's secret key
-        $dataToSign = $timestamp . $body;
+        $dataToSign = $timestamp.$body;
         $expectedSignature = hash_hmac('sha256', $dataToSign, $device->secret_key);
 
         // Constant-time comparison (prevents timing attacks)
@@ -99,7 +98,7 @@ class DeviceTokenService
     {
         $accessToken = bin2hex(random_bytes(32));
         $refreshToken = bin2hex(random_bytes(32));
-        
+
         return [
             'access_token' => $accessToken,
             'refresh_token' => $refreshToken,

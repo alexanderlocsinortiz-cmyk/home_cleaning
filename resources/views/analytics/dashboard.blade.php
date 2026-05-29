@@ -43,9 +43,9 @@
 
     $statusCards = [
         ['label' => 'Pending', 'value' => $bookingMetrics['pending'], 'badge' => 'bg-amber-100 text-amber-700'],
-        ['label' => 'Confirmed', 'value' => $bookingMetrics['confirmed'], 'badge' => 'bg-accent-50 text-accent-700'],
-        ['label' => 'In Progress', 'value' => $bookingMetrics['in_progress'], 'badge' => 'bg-primary-100 text-primary-700'],
-        ['label' => 'Completed', 'value' => $bookingMetrics['completed'], 'badge' => 'bg-accent-100 text-accent-800'],
+        ['label' => 'Confirmed', 'value' => $bookingMetrics['confirmed'], 'badge' => 'bg-blue-50 text-blue-700'],
+        ['label' => 'In Progress', 'value' => $bookingMetrics['in_progress'], 'badge' => 'bg-teal-100 text-teal-700'],
+        ['label' => 'Completed', 'value' => $bookingMetrics['completed'], 'badge' => 'bg-emerald-100 text-emerald-700'],
         ['label' => 'Cancelled', 'value' => $bookingMetrics['cancelled'], 'badge' => 'bg-danger-100 text-danger-700'],
     ];
 
@@ -378,8 +378,8 @@
                             {
                                 label: 'Bookings',
                                 data: @json($chartBookings),
-                                borderColor: '#09637e',
-                                backgroundColor: 'rgba(9, 99, 126, 0.10)',
+                                borderColor: '#1E40AF',
+                                backgroundColor: 'rgba(30, 64, 175, 0.10)',
                                 tension: 0.35,
                                 fill: true,
                                 borderWidth: 2,
@@ -389,8 +389,8 @@
                             {
                                 label: 'Completed',
                                 data: @json($chartCompleted),
-                                borderColor: '#088395',
-                                backgroundColor: 'rgba(8, 131, 149, 0.10)',
+                                borderColor: '#2563EB',
+                                backgroundColor: 'rgba(37, 99, 235, 0.10)',
                                 tension: 0.35,
                                 fill: true,
                                 borderWidth: 2,
@@ -400,8 +400,8 @@
                             {
                                 label: 'Revenue (PHP)',
                                 data: @json($chartRevenue),
-                                borderColor: '#7ab2b2',
-                                backgroundColor: 'rgba(122, 178, 178, 0.14)',
+                                borderColor: '#60A5FA',
+                                backgroundColor: 'rgba(96, 165, 250, 0.14)',
                                 tension: 0.35,
                                 fill: true,
                                 borderWidth: 2,

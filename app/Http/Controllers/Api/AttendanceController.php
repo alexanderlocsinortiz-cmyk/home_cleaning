@@ -11,7 +11,6 @@ use App\Services\DeviceTokenService;
 use Carbon\Carbon;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -23,6 +22,7 @@ class AttendanceController extends Controller
     {
         $this->tokenService = $tokenService;
     }
+
     public function punch(Request $request)
     {
         $device = $this->authenticateDevice($request);
@@ -48,6 +48,19 @@ class AttendanceController extends Controller
                     ? 'Fingerprint template is not assigned to any staff member.'
                     : 'Staff not found.',
             ], 404);
+        }
+
+        // Prevent duplicate punches within 1 minute from the same device
+        $recentPunch = AttendanceLog::where('user_id', $staff->id)
+            ->where('device_id', $device->id)
+            ->where('logged_at', '>=', Carbon::now()->subMinute())
+            ->latest('logged_at')
+            ->first();
+
+        if ($recentPunch) {
+            return response()->json([
+                'error' => 'Please wait before punching again. Recent punch recorded less than 1 minute ago.',
+            ], 429);
         }
 
         $loggedAtLocal = $request->timestamp
@@ -246,9 +259,25 @@ class AttendanceController extends Controller
         $signature = $request->header('X-Signature');
         $timestamp = $request->header('X-Timestamp');
         $deviceSerial = $request->header('X-Device-Serial');
+        $legacyToken = $request->header('X-Device-Token');
+
+        if ((! $signature || ! $timestamp || ! $deviceSerial) && $legacyToken) {
+            return $this->authenticateDeviceWithToken($request, $legacyToken);
+        }
+
+        if (! $signature && ! $timestamp && ! $deviceSerial && ! $legacyToken) {
+            Log::warning('Missing device token in IoT request', [
+                'ip' => $request->ip(),
+                'path' => $request->path(),
+            ]);
+
+            throw new HttpResponseException(response()->json([
+                'error' => 'Missing device token.',
+            ], 401));
+        }
 
         // Validate headers present
-        if (!$signature || !$timestamp || !$deviceSerial) {
+        if (! $signature || ! $timestamp || ! $deviceSerial) {
             Log::warning('Missing security headers in IoT request', [
                 'ip' => $request->ip(),
                 'path' => $request->path(),
@@ -261,7 +290,7 @@ class AttendanceController extends Controller
         // Find device by serial number
         $device = Device::where('serial_number', $deviceSerial)->first();
 
-        if (!$device) {
+        if (! $device) {
             Log::warning('IoT device not found', [
                 'serial_number' => $deviceSerial,
                 'ip' => $request->ip(),
@@ -272,7 +301,7 @@ class AttendanceController extends Controller
         }
 
         // Check device is active
-        if (!$device->is_active) {
+        if (! $device->is_active) {
             Log::warning('Inactive device attempted access', [
                 'device_id' => $device->id,
                 'ip' => $request->ip(),
@@ -296,8 +325,8 @@ class AttendanceController extends Controller
 
         // Validate signature
         $body = $request->getContent();
-        
-        if (!$this->tokenService->validateSignature($device, $timestamp, $signature, $body)) {
+
+        if (! $this->tokenService->validateSignature($device, $timestamp, $signature, $body)) {
             Log::warning('Invalid signature in IoT request', [
                 'device_id' => $device->id,
                 'ip' => $request->ip(),
@@ -312,6 +341,53 @@ class AttendanceController extends Controller
         }
 
         // Update last seen
+        $device->update(['last_seen_at' => now()]);
+
+        return $device->fresh();
+    }
+
+    private function authenticateDeviceWithToken(Request $request, string $token): Device
+    {
+        $tokenHash = Device::hashToken($token);
+        $device = Device::query()
+            ->where('api_token', $tokenHash)
+            ->orWhere('api_token', $token)
+            ->first();
+
+        if (! $device) {
+            Log::warning('IoT device token not found', [
+                'ip' => $request->ip(),
+                'path' => $request->path(),
+            ]);
+
+            throw new HttpResponseException(response()->json([
+                'error' => 'Device not found.',
+            ], 401));
+        }
+
+        if (! $device->is_active) {
+            Log::warning('Inactive device attempted token access', [
+                'device_id' => $device->id,
+                'ip' => $request->ip(),
+            ]);
+
+            throw new HttpResponseException(response()->json([
+                'error' => 'Device is inactive.',
+            ], 403));
+        }
+
+        if ($device->isTokenExpired()) {
+            Log::warning('Expired device token attempted', [
+                'device_id' => $device->id,
+                'expired_at' => $device->token_expires_at,
+                'ip' => $request->ip(),
+            ]);
+
+            throw new HttpResponseException(response()->json([
+                'error' => 'Device token has expired. Please rotate token from admin panel.',
+            ], 401));
+        }
+
         $device->update(['last_seen_at' => now()]);
 
         return $device->fresh();

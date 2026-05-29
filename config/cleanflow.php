@@ -57,17 +57,21 @@ return [
         'require_signed_requests' => env('IOT_REQUIRE_SIGNED_REQUESTS', true),
         'max_clock_skew_seconds' => (int) env('IOT_MAX_CLOCK_SKEW_SECONDS', 300),
     ],
+    'proof_uploads' => [
+        'max_request_kb' => (int) env('PROOF_UPLOAD_MAX_REQUEST_KB', 32768),
+        'max_video_kb' => (int) env('PROOF_UPLOAD_MAX_VIDEO_KB', 10240),
+    ],
     'barangays' => $barangays,
     'barangay_centers' => $barangayCenters,
     'service_areas' => $serviceAreas,
     'map' => [
         'center' => ['lat' => 7.9047, 'lng' => 125.0940],
         'zoom' => 12,
-        'minZoom' => 11,
+        'minZoom' => 10,
         'maxZoom' => 17,
         'maxBounds' => [
-            [7.75, 124.95],
-            [8.05, 125.25],
+            [7.6, 124.8],
+            [8.2, 125.4],
         ],
     ],
 ];

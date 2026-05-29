@@ -85,12 +85,12 @@
                             $dayBookings = $bookingsByDate[$dateStr] ?? collect();
                             $hasBooking = $dayBookings->isNotEmpty();
                         @endphp
-                        <div class="aspect-square rounded-[1.15rem] border p-2 transition {{ $isToday ? 'border-accent-500 bg-accent-500 text-white shadow-lg shadow-accent-200/70' : ($hasBooking ? 'border-primary-200 bg-primary-50 text-primary-700 hover:border-primary-300 hover:bg-primary-100' : 'border-slate-100 bg-slate-50/65 text-slate-500') }}">
+                        <div class="aspect-square rounded-[1.15rem] border p-2 transition {{ $isToday ? 'border-blue-500 bg-blue-500 text-white shadow-lg shadow-blue-200/70' : ($hasBooking ? 'border-amber-200 bg-amber-50 text-amber-700 hover:border-amber-300 hover:bg-amber-100' : 'border-slate-100 bg-slate-50/65 text-slate-500') }}">
                             <div class="flex h-full flex-col items-center justify-center gap-1 text-center">
                                 <span class="text-sm font-semibold">{{ $day }}</span>
                                 @if ($hasBooking)
-                                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold {{ $isToday ? 'bg-white/20 text-white' : 'bg-white text-primary-700 shadow-sm' }}">
-                                        <span class="h-1.5 w-1.5 rounded-full {{ $isToday ? 'bg-white' : 'bg-primary-500' }}"></span>
+                                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold {{ $isToday ? 'bg-white/20 text-white' : 'bg-white text-amber-700 shadow-sm' }}">
+                                        <span class="h-1.5 w-1.5 rounded-full {{ $isToday ? 'bg-white' : 'bg-amber-500' }}"></span>
                                         {{ $dayBookings->count() }}
                                     </span>
                                 @endif
@@ -101,11 +101,11 @@
 
                 <div class="mt-5 flex flex-wrap gap-3 border-t border-slate-100 pt-5 text-sm text-slate-500">
                     <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5">
-                        <span class="h-3 w-3 rounded-md bg-accent-500"></span>
+                        <span class="h-3 w-3 rounded-md bg-blue-500"></span>
                         Today
                     </span>
                     <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5">
-                        <span class="h-3 w-3 rounded-md bg-primary-200"></span>
+                        <span class="h-3 w-3 rounded-md bg-amber-200"></span>
                         Has booking
                     </span>
                 </div>
@@ -130,7 +130,7 @@
                                 <article class="rounded-[1.4rem] border border-slate-100 bg-slate-50/75 p-5 transition hover:border-slate-200 hover:bg-white hover:shadow-sm">
                                     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                         <div>
-                                            <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] {{ $isToday ? 'border border-accent-200 bg-accent-50 text-accent-700' : 'border border-slate-200 bg-white text-slate-500' }}">
+                                            <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] {{ $isToday ? 'border border-blue-200 bg-blue-50 text-blue-700' : 'border border-slate-200 bg-white text-slate-500' }}">
                                                 <i class="fas {{ $isToday ? 'fa-bolt' : 'fa-calendar-day' }} text-[10px]"></i>
                                                 {{ $isToday ? 'Today' : \Carbon\Carbon::parse($booking->scheduled_date)->format('M d, Y') }}
                                             </span>
@@ -143,7 +143,7 @@
                                             </p>
                                         </div>
                                         <div class="text-left sm:text-right">
-                                            <div class="text-sm font-semibold text-primary-700">
+                                            <div class="text-sm font-semibold text-slate-900">
                                                 {{ \Carbon\Carbon::parse($booking->scheduled_time)->format('h:i A') }}
                                             </div>
                                             <div class="mt-2 text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">
@@ -161,7 +161,7 @@
                                         <div class="rounded-2xl bg-white px-4 py-3 shadow-sm">
                                             <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Status</p>
                                             <div class="mt-2">
-                                                <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold {{ $booking->status === 'confirmed' ? 'border border-accent-200 bg-accent-50 text-accent-700' : 'border border-primary-200 bg-primary-50 text-primary-700' }}">
+                                                <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold {{ $booking->status === 'confirmed' ? 'border border-blue-200 bg-blue-50 text-blue-700' : 'border border-teal-200 bg-teal-50 text-teal-700' }}">
                                                     {{ ucfirst(str_replace('_', ' ', $booking->status)) }}
                                                 </span>
                                             </div>
@@ -172,7 +172,7 @@
                         </div>
                     @else
                         <div class="py-10 text-center">
-                            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+                            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
                                 <i class="fas fa-calendar-days text-xl"></i>
                             </div>
                             <h3 class="mt-4 text-lg font-bold text-slate-900">No upcoming jobs scheduled</h3>

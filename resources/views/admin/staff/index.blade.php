@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 @section('title', 'Staff')
 @section('page-title', 'Staff Directory')
-@section('page-subtitle', 'Manage staff profiles, access details, and service coverage assignments')
+@section('page-subtitle', 'Manage staff profiles and access details')
 
 @section('content')
 <div class="admin-page-content cleanflow-page-shell space-y-6 p-6">
@@ -56,11 +56,37 @@
         </div>
     </section>
 
+    <section class="grid gap-4 md:grid-cols-2">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <div class="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Total Staff</div>
+                    <div class="mt-2 text-3xl font-black text-slate-900">{{ number_format($staffStats['total']) }}</div>
+                </div>
+                <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-600 text-white">
+                    <i class="fas fa-users"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <div class="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Rated On This Page</div>
+                    <div class="mt-2 text-3xl font-black text-slate-900">{{ number_format($staffStats['rated_on_page']) }}</div>
+                </div>
+                <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-400 text-white">
+                    <i class="fas fa-star"></i>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <section class="rounded-[28px] border border-slate-200 bg-white shadow-sm">
         <div class="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
                 <h3 class="text-lg font-extrabold text-slate-900">Staff Members</h3>
-                <p class="mt-1 text-sm text-slate-500">Operational directory for active staff across your service coverage areas.</p>
+                <p class="mt-1 text-sm text-slate-500">Operational directory for active staff members.</p>
             </div>
             <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500">
                 <i class="fas fa-table-list text-slate-400"></i>
@@ -73,16 +99,12 @@
         </div>
 
         <div class="overflow-x-auto">
-            <table class="min-w-[960px] w-full text-sm">
+            <table class="min-w-[900px] w-full text-sm">
                 <thead class="bg-slate-50/90">
                     <tr>
                         <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Staff Member</th>
-                        <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Email</th>
-                        <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Phone</th>
-                        <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Barangay</th>
-                        <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Username</th>
-                        <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Average Rating</th>
-                        <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Reviews</th>
+                        <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Contact</th>
+                        <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Performance</th>
                         <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Joined</th>
                         <th class="px-5 py-3 text-right text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Actions</th>
                     </tr>
@@ -92,47 +114,59 @@
                         <tr class="border-t border-slate-100 transition hover:bg-slate-50/70">
                             <td class="px-5 py-4 align-middle">
                                 <div class="flex items-center gap-3">
-                                    <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-600 text-sm font-black text-white shadow-sm">
+                                    <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent-600 text-sm font-black text-white shadow-sm">
                                         {{ strtoupper(substr($member->first_name, 0, 1) . substr($member->last_name, 0, 1)) }}
                                     </div>
-                                    <div>
+                                    <div class="min-w-0">
                                         <div class="text-sm font-extrabold text-slate-900">{{ $member->full_name }}</div>
-                                        <div class="mt-1 text-xs text-slate-500">Field operations staff account</div>
+                                        <div class="mt-2 inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                                            &#64;{{ $member->username }}
+                                        </div>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-5 py-4 align-middle">
-                                <div class="text-sm font-semibold text-slate-800">{{ $member->email }}</div>
-                            </td>
-                            <td class="px-5 py-4 align-middle text-sm text-slate-500">{{ $member->phone ?? '--' }}</td>
-                            <td class="px-5 py-4 align-middle text-sm text-slate-500">{{ $barangays[$member->barangay] ?? $member->barangay }}</td>
-                            <td class="px-5 py-4 align-middle">
-                                <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                                    &#64;{{ $member->username }}
-                                </span>
+                                <div class="space-y-1.5">
+                                    <div class="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                                        <i class="fas fa-envelope w-4 text-slate-400"></i>
+                                        <span>{{ $member->email }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 text-sm text-slate-500">
+                                        <i class="fas fa-phone w-4 text-slate-400"></i>
+                                        <span>{{ $member->phone ?? 'No phone saved' }}</span>
+                                    </div>
+                                </div>
                             </td>
                             <td class="px-5 py-4 align-middle">
                                 @if($member->avg_rating)
-                                    <div class="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
-                                        <i class="fas fa-star"></i>
-                                        {{ $member->avg_rating }}
+                                    <div class="space-y-1">
+                                        <div class="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                                            <i class="fas fa-star"></i>
+                                            {{ $member->avg_rating }} average
+                                        </div>
+                                        <div class="text-xs font-semibold text-slate-400">{{ number_format($member->total_ratings ?? 0) }} review{{ (int) ($member->total_ratings ?? 0) === 1 ? '' : 's' }}</div>
                                     </div>
                                 @else
-                                    <span class="text-xs font-semibold text-slate-400">No ratings yet</span>
+                                    <div class="space-y-1">
+                                        <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">No ratings yet</span>
+                                        <div class="text-xs font-semibold text-slate-400">0 reviews</div>
+                                    </div>
                                 @endif
                             </td>
-                            <td class="px-5 py-4 align-middle text-sm font-semibold text-slate-600">{{ $member->total_ratings ?? 0 }}</td>
-                            <td class="px-5 py-4 align-middle text-sm text-slate-500">{{ optional($member->created_at)->format('M d, Y') }}</td>
+                            <td class="px-5 py-4 align-middle">
+                                <div class="text-sm font-semibold text-slate-700">{{ optional($member->created_at)->format('M d, Y') }}</div>
+                                <div class="mt-1 text-xs text-slate-400">{{ optional($member->created_at)->diffForHumans() }}</div>
+                            </td>
                             <td class="px-5 py-4 align-middle text-right">
-                                <div class="inline-flex flex-wrap justify-end gap-2">
-                                    <a href="{{ route('admin.staff.edit', $member) }}" class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-100">
+                                <div class="inline-flex flex-col items-stretch gap-2 xl:flex-row xl:justify-end">
+                                    <a href="{{ route('admin.staff.edit', $member) }}" class="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-100">
                                         <i class="fas fa-pen"></i>
-                                        Edit Staff
+                                        Edit
                                     </a>
                                     <form action="{{ route('admin.staff.destroy', $member) }}" method="POST" onsubmit="return confirm('Remove this staff member? Staff with booking history will be protected.')">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-100">
+                                        <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-red-700">
                                             <i class="fas fa-trash"></i>
                                             Remove
                                         </button>
@@ -142,8 +176,8 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="px-6 py-16 text-center">
-                                <div class="mx-auto flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-[1.75rem] bg-slate-100 text-3xl text-slate-400">
+                            <td colspan="5" class="px-6 py-16 text-center">
+                                <div class="mx-auto flex h-18 w-18 items-center justify-center rounded-[1.75rem] bg-slate-100 text-3xl text-slate-400">
                                     <i class="fas fa-user-group"></i>
                                 </div>
                                 <h4 class="mt-5 text-xl font-black text-slate-900">No staff members have been added yet</h4>

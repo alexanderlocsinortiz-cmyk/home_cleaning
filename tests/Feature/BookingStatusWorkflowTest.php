@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Booking;
 use App\Models\Notification;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -199,6 +200,140 @@ class BookingStatusWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_staff_status_updates_record_service_timeliness(): void
+    {
+        Storage::fake('public');
+
+        $client = $this->createUser('client', 'client-timeliness@example.com', 'clienttimeliness');
+        $staff = $this->createUser('staff', 'staff-timeliness@example.com', 'stafftimeliness');
+        $admin = $this->createUser('admin', 'admin-timeliness@example.com', 'admintimeliness');
+        $scheduledDate = Carbon::now('Asia/Manila')->addDay()->toDateString();
+        $booking = $this->createBooking($client, $staff, 'confirmed', $scheduledDate, '09:00', 60);
+
+        $this->travelTo(Carbon::parse($scheduledDate.' 09:10', 'Asia/Manila')->utc());
+
+        $this->actingAs($staff)
+            ->from(route('staff.bookings'))
+            ->patch(route('staff.bookings.status', $booking->id), [
+                'status' => 'in_progress',
+                'before_photos' => [
+                    $this->fakeImageUpload('before-proof.png'),
+                ],
+            ]);
+
+        $startedBooking = $booking->fresh();
+
+        $this->assertSame('in_progress', $startedBooking->status);
+        $this->assertNotNull($startedBooking->expected_started_at);
+        $this->assertNotNull($startedBooking->expected_completed_at);
+        $this->assertNotNull($startedBooking->started_at);
+        $this->assertSame(10, (int) $startedBooking->started_late_minutes);
+        $this->assertSame('started_late', $startedBooking->on_time_status);
+
+        $this->travelTo(Carbon::parse($scheduledDate.' 10:07', 'Asia/Manila')->utc());
+
+        $this->actingAs($staff)
+            ->from(route('staff.bookings'))
+            ->patch(route('staff.bookings.status', $booking->id), [
+                'status' => 'completed',
+                'after_photos' => [
+                    $this->fakeImageUpload('after-proof.png'),
+                ],
+            ]);
+
+        $completedBooking = $booking->fresh();
+
+        $this->assertSame('completed', $completedBooking->status);
+        $this->assertNotNull($completedBooking->completed_at);
+        $this->assertSame(10, (int) $completedBooking->started_late_minutes);
+        $this->assertSame(7, (int) $completedBooking->completed_late_minutes);
+        $this->assertSame('late', $completedBooking->on_time_status);
+        $this->assertSame('Started and Completed Late', $completedBooking->timelinessLabel());
+
+        $response = $this->actingAs($admin)->get(route('admin.bookings', ['tab' => 'completed']));
+
+        $response->assertOk();
+        $response->assertSee('Service Timing');
+        $response->assertSee('Started and Completed Late');
+        $response->assertSee('Started 10 minutes late and completed 7 minutes late.');
+    }
+
+    public function test_staff_booking_list_shows_saved_proof_files_after_refresh(): void
+    {
+        Storage::fake('public');
+
+        $client = $this->createUser('client', 'client-visible-proof@example.com', 'clientvisibleproof');
+        $staff = $this->createUser('staff', 'staff-visible-proof@example.com', 'staffvisibleproof');
+        $booking = $this->createBooking($client, $staff, 'confirmed');
+
+        $this->actingAs($staff)
+            ->from(route('staff.bookings'))
+            ->patch(route('staff.bookings.status', $booking->id), [
+                'status' => 'in_progress',
+                'before_photos' => [
+                    $this->fakeImageUpload('before-proof.png'),
+                ],
+            ]);
+
+        $response = $this->actingAs($staff)->get(route('staff.bookings'));
+
+        $response->assertOk();
+        $response->assertSee('Before 1', false);
+        $response->assertSee('Open all proof files', false);
+        $response->assertSee('booking-proofs/before', false);
+    }
+
+    public function test_staff_proof_upload_request_is_rejected_before_oversized_body_is_processed(): void
+    {
+        $client = $this->createUser('client', 'client-huge-proof@example.com', 'clienthugeproof');
+        $staff = $this->createUser('staff', 'staff-huge-proof@example.com', 'staffhugeproof');
+        $booking = $this->createBooking($client, $staff, 'in_progress');
+
+        $response = $this->withServerVariables([
+            'CONTENT_LENGTH' => (config('cleanflow.proof_uploads.max_request_kb') * 1024) + 1,
+        ])->actingAs($staff)
+            ->from(route('staff.bookings'))
+            ->patch(route('staff.bookings.status', $booking->id), [
+                'status' => 'completed',
+            ]);
+
+        $response->assertRedirect(route('staff.bookings'));
+        $response->assertSessionHasErrors('proof_upload');
+        $this->assertSame('in_progress', $booking->fresh()->status);
+    }
+
+    public function test_staff_cannot_upload_completion_video_over_configured_limit(): void
+    {
+        Storage::fake('public');
+
+        $client = $this->createUser('client', 'client-large-video@example.com', 'clientlargevideo');
+        $staff = $this->createUser('staff', 'staff-large-video@example.com', 'stafflargevideo');
+        $booking = $this->createBooking($client, $staff, 'confirmed');
+
+        $this->actingAs($staff)
+            ->from(route('staff.bookings'))
+            ->patch(route('staff.bookings.status', $booking->id), [
+                'status' => 'in_progress',
+                'before_photos' => [
+                    $this->fakeImageUpload('before-proof.png'),
+                ],
+            ]);
+
+        $response = $this->actingAs($staff)
+            ->from(route('staff.bookings'))
+            ->patch(route('staff.bookings.status', $booking->id), [
+                'status' => 'completed',
+                'after_photos' => [
+                    $this->fakeImageUpload('after-proof.png'),
+                ],
+                'completion_video' => UploadedFile::fake()->create('too-large.mp4', config('cleanflow.proof_uploads.max_video_kb') + 1, 'video/mp4'),
+            ]);
+
+        $response->assertRedirect(route('staff.bookings'));
+        $response->assertSessionHasErrors('completion_video');
+        $this->assertSame('in_progress', $booking->fresh()->status);
+    }
+
     public function test_staff_cannot_complete_a_booking_without_before_service_proof(): void
     {
         Storage::fake('public');
@@ -356,6 +491,129 @@ class BookingStatusWorkflowTest extends TestCase
         $response->assertSessionHasNoErrors();
         $this->assertSame($availableStaff->id, $bookingToAssign->fresh()->staff_id);
         $this->assertSame('confirmed', $bookingToAssign->fresh()->status);
+    }
+
+    public function test_admin_cannot_assign_staff_during_existing_booking_rest_window(): void
+    {
+        $admin = $this->createUser('admin', 'admin-rest-window@example.com', 'adminrestwindow');
+        $clientOne = $this->createUser('client', 'client-one-rest-window@example.com', 'clientonerestwindow');
+        $clientTwo = $this->createUser('client', 'client-two-rest-window@example.com', 'clienttworestwindow');
+        $staff = $this->createUser('staff', 'staff-rest-window@example.com', 'staffrestwindow');
+        $scheduledDate = now()->addDays(3)->toDateString();
+
+        $this->createBooking($clientOne, $staff, 'confirmed', $scheduledDate, '09:00');
+        $bookingToAssign = $this->createBooking($clientTwo, null, 'pending', $scheduledDate, '10:00');
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.status', $bookingToAssign->id), [
+                'status' => 'confirmed',
+                'staff_id' => $staff->id,
+            ]);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHasErrors('staff_id');
+        $this->assertNull($bookingToAssign->fresh()->staff_id);
+        $this->assertSame('pending', $bookingToAssign->fresh()->status);
+    }
+
+    public function test_admin_can_assign_staff_after_existing_booking_and_rest_window(): void
+    {
+        $admin = $this->createUser('admin', 'admin-after-rest@example.com', 'adminafterrest');
+        $clientOne = $this->createUser('client', 'client-one-after-rest@example.com', 'clientoneafterrest');
+        $clientTwo = $this->createUser('client', 'client-two-after-rest@example.com', 'clienttwoafterrest');
+        $staff = $this->createUser('staff', 'staff-after-rest@example.com', 'staffafterrest');
+        $scheduledDate = now()->addDays(3)->toDateString();
+
+        $this->createBooking($clientOne, $staff, 'confirmed', $scheduledDate, '09:00');
+        $bookingToAssign = $this->createBooking($clientTwo, null, 'pending', $scheduledDate, '11:00');
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.status', $bookingToAssign->id), [
+                'status' => 'confirmed',
+                'staff_id' => $staff->id,
+            ]);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHasNoErrors();
+        $this->assertSame($staff->id, $bookingToAssign->fresh()->staff_id);
+        $this->assertSame('confirmed', $bookingToAssign->fresh()->status);
+    }
+
+    public function test_admin_cannot_assign_staff_until_long_service_duration_and_rest_are_finished(): void
+    {
+        $admin = $this->createUser('admin', 'admin-long-duration@example.com', 'adminlongduration');
+        $clientOne = $this->createUser('client', 'client-one-long-duration@example.com', 'clientonelongduration');
+        $clientTwo = $this->createUser('client', 'client-two-long-duration@example.com', 'clienttwolongduration');
+        $staff = $this->createUser('staff', 'staff-long-duration@example.com', 'stafflongduration');
+        $scheduledDate = now()->addDays(3)->toDateString();
+
+        $this->createBooking($clientOne, $staff, 'confirmed', $scheduledDate, '09:00', 180);
+        $bookingToAssign = $this->createBooking($clientTwo, null, 'pending', $scheduledDate, '11:00');
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.status', $bookingToAssign->id), [
+                'status' => 'confirmed',
+                'staff_id' => $staff->id,
+            ]);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHasErrors('staff_id');
+        $this->assertNull($bookingToAssign->fresh()->staff_id);
+        $this->assertSame('pending', $bookingToAssign->fresh()->status);
+    }
+
+    public function test_admin_can_assign_staff_after_long_service_duration_and_rest_are_finished(): void
+    {
+        $admin = $this->createUser('admin', 'admin-long-duration-clear@example.com', 'adminlongdurationclear');
+        $clientOne = $this->createUser('client', 'client-one-long-duration-clear@example.com', 'clientonelongdurationclear');
+        $clientTwo = $this->createUser('client', 'client-two-long-duration-clear@example.com', 'clienttwolongdurationclear');
+        $staff = $this->createUser('staff', 'staff-long-duration-clear@example.com', 'stafflongdurationclear');
+        $scheduledDate = now()->addDays(3)->toDateString();
+
+        $this->createBooking($clientOne, $staff, 'confirmed', $scheduledDate, '09:00', 180);
+        $bookingToAssign = $this->createBooking($clientTwo, null, 'pending', $scheduledDate, '13:00');
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.status', $bookingToAssign->id), [
+                'status' => 'confirmed',
+                'staff_id' => $staff->id,
+            ]);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHasNoErrors();
+        $this->assertSame($staff->id, $bookingToAssign->fresh()->staff_id);
+        $this->assertSame('confirmed', $bookingToAssign->fresh()->status);
+    }
+
+    public function test_admin_cannot_assign_staff_inside_one_hour_after_completed_booking(): void
+    {
+        $admin = $this->createUser('admin', 'admin-completed-rest@example.com', 'admincompletedrest');
+        $clientOne = $this->createUser('client', 'client-one-completed-rest@example.com', 'clientonecompletedrest');
+        $clientTwo = $this->createUser('client', 'client-two-completed-rest@example.com', 'clienttwocompletedrest');
+        $staff = $this->createUser('staff', 'staff-completed-rest@example.com', 'staffcompletedrest');
+        $scheduledDate = now()->addDays(3)->toDateString();
+
+        $completedBooking = $this->createBooking($clientOne, $staff, 'completed', $scheduledDate, '09:00');
+        $completedBooking->forceFill([
+            'updated_at' => Carbon::parse($scheduledDate.' 09:30:00'),
+        ])->save();
+        $bookingToAssign = $this->createBooking($clientTwo, null, 'pending', $scheduledDate, '10:00');
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.status', $bookingToAssign->id), [
+                'status' => 'confirmed',
+                'staff_id' => $staff->id,
+            ]);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHasErrors('staff_id');
+        $this->assertNull($bookingToAssign->fresh()->staff_id);
+        $this->assertSame('pending', $bookingToAssign->fresh()->status);
     }
 
     public function test_admin_assigning_the_requested_cleaner_updates_preference_status_and_notifies_the_client(): void
@@ -546,7 +804,8 @@ class BookingStatusWorkflowTest extends TestCase
         ?User $staff,
         string $status,
         ?string $scheduledDate = null,
-        string $scheduledTime = '09:00'
+        string $scheduledTime = '09:00',
+        int $durationMinutes = 60
     ): Booking {
         return Booking::create([
             'user_id' => $client->id,
@@ -555,6 +814,7 @@ class BookingStatusWorkflowTest extends TestCase
             'street_address' => '123 Rizal Street',
             'scheduled_date' => $scheduledDate ?? now()->addDay()->toDateString(),
             'scheduled_time' => $scheduledTime,
+            'duration_minutes' => $durationMinutes,
             'price' => 1200,
             'status' => $status,
             'staff_id' => $staff?->id,

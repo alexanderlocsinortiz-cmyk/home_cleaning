@@ -12,12 +12,17 @@ class DeviceEnrollmentRequest extends Model
         'requested_by',
         'template_id',
         'status',
+        'consent_token',
+        'consent_requested_at',
+        'consent_accepted_at',
         'started_at',
         'completed_at',
         'error_message',
     ];
 
     protected $casts = [
+        'consent_requested_at' => 'datetime',
+        'consent_accepted_at' => 'datetime',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
     ];

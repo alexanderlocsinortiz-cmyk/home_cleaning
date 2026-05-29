@@ -5,8 +5,8 @@
 @php
     $birthday = optional($user->date_of_birth)->format('M d, Y') ?: 'Not set';
     $gender = $user->gender ? ucfirst(str_replace('_', ' ', $user->gender)) : 'Not set';
-    $address = $user->street && $user->barangay && $user->zip_code
-        ? $user->street . ', ' . ucwords(str_replace('_', ' ', $user->barangay)) . ', ' . $user->city . ' ' . $user->zip_code
+    $address = $user->street && $user->barangay
+        ? $user->street . ', ' . ucwords(str_replace('_', ' ', $user->barangay)) . ', ' . $user->city
         : 'Not set';
     $initials = $user->initials;
     $memberSince = optional($user->created_at)->format('M d, Y') ?: 'Not set';
@@ -23,17 +23,17 @@
         [
             'label' => 'Contact ready',
             'value' => $user->phone ? 'Complete' : 'Needs update',
-            'classes' => $user->phone ? 'border-accent-200 bg-accent-50 text-accent-700' : 'border-amber-200 bg-amber-50 text-amber-700',
+            'classes' => $user->phone ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700',
         ],
         [
             'label' => 'Address ready',
             'value' => $address !== 'Not set' ? 'Complete' : 'Needs update',
-            'classes' => $address !== 'Not set' ? 'border-accent-200 bg-accent-50 text-accent-700' : 'border-amber-200 bg-amber-50 text-amber-700',
+            'classes' => $address !== 'Not set' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700',
         ],
         [
             'label' => 'Age verified',
             'value' => $user->date_of_birth ? 'On file' : 'Needs update',
-            'classes' => $user->date_of_birth ? 'border-secondary-200 bg-secondary-50 text-secondary-700' : 'border-amber-200 bg-amber-50 text-amber-700',
+            'classes' => $user->date_of_birth ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-amber-200 bg-amber-50 text-amber-700',
         ],
     ];
 @endphp
@@ -124,7 +124,7 @@
             <aside class="space-y-6 xl:sticky xl:top-28">
                 <section class="cleanflow-panel p-6">
                     <div class="rounded-[1.6rem] border border-slate-100 bg-slate-50/90 p-5 text-center">
-                        <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary-600 text-2xl font-black text-white shadow-lg">
+                        <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-600 text-2xl font-black text-white shadow-lg">
                             {{ $initials }}
                         </div>
                         <div class="mt-4 text-lg font-bold text-slate-900">{{ $user->display_name }}</div>
@@ -143,9 +143,9 @@
                     </div>
                 </section>
 
-                <section class="cleanflow-panel border border-accent-100 bg-accent-50/80 p-6">
+                <section class="cleanflow-panel border border-amber-100 bg-amber-50/80 p-6">
                     <div class="mb-4 flex items-center gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-accent-600 shadow-sm">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-sm">
                             <i class="fas fa-sparkles text-base"></i>
                         </div>
                         <div>

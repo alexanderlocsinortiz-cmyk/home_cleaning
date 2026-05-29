@@ -2,116 +2,171 @@
 @section('title', 'Verify Email - Home Cleaning Service')
 
 @section('content')
-<div class="min-h-screen bg-slate-950">
-    <div class="relative mx-auto flex min-h-screen max-w-6xl items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
-        <div class="grid w-full max-w-5xl gap-5 lg:grid-cols-[minmax(0,1fr)_440px]">
-            <aside class="hidden rounded-[32px] border border-white/15 bg-white/10 p-8 text-white shadow-[0_28px_80px_rgba(15,23,42,0.22)] backdrop-blur-md lg:flex lg:flex-col lg:justify-between">
-                <div>
-                    <div class="flex items-center gap-4">
-                        <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
-                            <img src="{{ asset('images/logo.png') }}" alt="Home Cleaning Service" class="h-11 w-11 object-contain">
-                        </div>
-                        <div>
-                            <div class="text-xl font-bold tracking-tight">Home Cleaning Service</div>
-                            <div class="mt-1 text-sm text-white/75">Valencia City, Bukidnon</div>
-                        </div>
-                    </div>
+@php
+    $benefits = [
+        [
+            'icon' => 'fa-shield-halved',
+            'title' => 'Secure Account Access',
+            'text' => 'Verification protects your booking and profile details',
+        ],
+        [
+            'icon' => 'fa-envelope-circle-check',
+            'title' => 'Email Updates',
+            'text' => 'Receive booking confirmations and service notifications',
+        ],
+        [
+            'icon' => 'fa-clock',
+            'title' => 'Quick Activation',
+            'text' => 'Codes expire in '.($codeExpiresInMinutes ?? config('auth.verification.expire', 15)).' minutes',
+        ],
+    ];
+@endphp
 
-                    <div class="mt-8 max-w-xl">
-                        <h1 class="text-4xl font-bold leading-tight tracking-tight">One more step before your account is ready.</h1>
-                        <p class="mt-4 max-w-lg text-sm leading-7 text-white/80">
-                            Verify your email to unlock booking access, account updates, and a safer sign-in flow across the platform.
-                        </p>
-                    </div>
+<div class="auth-shell min-h-screen bg-slate-50 text-slate-950">
+    <div class="grid min-h-screen lg:grid-cols-[1.16fr_0.84fr]">
+        <aside class="relative hidden overflow-hidden lg:block">
+            <img
+                src="{{ asset('images/landing-cleaning-hero.png') }}?v=20260510"
+                alt=""
+                aria-hidden="true"
+                class="absolute inset-0 h-full w-full object-cover object-right-bottom"
+            >
+            <div class="absolute inset-0 bg-white/70"></div>
+            <div class="absolute inset-y-0 right-0 w-52 bg-gradient-to-r from-transparent via-slate-50/70 to-slate-50"></div>
+
+            <div class="relative z-10 flex min-h-screen flex-col px-16 py-14">
+                <a href="{{ url('/') }}" class="flex w-fit items-center gap-4 no-underline">
+                    <img src="{{ asset('images/logo.png') }}?v=20260510-logo4" alt="Home Cleaning Service" class="h-20 w-auto object-contain">
+                </a>
+
+                <div class="mt-28 max-w-xl">
+                    <div class="text-base font-black uppercase tracking-wide text-blue-600">A clean home, a happy home</div>
+                    <h1 class="mt-6 text-6xl font-black leading-[1.04] text-slate-950">
+                        Verify Your <span class="text-blue-600">Email</span> Address
+                    </h1>
+                    <p class="mt-7 max-w-lg text-xl leading-9 text-slate-600">
+                        One final check keeps your account secure before you manage bookings and service updates.
+                    </p>
                 </div>
 
-                <div class="space-y-3">
-                    <div class="rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5">
-                        <div class="text-sm font-semibold text-white">Secure email-based access</div>
-                        <div class="mt-1 text-xs leading-5 text-white/75">Your account stays linked to a verified email before bookings can proceed.</div>
-                    </div>
-                    <div class="rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5">
-                        <div class="text-sm font-semibold text-white">Code expires automatically</div>
-                        <div class="mt-1 text-xs leading-5 text-white/75">Verification codes expire in {{ $codeExpiresInMinutes ?? config('auth.verification.expire', 15) }} minutes for safer account activation.</div>
-                    </div>
-                </div>
-            </aside>
-
-            <section class="flex items-center justify-center">
-                <div class="w-full max-w-md rounded-[30px] border border-white/80 bg-white/95 p-6 shadow-[0_26px_70px_rgba(15,23,42,0.20)] ring-1 ring-black/5 backdrop-blur-sm sm:p-7">
-                    <div class="flex justify-center">
-                        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-600 text-lg text-white shadow-sm">
-                            <i class="fas fa-envelope-open-text"></i>
+                <div class="mt-12 grid max-w-lg gap-7">
+                    @foreach($benefits as $benefit)
+                        <div class="flex items-center gap-5">
+                            <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-blue-100 bg-blue-50 text-blue-600 shadow-sm">
+                                <i class="fas {{ $benefit['icon'] }}"></i>
+                            </div>
+                            <div>
+                                <div class="text-base font-black text-slate-950">{{ $benefit['title'] }}</div>
+                                <div class="mt-1 text-sm text-slate-600">{{ $benefit['text'] }}</div>
+                            </div>
                         </div>
-                    </div>
+                    @endforeach
+                </div>
+            </div>
+        </aside>
 
-                    <div class="mt-5 text-center">
-                        <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-600">Email Verification</div>
-                        <h2 class="mt-3 text-2xl font-bold text-slate-800">Verify your email address</h2>
-                        <p class="mt-2 text-sm leading-6 text-slate-500">
+        <section class="flex min-h-screen items-center justify-center bg-slate-50 px-5 py-8 sm:px-8 lg:px-12">
+            <div class="w-full max-w-[520px]">
+                <div class="mb-7 flex justify-center lg:hidden">
+                    <a href="{{ url('/') }}" class="flex items-center gap-3 no-underline">
+                        <img src="{{ asset('images/logo.png') }}?v=20260510-logo4" alt="Home Cleaning Service" class="h-16 w-auto object-contain">
+                    </a>
+                </div>
+
+                <div class="relative rounded-[28px] border border-white bg-white/95 px-7 py-9 shadow-[0_24px_70px_rgba(37,99,235,0.12)] sm:px-12">
+                    <a href="{{ url('/') }}" class="absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-blue-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50" title="Back to Home" aria-label="Back to Home">
+                        <i class="fas fa-house"></i>
+                    </a>
+
+                    <div class="text-center">
+                        <img src="{{ asset('images/logo.png') }}?v=20260510-logo4" alt="Home Cleaning Service" class="mx-auto h-24 w-auto object-contain">
+                        <h2 class="mt-6 text-3xl font-black tracking-tight text-slate-950">Verify Email</h2>
+                        <p class="mt-3 text-base leading-7 text-slate-500">
                             Enter the 6-digit code sent to
-                            <strong class="text-slate-800">{{ auth()->user()->email }}</strong>.
+                            <strong class="font-bold text-slate-800">{{ auth()->user()->email }}</strong>.
                         </p>
                     </div>
 
                     @if(session('success'))
-                        <div class="mt-5 flex items-center gap-2 rounded-2xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-600 shadow-sm">
-                            <i class="fas fa-check-circle text-success-500"></i>
+                        <div class="mt-7 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                            <i class="fas fa-circle-check mt-0.5 text-emerald-600"></i>
                             <span>{{ session('success') }}</span>
                         </div>
                     @endif
 
                     @if($errors->any())
-                        <div class="mt-5 flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 shadow-sm">
-                            <i class="fas fa-exclamation-circle text-red-500"></i>
+                        <div class="mt-7 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            <i class="fas fa-circle-exclamation mt-0.5 text-red-500"></i>
                             <span>{{ $errors->first() }}</span>
                         </div>
                     @endif
 
-                    <form method="POST" action="{{ route('verification.verify') }}" class="mt-6 space-y-4 text-left">
+                    <form method="POST" action="{{ route('verification.verify') }}" class="mt-8 space-y-6">
                         @csrf
+
                         <div>
-                            <label for="code" class="mb-1.5 block text-sm font-medium text-slate-700">Verification Code</label>
-                            <input
-                                id="code"
-                                type="text"
-                                name="code"
-                                value="{{ old('code') }}"
-                                inputmode="numeric"
-                                autocomplete="one-time-code"
-                                maxlength="6"
-                                placeholder="Enter 6-digit code"
-                                class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-lg font-semibold tracking-[0.35em] text-slate-800 transition focus:border-primary-500 focus:outline-hidden focus:ring-2 focus:ring-primary-200"
-                            >
-                            <div class="mt-2 text-xs text-slate-500">
+                            <label for="code" class="mb-3 block text-sm font-bold text-slate-800">
+                                Verification Code <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-5 text-blue-600">
+                                    <i class="fas fa-key"></i>
+                                </span>
+                                <input
+                                    id="code"
+                                    type="text"
+                                    name="code"
+                                    value="{{ old('code') }}"
+                                    inputmode="numeric"
+                                    autocomplete="one-time-code"
+                                    maxlength="6"
+                                    pattern="[0-9]{6}"
+                                    placeholder="Enter 6-digit code"
+                                    required
+                                    autofocus
+                                    oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)"
+                                    class="h-16 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-5 text-center text-lg font-bold tracking-[0.28em] text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                                >
+                            </div>
+                            <div class="mt-2 text-sm text-slate-500">
                                 Codes expire in {{ $codeExpiresInMinutes ?? config('auth.verification.expire', 15) }} minutes.
                             </div>
                         </div>
 
-                        <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-600 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700">
+                        <button type="submit" class="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-blue-600 text-base font-bold text-white shadow-[0_14px_28px_rgba(37,99,235,0.28)] transition hover:bg-blue-700">
                             <i class="fas fa-shield-halved"></i>
                             <span>Verify Email</span>
                         </button>
                     </form>
 
-                    <form method="POST" action="{{ route('verification.send') }}" class="mt-4">
+                    <form method="POST" action="{{ route('verification.send') }}" class="mt-5">
                         @csrf
-                        <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-2xl border border-primary-200 bg-white py-3 text-sm font-semibold text-primary-700 transition hover:bg-primary-50">
+                        <button type="submit" class="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-blue-200 bg-blue-50 text-base font-bold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100">
                             <i class="fas fa-paper-plane"></i>
                             <span>Send New Verification Code</span>
                         </button>
                     </form>
 
-                    <form method="POST" action="{{ route('logout') }}" class="mt-4 text-center">
+                    <div class="mt-8 flex items-center gap-4 text-sm text-slate-400">
+                        <div class="h-px flex-1 bg-slate-200"></div>
+                        <span>Need to leave?</span>
+                        <div class="h-px flex-1 bg-slate-200"></div>
+                    </div>
+
+                    <form method="POST" action="{{ route('logout') }}" class="mt-7 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-center text-sm text-slate-600">
                         @csrf
-                        <button type="submit" class="inline-flex items-center gap-2 text-sm text-slate-400 transition hover:text-slate-600">
-                            <i class="fas fa-sign-out-alt"></i>
-                            <span>Logout</span>
+                        <button type="submit" class="font-bold text-blue-600 transition hover:text-blue-700">
+                            Logout
                         </button>
                     </form>
+
+                    <div class="mt-7 flex items-center justify-center gap-2 text-sm text-slate-400">
+                        <i class="fas fa-lock"></i>
+                        <span>Your information is secure and encrypted</span>
+                    </div>
                 </div>
-            </section>
-        </div>
+            </div>
+        </section>
     </div>
 </div>
 @endsection

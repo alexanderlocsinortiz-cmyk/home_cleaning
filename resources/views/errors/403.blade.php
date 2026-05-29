@@ -20,7 +20,7 @@
             </div>
 
             <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-                <a href="{{ route('home') }}" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary-700">
+                <a href="{{ route('home') }}" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">
                     <i class="fas fa-home"></i>
                     <span>Go Home</span>
                 </a>

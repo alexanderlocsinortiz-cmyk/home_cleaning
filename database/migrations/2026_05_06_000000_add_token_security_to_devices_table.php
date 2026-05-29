@@ -16,7 +16,7 @@ return new class extends Migration
             $table->text('secret_key')->nullable()->after('api_token');
             $table->timestamp('token_expires_at')->nullable()->after('secret_key');
             $table->timestamp('last_token_rotated_at')->nullable()->after('token_expires_at');
-            
+
             // Add indexes for performance
             $table->index('token_expires_at');
             $table->index('is_active');

@@ -9,7 +9,7 @@
                 <div>
                     <div class="flex items-center gap-4">
                         <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
-                            <img src="{{ asset('images/logo.png') }}" alt="Home Cleaning Service" class="h-11 w-11 object-contain">
+                            <img src="{{ asset('images/logo.png') }}?v=20260510-logo4" alt="Home Cleaning Service" class="h-14 w-auto object-contain">
                         </div>
                         <div>
                             <div class="text-xl font-bold tracking-tight">Home Cleaning Service</div>
@@ -40,13 +40,13 @@
             <section class="flex items-center justify-center">
                 <div class="w-full max-w-md rounded-[30px] border border-white/80 bg-white/95 p-6 shadow-[0_26px_70px_rgba(15,23,42,0.20)] ring-1 ring-black/5 backdrop-blur-sm sm:p-7">
                     <div class="flex justify-center">
-                        <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-600 text-2xl text-white shadow-sm">
+                        <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-2xl text-white shadow-sm">
                             <i class="fas fa-check-circle"></i>
                         </div>
                     </div>
 
                     <div class="mt-5 text-center">
-                        <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-600">Registration Complete</div>
+                        <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600">Registration Complete</div>
                         <h2 class="mt-3 text-2xl font-bold text-slate-800">Welcome to Home Cleaning Service</h2>
                         <p class="mt-3 text-sm leading-6 text-slate-500">
                             Your account has been created successfully. You can now review service coverage or head back to the main site and continue into the client journey.
@@ -54,11 +54,11 @@
                     </div>
 
                     <div class="mt-6 grid gap-3">
-                        <a href="{{ route('home') }}" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-600 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700">
+                        <a href="{{ route('home') }}" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
                             <i class="fas fa-home"></i>
                             <span>Go to Homepage</span>
                         </a>
-                        <a href="{{ route('map') }}" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-primary-200 bg-white py-3 text-sm font-semibold text-primary-700 transition hover:bg-primary-50">
+                        <a href="{{ route('map') }}" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-white py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-50">
                             <i class="fas fa-map-marked-alt"></i>
                             <span>View Service Areas</span>
                         </a>

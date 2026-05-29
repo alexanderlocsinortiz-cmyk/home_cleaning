@@ -34,7 +34,7 @@
     <section class="rounded-[28px] border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div class="border-b border-slate-100 px-6 py-5">
             <h3 class="text-lg font-extrabold text-slate-900">New Staff Profile</h3>
-            <p class="mt-1 text-sm text-slate-500">Enter the staff member's account details and service coverage information.</p>
+            <p class="mt-1 text-sm text-slate-500">Enter the staff member's account details and access information.</p>
         </div>
         <form action="{{ route('admin.staff.store') }}" method="POST" class="space-y-6 px-6 py-6">
             @include('admin.staff._form')

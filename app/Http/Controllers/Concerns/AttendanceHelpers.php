@@ -127,13 +127,13 @@ trait AttendanceHelpers
             $now = Carbon::now($this->attendanceTimezone());
 
             [$dateFrom, $dateTo] = match ($request->period) {
-                'today'      => [$now->toDateString(), $now->toDateString()],
-                'yesterday'  => [$now->copy()->subDay()->toDateString(), $now->copy()->subDay()->toDateString()],
-                'this_week'  => [$now->copy()->startOfWeek()->toDateString(), $now->copy()->endOfWeek()->toDateString()],
-                'last_week'  => [$now->copy()->subWeek()->startOfWeek()->toDateString(), $now->copy()->subWeek()->endOfWeek()->toDateString()],
+                'today' => [$now->toDateString(), $now->toDateString()],
+                'yesterday' => [$now->copy()->subDay()->toDateString(), $now->copy()->subDay()->toDateString()],
+                'this_week' => [$now->copy()->startOfWeek()->toDateString(), $now->copy()->endOfWeek()->toDateString()],
+                'last_week' => [$now->copy()->subWeek()->startOfWeek()->toDateString(), $now->copy()->subWeek()->endOfWeek()->toDateString()],
                 'this_month' => [$now->copy()->startOfMonth()->toDateString(), $now->copy()->endOfMonth()->toDateString()],
                 'last_month' => [$now->copy()->subMonth()->startOfMonth()->toDateString(), $now->copy()->subMonth()->endOfMonth()->toDateString()],
-                default      => [null, null],
+                default => [null, null],
             };
         }
 

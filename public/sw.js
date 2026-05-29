@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'cleanflow-static-v2';
-const RUNTIME_CACHE = 'cleanflow-runtime-v1';
+const STATIC_CACHE = 'cleanflow-static-v10';
+const RUNTIME_CACHE = 'cleanflow-runtime-v9';
 const APP_SHELL_FILES = [
     '/offline.html',
     '/manifest.webmanifest',
@@ -54,10 +54,30 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    const isBuildAsset = requestUrl.pathname.startsWith('/build/');
     const isStaticAsset = ['script', 'style', 'image', 'font'].includes(event.request.destination)
-        || requestUrl.pathname.startsWith('/build/');
+        || isBuildAsset;
 
     if (!isStaticAsset) {
+        return;
+    }
+
+    if (isBuildAsset) {
+        event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    if (!response || response.status !== 200 || response.type === 'opaque') {
+                        return response;
+                    }
+
+                    const responseClone = response.clone();
+                    caches.open(RUNTIME_CACHE).then((cache) => cache.put(event.request, responseClone));
+
+                    return response;
+                })
+                .catch(() => caches.match(event.request))
+        );
+
         return;
     }
 

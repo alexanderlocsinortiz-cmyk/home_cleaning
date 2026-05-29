@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\AttendanceLog;
 use App\Models\Booking;
 use App\Models\BookingActivityLog;
-use App\Models\AttendanceLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;

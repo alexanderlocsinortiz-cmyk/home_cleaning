@@ -6,11 +6,11 @@
     $user = auth()->user();
     $initials = $user->initials;
     $barangayLabel = $user->barangay ? ucfirst(str_replace('_', ' ', $user->barangay)) : 'Not set';
+    $barangayCenters = config('cleanflow.barangay_centers');
     $summaryItems = [
         ['icon' => 'fa-phone', 'label' => 'Phone', 'value' => $user->phone ?: 'Not set'],
         ['icon' => 'fa-location-dot', 'label' => 'Barangay', 'value' => $barangayLabel],
         ['icon' => 'fa-road', 'label' => 'Street', 'value' => $user->street ?: 'Not set'],
-        ['icon' => 'fa-envelope', 'label' => 'ZIP Code', 'value' => $user->zip_code ?: 'Not set'],
     ];
     $tips = [
         'Keep your address updated for accurate service delivery.',
@@ -152,6 +152,9 @@
                                 class="client-profile-input"
                                 value="{{ old('phone', $user->phone) }}"
                                 placeholder="09XXXXXXXXX"
+                                inputmode="numeric"
+                                pattern="[0-9]{11}"
+                                maxlength="11"
                                 required
                             >
                             @error('phone')
@@ -201,6 +204,20 @@
                     </div>
 
                     <div class="space-y-5">
+                        <div class="rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-4">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <div class="text-sm font-bold text-slate-900">Use your current location</div>
+                                    <div class="mt-1 text-xs leading-5 text-slate-500">Allow browser location access to detect the nearest covered barangay.</div>
+                                </div>
+                                <button type="button" id="use-profile-current-location" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">
+                                    <i class="fas fa-location-crosshairs text-xs"></i>
+                                    Use my current location
+                                </button>
+                            </div>
+                            <p id="profile-location-status" class="mt-3 text-xs text-slate-500">Your street address stays editable after detection.</p>
+                        </div>
+
                         <div class="space-y-2">
                             <label for="street" class="text-sm font-semibold text-slate-700">Street address</label>
                             <input
@@ -217,38 +234,19 @@
                             @enderror
                         </div>
 
-                        <div class="grid gap-5 md:grid-cols-2">
-                            <div class="space-y-2">
-                                <label for="barangay" class="text-sm font-semibold text-slate-700">Barangay</label>
-                                <select id="barangay" name="barangay" class="client-profile-input" required>
-                                    <option value="">Select barangay</option>
-                                    @foreach ($barangays as $b)
-                                        <option value="{{ $b }}" {{ old('barangay', $user->barangay) === $b ? 'selected' : '' }}>
-                                            {{ $b }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('barangay')
-                                    <p class="text-xs font-medium text-red-600">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <div class="space-y-2">
-                                <label for="zip_code" class="text-sm font-semibold text-slate-700">ZIP code</label>
-                                <input
-                                    id="zip_code"
-                                    type="text"
-                                    name="zip_code"
-                                    maxlength="4"
-                                    class="client-profile-input"
-                                    value="{{ old('zip_code', $user->zip_code) }}"
-                                    placeholder="8504"
-                                    required
-                                >
-                                @error('zip_code')
-                                    <p class="text-xs font-medium text-red-600">{{ $message }}</p>
-                                @enderror
-                            </div>
+                        <div class="space-y-2">
+                            <label for="barangay" class="text-sm font-semibold text-slate-700">Barangay</label>
+                            <select id="barangay" name="barangay" class="client-profile-input" required>
+                                <option value="">Select barangay</option>
+                                @foreach ($barangays as $b)
+                                    <option value="{{ $b }}" {{ old('barangay', $user->barangay) === $b ? 'selected' : '' }}>
+                                        {{ $b }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('barangay')
+                                <p class="text-xs font-medium text-red-600">{{ $message }}</p>
+                            @enderror
                         </div>
                     </div>
                 </section>
@@ -256,7 +254,7 @@
                 <div class="flex flex-col gap-3 sm:flex-row">
                     <button
                         type="submit"
-                        class="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-200/70 transition hover:-translate-y-0.5 hover:bg-primary-dark"
+                        class="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-200/70 transition hover:-translate-y-0.5 hover:bg-blue-700"
                     >
                         <i class="fas fa-floppy-disk text-xs"></i>
                         Save changes
@@ -274,7 +272,7 @@
             <aside class="space-y-6 xl:sticky xl:top-28">
                 <section class="cleanflow-panel p-6">
                     <div class="mb-5 flex items-center gap-3">
-                        <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-600 text-sm font-bold text-white shadow-md">
+                        <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-sm font-bold text-white shadow-md">
                             {{ $initials }}
                         </div>
                         <div>
@@ -284,7 +282,7 @@
                     </div>
 
                     <div class="rounded-[1.4rem] border border-slate-100 bg-slate-50/80 p-5 text-center">
-                        <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary-600 text-2xl font-black text-white shadow-lg">
+                        <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-600 text-2xl font-black text-white shadow-lg">
                             {{ $initials }}
                         </div>
                         <div class="mt-3 text-base font-bold text-slate-900">{{ $user->display_name }}</div>
@@ -306,9 +304,9 @@
                     </div>
                 </section>
 
-                <section class="cleanflow-panel border border-accent-100 bg-accent-50/80 p-6">
+                <section class="cleanflow-panel border border-amber-100 bg-amber-50/80 p-6">
                     <div class="mb-4 flex items-center gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-accent-600 shadow-sm">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-sm">
                             <i class="fas fa-lightbulb text-base"></i>
                         </div>
                         <div>
@@ -333,3 +331,168 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const button = document.getElementById('use-profile-current-location');
+    const status = document.getElementById('profile-location-status');
+    const streetInput = document.getElementById('street');
+    const barangaySelect = document.getElementById('barangay');
+    const barangayCenters = @json($barangayCenters);
+
+    function setProfileLocationStatus(message, state = 'neutral') {
+        if (!status) {
+            return;
+        }
+
+        const classes = {
+            neutral: 'mt-3 text-xs text-slate-500',
+            success: 'mt-3 text-xs font-medium text-emerald-700',
+            warning: 'mt-3 text-xs font-medium text-amber-700',
+            error: 'mt-3 text-xs font-medium text-red-600',
+        };
+
+        status.className = classes[state] || classes.neutral;
+        status.textContent = message;
+    }
+
+    function resetProfileLocationButton() {
+        if (!button) {
+            return;
+        }
+
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-location-crosshairs text-xs"></i> Use my current location';
+    }
+
+    function distanceKm(lat1, lng1, lat2, lng2) {
+        const earthRadiusKm = 6371;
+        const toRadians = (degrees) => degrees * Math.PI / 180;
+        const dLat = toRadians(lat2 - lat1);
+        const dLng = toRadians(lng2 - lng1);
+        const a = Math.sin(dLat / 2) ** 2
+            + Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) ** 2;
+
+        return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function nearestBarangay(lat, lng) {
+        return Object.entries(barangayCenters)
+            .map(([name, center]) => ({
+                name,
+                distance: distanceKm(lat, lng, Number(center.lat), Number(center.lng)),
+            }))
+            .sort((a, b) => a.distance - b.distance)[0] || null;
+    }
+
+    function streetAddressFromOpenStreetMap(payload) {
+        const address = payload?.address || {};
+        const road = address.road || address.neighbourhood || address.suburb || address.village || '';
+        const parts = [address.house_number, road].filter(Boolean);
+
+        return parts.length ? parts.join(', ') : '';
+    }
+
+    async function reverseGeocodeStreet(lat, lng) {
+        const url = new URL('https://nominatim.openstreetmap.org/reverse');
+        url.searchParams.set('format', 'jsonv2');
+        url.searchParams.set('lat', String(lat));
+        url.searchParams.set('lon', String(lng));
+        url.searchParams.set('zoom', '18');
+        url.searchParams.set('addressdetails', '1');
+
+        const response = await fetch(url.toString(), {
+            headers: {
+                Accept: 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            return '';
+        }
+
+        return streetAddressFromOpenStreetMap(await response.json());
+    }
+
+    function selectBarangay(name) {
+        if (!barangaySelect || !name) {
+            return false;
+        }
+
+        const option = Array.from(barangaySelect.options).find((item) => item.value === name);
+
+        if (!option) {
+            return false;
+        }
+
+        barangaySelect.value = name;
+        barangaySelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+        return true;
+    }
+
+    button?.addEventListener('click', function () {
+        if (!navigator.geolocation) {
+            setProfileLocationStatus('Current location is not supported by this browser.', 'error');
+            return;
+        }
+
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-circle-notch fa-spin text-xs"></i> Locating...';
+        setProfileLocationStatus('Waiting for browser location permission...', 'neutral');
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = Number(position.coords.latitude);
+                const lng = Number(position.coords.longitude);
+                const nearest = nearestBarangay(lat, lng);
+                const barangaySelected = nearest ? selectBarangay(nearest.name) : false;
+
+                reverseGeocodeStreet(lat, lng)
+                    .then((street) => {
+                        if (street && streetInput && !streetInput.value.trim()) {
+                            streetInput.value = street;
+                        }
+
+                        if (!nearest || !barangaySelected) {
+                            setProfileLocationStatus('Location found, but no covered barangay matched. Select your barangay manually.', 'warning');
+                            return;
+                        }
+
+                        const distanceText = nearest.distance < 1
+                            ? `${Math.round(nearest.distance * 1000)}m`
+                            : `${nearest.distance.toFixed(1)}km`;
+                        const streetText = street ? ' Street was filled when available.' : ' Type your street or purok manually.';
+
+                        setProfileLocationStatus(`Detected nearest barangay: ${nearest.name} (${distanceText} from its center).${streetText}`, 'success');
+                    })
+                    .catch(() => {
+                        if (nearest && barangaySelected) {
+                            setProfileLocationStatus(`Detected nearest barangay: ${nearest.name}. Type your street or purok manually.`, 'success');
+                            return;
+                        }
+
+                        setProfileLocationStatus('Location found, but address lookup failed. Select your barangay manually.', 'warning');
+                    })
+                    .finally(resetProfileLocationButton);
+            },
+            (error) => {
+                resetProfileLocationButton();
+
+                const message = error.code === error.PERMISSION_DENIED
+                    ? 'Location permission was denied. Allow location access, then try again.'
+                    : 'Could not get your current location. Make sure GPS/location services are enabled.';
+
+                setProfileLocationStatus(message, 'error');
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0,
+            }
+        );
+    });
+});
+</script>
+@endpush

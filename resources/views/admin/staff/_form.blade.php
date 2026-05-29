@@ -36,18 +36,6 @@
 
 <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
     <div>
-        <label for="barangay" class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Assigned Barangay</label>
-        <select id="barangay" name="barangay" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
-            <option value="">Select barangay</option>
-            @foreach($barangays as $value => $label)
-                <option value="{{ $value }}" {{ old('barangay', optional($staff)->barangay) === $value ? 'selected' : '' }}>{{ $label }}</option>
-            @endforeach
-        </select>
-        @error('barangay')
-            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
-        @enderror
-    </div>
-    <div>
         <label for="username" class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Username</label>
         <input id="username" type="text" name="username" autocomplete="username" value="{{ old('username', optional($staff)->username) }}" placeholder="Choose a username" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100" minlength="5" maxlength="20">
         @error('username')

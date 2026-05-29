@@ -22,7 +22,6 @@ class Staff extends Model
         'last_name',
         'role',
         'phone',
-        'barangay',
         'status',
     ];
 
@@ -33,6 +32,10 @@ class Staff extends Model
 
     public function getFullNameAttribute(): string
     {
-        return "{$this->first_name} {$this->last_name}";
+        if ($this->relationLoaded('user') && $this->user) {
+            return $this->user->full_name;
+        }
+
+        return trim("{$this->first_name} {$this->last_name}");
     }
 }

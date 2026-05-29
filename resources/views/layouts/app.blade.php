@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @include('partials.pwa-head')
-    <title>@yield('title', 'Home Cleaning Service') - Home Cleaning Service</title>
+    <title>@yield('title', $siteSettings->website_name) - {{ $siteSettings->website_name }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
@@ -28,17 +28,16 @@
             default => $instantQuoteLink,
         };
     @endphp
-    @if(!request()->routeIs('login') && !request()->routeIs('register'))
+    @if(!request()->routeIs('login') && !request()->routeIs('register') && !request()->routeIs('verification.notice'))
     <nav class="sticky top-0 z-50 border-b border-slate-200 bg-white shadow-sm">
         <div class="container-pad mx-auto max-w-[1200px] px-5 md:px-6">
             <div class="flex h-16 items-center justify-between">
 
-                <a href="{{ url('/') }}" class="flex items-center gap-2.5 no-underline">
-                    <img src="{{ asset('images/logo.png') }}" alt="Home Cleaning Service" class="h-12 w-auto">
-                    <div class="leading-tight">
-                        <div class="text-[15px] font-extrabold text-slate-800">Home Cleaning</div>
-                        <div class="text-xs font-semibold text-accent-700">Service</div>
-                    </div>
+                <a href="{{ url('/') }}" class="flex items-center gap-3 no-underline">
+                    <img src="{{ $siteSettings->logo_url }}" alt="{{ $siteSettings->website_name }}" class="h-14 w-auto">
+                    <span class="hidden whitespace-nowrap text-base font-bold leading-tight text-slate-900 lg:block">
+                        {{ $siteSettings->website_name }}
+                    </span>
                 </a>
 
                 <div class="hidden items-center gap-8 md:flex">
@@ -51,21 +50,21 @@
 
                 <div class="hidden items-center gap-2.5 md:flex">
                     @auth
-                    <a href="{{ route(auth()->user()->role . '.dashboard') }}" class="px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:text-accent-800">Dashboard</a>
-                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-primary-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-600">Book Now</a>
+                    <a href="{{ route(auth()->user()->role . '.dashboard') }}" class="px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:text-blue-700">Dashboard</a>
+                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">Book Now</a>
                     @else
-                    <a href="{{ route('login') }}" class="px-4 py-2 text-sm font-semibold text-slate-600 transition hover:text-accent-800">Login</a>
-                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-primary-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-600">Book Now</a>
+                    <a href="{{ route('login') }}" class="px-4 py-2 text-sm font-semibold text-slate-600 transition hover:text-blue-700">Login</a>
+                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">Book Now</a>
                     @endauth
                 </div>
 
                 <div class="flex items-center gap-2 md:hidden">
-                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-primary-600 px-3.5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-primary-700">Book Now</a>
+                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700">Book Now</a>
                     <button class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" id="nav-hamburger" type="button" aria-expanded="false" aria-controls="mobile-nav-menu" onclick="toggleMobileNav()">
-                        <svg id='hamburger-open' xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24' stroke='#475569' stroke-width='2'>
+                        <svg id='hamburger-open' xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24' stroke='#1E40AF' stroke-width='2'>
                             <path stroke-linecap='round' stroke-linejoin='round' d='M4 6h16M4 12h16M4 18h16'/>
                         </svg>
-                        <svg id='hamburger-close' xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24' stroke='#475569' stroke-width='2' class="hidden">
+                        <svg id='hamburger-close' xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24' stroke='#1E40AF' stroke-width='2' class="hidden">
                             <path stroke-linecap='round' stroke-linejoin='round' d='M6 18L18 6M6 6l12 12'/>
                         </svg>
                     </button>
@@ -81,10 +80,10 @@
                 <div class="mt-4 flex flex-col gap-2">
                     @auth
                     <a href="{{ route(auth()->user()->role . '.dashboard') }}" class="rounded-xl bg-slate-100 px-3 py-3 text-center text-[15px] font-semibold text-gray-700 transition hover:bg-slate-200">Dashboard</a>
-                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-primary-600 px-3 py-3 text-center text-[15px] font-bold text-white transition hover:bg-primary-700">Book Now</a>
+                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-blue-600 px-3 py-3 text-center text-[15px] font-bold text-white transition hover:bg-blue-700">Book Now</a>
                     @else
                     <a href="{{ route('login') }}" class="rounded-xl bg-slate-100 px-3 py-3 text-center text-[15px] font-semibold text-gray-700 transition hover:bg-slate-200">Login</a>
-                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-primary-500 px-3 py-3 text-center text-[15px] font-bold text-white transition hover:bg-primary-600">Book Now</a>
+                    <a href="{{ $bookNowLink }}" class="rounded-xl bg-blue-600 px-3 py-3 text-center text-[15px] font-bold text-white transition hover:bg-blue-700">Book Now</a>
                     @endauth
                 </div>
             </div>
@@ -94,49 +93,68 @@
 
     <main>@yield('content')</main>
 
-    @if(!request()->routeIs('login') && !request()->routeIs('register'))
-    <footer class="app-footer bg-gray-900 text-gray-300 pt-12 pb-0">
+    @if(!request()->routeIs('login') && !request()->routeIs('register') && !request()->routeIs('verification.notice'))
+    <footer class="app-footer bg-gray-900 text-gray-300 pb-0">
         <div class="container-pad max-w-7xl mx-auto px-4 sm:px-6 lg:px-4">
-            <div class="footer-grid grid grid-cols-1 md:grid-cols-3 gap-8 pb-8">
-                <div class="md:col-span-2">
-                    <a href="{{ route('home') }}" class="flex items-center gap-2 text-xl font-bold text-white mb-2">
-                        <i class="fas fa-broom"></i><span>Home Cleaning Service</span>
-                    </a>
-                    <p class="text-sm leading-relaxed">
-                        Premium home cleaning for Valencia City households, with clear pricing, trusted staff, and a smoother booking experience from quote to clean.
-                    </p>
+            <div class="footer-grid">
+                <div>
+                    <h4>Our Office</h4>
+                    <div class="footer-support">
+                        <p>
+                            <i class="fas fa-location-dot text-blue-400 w-4"></i>
+                            <span>{{ $siteSettings->contact_address ?: 'Valencia City, Bukidnon, Philippines' }}</span>
+                        </p>
+                        <p>
+                            <i class="fas fa-clock text-blue-400 w-4"></i>
+                            <span>{{ $siteSettings->office_hours ?: 'Monday - Saturday, 8:00 AM - 5:00 PM' }}</span>
+                        </p>
+                    </div>
                 </div>
                 <div>
-                    <h4 class="text-white mb-4 text-sm font-semibold">Quick Links</h4>
-                    <ul class="footer-links space-y-2">
-                        <li><a href="{{ route('home') }}" class="hover:text-primary-400 transition-colors text-sm">Home</a></li>
-                        <li><a href="{{ $servicesLink }}" class="hover:text-primary-400 transition-colors text-sm">Services</a></li>
-                        <li><a href="{{ $pricingLink }}" class="hover:text-primary-400 transition-colors text-sm">Pricing</a></li>
-                        <li><a href="{{ route('map') }}" class="hover:text-primary-400 transition-colors text-sm">Service Areas</a></li>
-                        <li><a href="{{ $faqLink }}" class="hover:text-primary-400 transition-colors text-sm">FAQ</a></li>
+                    <h4>Contact Information</h4>
+                    <div class="footer-support">
+                        <p>
+                            <i class="fas fa-envelope text-blue-400 w-4"></i>
+                            <span>{{ $siteSettings->contact_email ?: 'support@homecleaningservice.local' }}</span>
+                        </p>
+                        @if($siteSettings->contact_phone)
+                            <p>
+                                <i class="fas fa-phone text-blue-400 w-4"></i>
+                                <span>{{ $siteSettings->contact_phone }}</span>
+                            </p>
+                        @endif
+                        <p>
+                            <i class="fas fa-comment-dots text-blue-400 w-4"></i>
+                            <span>Message us during operating hours</span>
+                        </p>
+                        <p>
+                            <i class="fas fa-circle-check text-blue-400 w-4"></i>
+                            <span>Quotes and bookings are handled in one place</span>
+                        </p>
+                    </div>
+                </div>
+                <div>
+                    <h4>Our Company</h4>
+                    <ul class="footer-links">
+                        <li><a href="{{ route('home') }}">Home</a></li>
+                        <li><a href="{{ $servicesLink }}">Services</a></li>
+                        <li><a href="{{ $pricingLink }}">Pricing</a></li>
+                        <li><a href="{{ route('map') }}">Service Areas</a></li>
+                        <li><a href="{{ $faqLink }}">FAQ</a></li>
                     </ul>
                 </div>
-                <div>
-                    <h4 class="text-white mb-4 text-sm font-semibold">Support</h4>
-                    <p class="text-sm mb-2 flex items-center gap-2">
-                        <i class="fas fa-map-marker-alt text-primary-400 w-4"></i> Valencia City, Bukidnon, Philippines
-                    </p>
-                    <p class="text-sm mb-2 flex items-center gap-2">
-                        <i class="fas fa-envelope text-primary-400 w-4"></i> support@homecleaningservice.local
-                    </p>
-                    <p class="text-sm mb-2 flex items-center gap-2">
-                        <i class="fas fa-clock text-primary-400 w-4"></i> Monday - Saturday, 8:00 AM - 5:00 PM
-                    </p>
-                    <p class="text-sm mb-2 flex items-center gap-2">
-                        <i class="fas fa-circle-check text-primary-400 w-4"></i> Quotes and bookings are handled in one place
-                    </p>
-                    <p class="text-sm flex items-center gap-2">
-                        <i class="fas fa-users text-primary-400 w-4"></i> Your service is handled by a reviewed local cleaning team
+                <div class="footer-logo-panel">
+                    <a href="{{ route('home') }}" class="footer-brand">
+                        <img src="{{ $siteSettings->logo_url }}" alt="{{ $siteSettings->website_name }}">
+                        <span>{{ $siteSettings->website_name }}</span>
+                    </a>
+                    <p class="footer-description">
+                        Premium home cleaning for Valencia City households with clear pricing and trusted local staff.
                     </p>
                 </div>
             </div>
-            <div class="border-t border-gray-800 py-4 text-center text-xs">
-                <p>&copy; {{ date('Y') }} Home Cleaning Service. All rights reserved.</p>
+            <div class="footer-bottom">
+                <p>&copy; {{ date('Y') }} {{ $siteSettings->website_name }}. All rights reserved.</p>
             </div>
         </div>
     </footer>
@@ -220,4 +238,3 @@
     </script>
 </body>
 </html>
-
