@@ -77,7 +77,12 @@
             </div>
         </div>
 
-        <form action="{{ route('admin.services.add-ons.store') }}" method="POST" class="grid gap-4 border-b border-slate-100 px-6 py-5 lg:grid-cols-[1.2fr_1.6fr_0.7fr_0.55fr_auto_auto] lg:items-end">
+        <form action="{{ route('admin.services.add-ons.store') }}" method="POST" class="grid gap-4 border-b border-slate-100 px-6 py-5 lg:grid-cols-[1.2fr_1.6fr_0.7fr_0.55fr_auto_auto] lg:items-end"
+            data-service-confirm
+            data-confirm-title="Add this add-on?"
+            data-confirm-message="This will add a new optional booking add-on to the catalog."
+            data-confirm-button="Add Add-on"
+            data-confirm-tone="primary">
             @csrf
             <div>
                 <label for="addon-label" class="text-xs font-bold uppercase tracking-wide text-slate-500">Add-on Name</label>
@@ -141,7 +146,12 @@
                             </td>
                             <td class="px-5 py-4">
                                 <div class="flex items-center justify-end gap-2">
-                                    <form id="addon-update-{{ $addOn->id }}" action="{{ route('admin.services.add-ons.update', $addOn) }}" method="POST">
+                                    <form id="addon-update-{{ $addOn->id }}" action="{{ route('admin.services.add-ons.update', $addOn) }}" method="POST"
+                                        data-service-confirm
+                                        data-confirm-title="Save add-on changes?"
+                                        data-confirm-message="This will update {{ $addOn->label }} in the booking add-on catalog."
+                                        data-confirm-button="Save Changes"
+                                        data-confirm-tone="primary">
                                         @csrf
                                         @method('PUT')
                                         <button type="submit" class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-100">
@@ -149,7 +159,12 @@
                                             Save
                                         </button>
                                     </form>
-                                    <form action="{{ route('admin.services.add-ons.destroy', $addOn) }}" method="POST" onsubmit="return confirm('{{ $addOn->is_active ? 'Deactivate this add-on? Clients will no longer be able to select it.' : 'Delete this inactive add-on permanently?' }}')">
+                                    <form action="{{ route('admin.services.add-ons.destroy', $addOn) }}" method="POST"
+                                        data-service-confirm
+                                        data-confirm-title="{{ $addOn->is_active ? 'Deactivate this add-on?' : 'Delete this inactive add-on?' }}"
+                                        data-confirm-message="{{ $addOn->is_active ? 'Clients will no longer be able to select '.$addOn->label.' during booking.' : 'This permanently deletes '.$addOn->label.' from the add-on catalog.' }}"
+                                        data-confirm-button="{{ $addOn->is_active ? 'Deactivate' : 'Delete' }}"
+                                        data-confirm-tone="{{ $addOn->is_active ? 'warning' : 'danger' }}">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="inline-flex items-center gap-2 rounded-xl border {{ $addOn->is_active ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100' }} px-3 py-2 text-xs font-bold transition">
@@ -241,7 +256,12 @@
                                         Edit Service
                                     </a>
                                     @if($service->is_active)
-                                        <form action="{{ route('admin.services.destroy', $service->id) }}" method="POST" onsubmit="return confirm('Deactivate this service? Clients will no longer be able to book it.')">
+                                        <form action="{{ route('admin.services.destroy', $service->id) }}" method="POST"
+                                            data-service-confirm
+                                            data-confirm-title="Deactivate this service?"
+                                            data-confirm-message="Clients will no longer be able to book {{ $service->name }}."
+                                            data-confirm-button="Deactivate"
+                                            data-confirm-tone="warning">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 transition hover:bg-amber-100">
@@ -250,7 +270,12 @@
                                             </button>
                                         </form>
                                     @else
-                                        <form action="{{ route('admin.services.reactivate', $service) }}" method="POST" onsubmit="return confirm('Reactivate this service? Clients will be able to book it again.')">
+                                        <form action="{{ route('admin.services.reactivate', $service) }}" method="POST"
+                                            data-service-confirm
+                                            data-confirm-title="Reactivate this service?"
+                                            data-confirm-message="Clients will be able to book {{ $service->name }} again."
+                                            data-confirm-button="Reactivate"
+                                            data-confirm-tone="success">
                                             @csrf
                                             @method('PATCH')
                                             <button type="submit" class="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100">
@@ -258,7 +283,12 @@
                                                 Reactivate
                                             </button>
                                         </form>
-                                        <form action="{{ route('admin.services.destroy', $service->id) }}" method="POST" onsubmit="return confirm('Delete this inactive service permanently?')">
+                                        <form action="{{ route('admin.services.destroy', $service->id) }}" method="POST"
+                                            data-service-confirm
+                                            data-confirm-title="Delete this inactive service?"
+                                            data-confirm-message="This permanently deletes {{ $service->name }} from the service catalog."
+                                            data-confirm-button="Delete"
+                                            data-confirm-tone="danger">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-100">
@@ -292,6 +322,7 @@
         </div>
     </section>
 </div>
+@include('admin.services._confirm_modal')
 @endsection
 
 @push('scripts')

@@ -471,6 +471,7 @@ class BookingController extends Controller
             'preferredStaff',
             'serviceProofs.uploader',
             'activityLogs.actor',
+            'messages.sender',
         ])
             ->findOrFail($id);
 

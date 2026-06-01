@@ -60,6 +60,7 @@
     $directionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' . urlencode($directionsDestination);
     $canOpenLiveVideo = $booking->canAccessLiveVideo($viewer) && (! $isClient || $booking->dailyRoomIsActive());
     $liveVideoLabel = $isClient ? 'Watch Live Video' : 'Open Live Video';
+    $canUseBookingMessages = ($isClient || $isStaff) && $booking->staff_id;
 @endphp
 
 <div class="cleanflow-page-shell min-h-[calc(100vh-81px)] px-6 py-8">
@@ -596,6 +597,69 @@
                 </div>
                 @endif
 
+                @if($isClient || $isStaff)
+                <div id="booking-messages" class="detail-card cleanflow-panel p-6">
+                    <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <h2 class="text-lg font-semibold text-slate-900">Booking Messages</h2>
+                            <p class="text-sm text-slate-500">Coordinate directly about this booking.</p>
+                        </div>
+                        <span class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                            <i class="fa-solid fa-message"></i>
+                            {{ $booking->messages->count() }} message{{ $booking->messages->count() === 1 ? '' : 's' }}
+                        </span>
+                    </div>
+
+                    @if($canUseBookingMessages)
+                        <div class="max-h-96 space-y-3 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                            @forelse($booking->messages as $bookingMessage)
+                                @php
+                                    $messageIsMine = (int) $bookingMessage->sender_id === (int) $viewer->id;
+                                @endphp
+                                <div class="flex {{ $messageIsMine ? 'justify-end' : 'justify-start' }}">
+                                    <div class="max-w-[min(32rem,85%)] rounded-2xl px-4 py-3 {{ $messageIsMine ? 'bg-blue-600 text-white' : 'border border-slate-200 bg-white text-slate-700' }}">
+                                        <div class="mb-1 flex items-center gap-2 text-xs font-bold {{ $messageIsMine ? 'text-blue-50' : 'text-slate-500' }}">
+                                            <span>{{ $messageIsMine ? 'You' : ($bookingMessage->sender?->display_name ?? 'User') }}</span>
+                                            <span class="{{ $messageIsMine ? 'text-blue-100' : 'text-slate-300' }}">&bull;</span>
+                                            <span>{{ $bookingMessage->created_at->format('M d, h:i A') }}</span>
+                                        </div>
+                                        <div class="whitespace-pre-line text-sm leading-6">{{ $bookingMessage->message }}</div>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-500">
+                                    No messages yet. Send the first update for this booking.
+                                </div>
+                            @endforelse
+                        </div>
+
+                        <form action="{{ route('bookings.messages.store', $booking) }}" method="POST" class="mt-4 space-y-3">
+                            @csrf
+                            <label for="booking-message-input" class="sr-only">Message</label>
+                            <textarea
+                                id="booking-message-input"
+                                name="message"
+                                rows="3"
+                                maxlength="1000"
+                                placeholder="Write a message about this booking..."
+                                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-hidden transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                            >{{ old('message') }}</textarea>
+                            @error('message')
+                                <p class="text-sm text-red-500">{{ $message }}</p>
+                            @enderror
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700">
+                                <i class="fa-solid fa-paper-plane"></i>
+                                Send message
+                            </button>
+                        </form>
+                    @else
+                        <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
+                            Messaging becomes available after a cleaner is assigned to this booking.
+                        </div>
+                    @endif
+                </div>
+                @endif
+
                 @if($isClient && $booking->status === 'completed' && $booking->staff_id && !$booking->rating)
                 <div class="detail-card cleanflow-panel p-6">
                     <div class="mb-4">
@@ -794,20 +858,6 @@
                         </div>
                         <div class="flex items-start justify-between gap-3 text-sm">
                             <div>
-                                <span class="text-slate-500">Rooms adjustment</span>
-                                <div class="text-xs text-slate-400">{{ max(0, $booking->rooms - 1) }} extra room{{ max(0, $booking->rooms - 1) === 1 ? '' : 's' }} x &#8369;50</div>
-                            </div>
-                            <span class="font-medium text-slate-800">{{ ($booking->rooms_fee ?? 0) > 0 ? '+' : '' }}&#8369;{{ number_format($booking->rooms_fee ?? 0, 2) }}</span>
-                        </div>
-                        <div class="flex items-start justify-between gap-3 text-sm">
-                            <div>
-                                <span class="text-slate-500">Bathrooms adjustment</span>
-                                <div class="text-xs text-slate-400">{{ max(0, $booking->bathrooms - 1) }} extra bathroom{{ max(0, $booking->bathrooms - 1) === 1 ? '' : 's' }} x &#8369;100</div>
-                            </div>
-                            <span class="font-medium text-slate-800">{{ ($booking->bathrooms_fee ?? 0) > 0 ? '+' : '' }}&#8369;{{ number_format($booking->bathrooms_fee ?? 0, 2) }}</span>
-                        </div>
-                        <div class="flex items-start justify-between gap-3 text-sm">
-                            <div>
                                 <span class="text-slate-500">Floor area adjustment</span>
                                 <div class="text-xs text-slate-400">
                                     @if($isFlatRateRangeService)
@@ -848,9 +898,9 @@
                         </div>
                         <div class="rounded-xl border border-yellow-100 bg-yellow-50 p-3 text-xs text-yellow-700">
                             @if($booking->payment_method === 'on_site_cash')
-                            Cash payment will be collected and marked as paid once the service is completed. This total is based on the service type, property type, rooms, bathrooms, floor area, and selected add-ons.
+                            Cash payment will be collected and marked as paid once the service is completed. This total is based on the service type, property type, floor area, and selected add-ons.
                             @else
-                            This booking was recorded with {{ strtolower($paymentMethodLabel) }} and stores a digital payment reference for admin and client tracking. This total is based on the service type, property type, rooms, bathrooms, floor area, and selected add-ons.
+                            This booking was recorded with {{ strtolower($paymentMethodLabel) }} and stores a digital payment reference for admin and client tracking. This total is based on the service type, property type, floor area, and selected add-ons.
                             @endif
                         </div>
                     </div>
@@ -884,6 +934,17 @@ const destinationCenter = serviceLatitude && serviceLongitude
     : (barangayCenters[bookingBarangay] || defaultMapCenter);
 const destLat = destinationCenter.lat;
 const destLng = destinationCenter.lng;
+const travelMinutesPerKm = 5;
+
+function estimateTravelMinutes(distanceKm) {
+    const numericDistance = Number.parseFloat(distanceKm);
+
+    if (!Number.isFinite(numericDistance) || numericDistance <= 0) {
+        return 1;
+    }
+
+    return Math.max(1, Math.round(numericDistance * travelMinutesPerKm));
+}
 
 let clientMap = null;
 let clientStaffMarker = null;
@@ -970,7 +1031,7 @@ async function showClientMap(lat, lng, updatedAt) {
         if (routeData.code === 'Ok' && routeData.routes.length > 0) {
             const coords = routeData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
             const distance = (routeData.routes[0].distance / 1000).toFixed(1);
-            const duration = Math.round(routeData.routes[0].duration / 60);
+            const duration = estimateTravelMinutes(distance);
 
             if (clientLine) clientMap.removeLayer(clientLine);
             clientLine = L.polyline(coords, {
@@ -1066,7 +1127,7 @@ async function showAdminMap(lat, lng, updatedAt) {
         if (routeData.code === 'Ok' && routeData.routes.length > 0) {
             const coords = routeData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
             const distance = (routeData.routes[0].distance / 1000).toFixed(1);
-            const duration = Math.round(routeData.routes[0].duration / 60);
+            const duration = estimateTravelMinutes(distance);
 
             if (adminLine) adminMap.removeLayer(adminLine);
             adminLine = L.layerGroup([

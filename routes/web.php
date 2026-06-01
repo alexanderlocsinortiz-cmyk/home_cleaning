@@ -44,6 +44,14 @@ Route::middleware('guest')->group(function () {
         ->name('register.store');
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.store');
+    Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
+    Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetCode'])
+        ->middleware('throttle:6,1')
+        ->name('password.email');
+    Route::get('/forgot-password/verify', [AuthController::class, 'showResetPassword'])->name('password.reset.verify');
+    Route::post('/forgot-password/reset', [AuthController::class, 'resetPasswordWithCode'])
+        ->middleware('throttle:6,1')
+        ->name('password.update');
 });
 
 // Logout
@@ -103,10 +111,19 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::post('/attendance/devices/{device}/rotate-token', [AdminAttendanceController::class, 'rotateAttendanceDeviceToken'])->name('attendance.devices.rotate-token');
         Route::get('/attendance/history', [AdminAttendanceController::class, 'attendanceHistory'])->name('attendance.history');
         Route::get('/reports', [AdminReportController::class, 'reports'])->name('reports');
+        Route::get('/reports/export/{format}', [AdminReportController::class, 'export'])
+            ->whereIn('format', ['pdf', 'excel'])
+            ->name('reports.export');
         Route::get('/logs', [AdminLogController::class, 'index'])->name('logs');
+        Route::get('/logs/export/{source}/{format}', [AdminLogController::class, 'export'])
+            ->whereIn('source', ['bookings', 'attendance', 'admin'])
+            ->whereIn('format', ['pdf', 'excel'])
+            ->name('logs.export');
         Route::get('/service-areas', [AdminController::class, 'serviceAreas'])->name('service-areas');
         Route::get('/settings', [AdminSettingsController::class, 'index'])->name('settings');
         Route::patch('/settings/general', [AdminSettingsController::class, 'updateGeneral'])->middleware('throttle:20,1')->name('settings.general');
+        Route::post('/settings/database-backup', [AdminSettingsController::class, 'downloadDatabaseBackup'])->middleware('throttle:5,1')->name('settings.database-backup');
+        Route::patch('/settings/database-backup/password', [AdminSettingsController::class, 'updateDatabaseBackupPassword'])->middleware('throttle:10,1')->name('settings.database-backup.password');
         Route::patch('/settings/users/{user}/access', [AdminSettingsController::class, 'updateUserAccess'])->middleware('throttle:30,1')->name('settings.users.access');
         Route::patch('/settings/staff/{user}/pages', [AdminSettingsController::class, 'updateStaffPages'])->middleware('throttle:30,1')->name('settings.staff.pages');
 
@@ -137,6 +154,7 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::post('/notifications/{id}/read', [StaffPortalController::class, 'markAsRead'])->middleware('throttle:20,1')->name('notifications.read');
         Route::get('/fingerprint-consent/{enrollmentRequest}', [StaffPortalController::class, 'fingerprintConsent'])->name('fingerprint-consent.show');
         Route::post('/fingerprint-consent/{enrollmentRequest}', [StaffPortalController::class, 'acceptFingerprintConsent'])->middleware('throttle:10,1')->name('fingerprint-consent.accept');
+        Route::delete('/fingerprint-consent/{enrollmentRequest}', [StaffPortalController::class, 'declineFingerprintConsent'])->middleware('throttle:10,1')->name('fingerprint-consent.decline');
     });
 
     // Client portal

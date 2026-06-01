@@ -91,6 +91,24 @@ class AdminReportController extends Controller
         ), $advancedAnalytics));
     }
 
+    public function export(Request $request, string $format)
+    {
+        [, $dateRange] = $this->resolveReportFilters($request);
+        $rows = $this->reportExportRows($dateRange);
+        $title = 'Reports & Analytics - '.$dateRange['label'];
+        $timestamp = now()->format('Ymd_His');
+
+        if ($format === 'pdf') {
+            return response($this->simplePdf($title, $rows), 200)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="reports_'.$timestamp.'.pdf"');
+        }
+
+        return response($this->excelTable($title, $rows), 200)
+            ->header('Content-Type', 'application/vnd.ms-excel; charset=UTF-8')
+            ->header('Content-Disposition', 'attachment; filename="reports_'.$timestamp.'.xls"');
+    }
+
     private function resolveReportFilters(Request $request): array
     {
         $period = in_array($request->get('period'), ['all', 'today', 'this_week', 'this_month', 'last_month', 'custom'], true)
@@ -155,6 +173,146 @@ class AdminReportController extends Controller
         return $query
             ->when($dateRange['start'] ?? null, fn (Builder $query, Carbon $start) => $query->where('bookings.created_at', '>=', $start))
             ->when($dateRange['end'] ?? null, fn (Builder $query, Carbon $end) => $query->where('bookings.created_at', '<=', $end));
+    }
+
+    private function reportExportRows(array $dateRange): array
+    {
+        $bookingScope = fn (Builder $query) => $this->applyReportDateRange($query, $dateRange);
+
+        $totalBookings = $bookingScope(Booking::query())->count();
+        $completedBookings = $bookingScope(Booking::where('status', 'completed'))->count();
+        $pendingBookings = $bookingScope(Booking::where('status', 'pending'))->count();
+        $cancelledBookings = $bookingScope(Booking::where('status', 'cancelled'))->count();
+        $confirmedBookings = $bookingScope(Booking::where('status', 'confirmed'))->count();
+        $inProgressBookings = $bookingScope(Booking::where('status', 'in_progress'))->count();
+        $totalRevenue = (float) $bookingScope(Booking::where('status', 'completed'))->sum('price');
+
+        $rows = [
+            ['Section' => 'Overview', 'Metric' => 'Selected Range', 'Value' => $dateRange['label']],
+            ['Section' => 'Overview', 'Metric' => 'Total Bookings', 'Value' => $totalBookings],
+            ['Section' => 'Overview', 'Metric' => 'Completed', 'Value' => $completedBookings],
+            ['Section' => 'Overview', 'Metric' => 'Pending', 'Value' => $pendingBookings],
+            ['Section' => 'Overview', 'Metric' => 'Confirmed', 'Value' => $confirmedBookings],
+            ['Section' => 'Overview', 'Metric' => 'In Progress', 'Value' => $inProgressBookings],
+            ['Section' => 'Overview', 'Metric' => 'Cancelled', 'Value' => $cancelledBookings],
+            ['Section' => 'Overview', 'Metric' => 'Total Revenue', 'Value' => 'PHP '.number_format($totalRevenue, 2)],
+            ['Section' => 'Overview', 'Metric' => 'Average Completed Revenue', 'Value' => 'PHP '.number_format($completedBookings > 0 ? $totalRevenue / $completedBookings : 0, 2)],
+        ];
+
+        $statusRows = [
+            'Completed' => $completedBookings,
+            'Confirmed' => $confirmedBookings,
+            'Pending' => $pendingBookings,
+            'In Progress' => $inProgressBookings,
+            'Cancelled' => $cancelledBookings,
+        ];
+
+        foreach ($statusRows as $status => $count) {
+            $rows[] = [
+                'Section' => 'Booking Status',
+                'Metric' => $status,
+                'Value' => $count.' booking'.($count === 1 ? '' : 's'),
+            ];
+        }
+
+        $revenueByType = $bookingScope(Booking::query())
+            ->join('services', 'services.slug', '=', 'bookings.service_type')
+            ->where('bookings.status', 'completed')
+            ->where('services.is_active', true)
+            ->selectRaw('services.name as service_name, COUNT(bookings.id) as total, SUM(bookings.price) as revenue')
+            ->groupBy('services.name')
+            ->orderByDesc('revenue')
+            ->get();
+
+        foreach ($revenueByType as $type) {
+            $rows[] = [
+                'Section' => 'Revenue by Service',
+                'Metric' => $type->service_name.' ('.$type->total.' completed)',
+                'Value' => 'PHP '.number_format((float) $type->revenue, 2),
+            ];
+        }
+
+        $recentBookings = $bookingScope(Booking::with(['user', 'staff', 'service']))
+            ->orderByDesc('created_at')
+            ->take(25)
+            ->get();
+
+        foreach ($recentBookings as $booking) {
+            $rows[] = [
+                'Section' => 'Recent Bookings',
+                'Metric' => 'CF-'.str_pad((string) $booking->id, 5, '0', STR_PAD_LEFT).' - '.$booking->service_label,
+                'Value' => trim(($booking->user?->display_name ?? 'Unknown client').' | '.$booking->status.' | PHP '.number_format((float) $booking->price, 2)),
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function excelTable(string $title, array $rows): string
+    {
+        $headers = $rows ? array_keys($rows[0]) : ['Message'];
+        $rows = $rows ?: [['Message' => 'No report data found']];
+
+        return view('admin.reports-export-excel', compact('title', 'headers', 'rows'))->render();
+    }
+
+    private function simplePdf(string $title, array $rows): string
+    {
+        $lines = [$title, 'Generated: '.now()->format('Y-m-d H:i:s'), ''];
+
+        foreach ($rows ?: [['Message' => 'No report data found']] as $row) {
+            $lines[] = collect($row)->map(fn ($value, $key) => $key.': '.(string) $value)->implode(' | ');
+        }
+
+        $pages = array_chunk($lines, 42);
+        $objects = [
+            1 => '<< /Type /Catalog /Pages 2 0 R >>',
+            2 => '',
+            3 => '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+        ];
+        $pageRefs = [];
+        $nextObjectId = 4;
+
+        foreach ($pages as $pageLines) {
+            $content = "BT\n/F1 9 Tf\n50 790 Td\n";
+
+            foreach ($pageLines as $line) {
+                $content .= '('.$this->escapePdfText(str($line)->limit(150, '')->toString()).") Tj\n0 -16 Td\n";
+            }
+
+            $content .= 'ET';
+            $contentId = $nextObjectId++;
+            $pageId = $nextObjectId++;
+            $objects[$contentId] = "<< /Length ".strlen($content)." >>\nstream\n{$content}\nendstream";
+            $objects[$pageId] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents {$contentId} 0 R >>";
+            $pageRefs[] = "{$pageId} 0 R";
+        }
+
+        $objects[2] = '<< /Type /Pages /Kids ['.implode(' ', $pageRefs).'] /Count '.count($pageRefs).' >>';
+        ksort($objects);
+
+        $pdf = "%PDF-1.4\n";
+        $offsets = [0];
+
+        foreach ($objects as $id => $object) {
+            $offsets[$id] = strlen($pdf);
+            $pdf .= "{$id} 0 obj\n{$object}\nendobj\n";
+        }
+
+        $xref = strlen($pdf);
+        $objectCount = count($objects);
+        $pdf .= "xref\n0 ".($objectCount + 1)."\n0000000000 65535 f \n";
+
+        for ($i = 1; $i <= $objectCount; $i++) {
+            $pdf .= str_pad((string) $offsets[$i], 10, '0', STR_PAD_LEFT)." 00000 n \n";
+        }
+
+        return $pdf."trailer\n<< /Size ".($objectCount + 1)." /Root 1 0 R >>\nstartxref\n{$xref}\n%%EOF";
+    }
+
+    private function escapePdfText(string $text): string
+    {
+        return str_replace(['\\', '(', ')'], ['\\\\', '\(', '\)'], $text);
     }
 
     private function monthlyBookingsMonthExpression(): string

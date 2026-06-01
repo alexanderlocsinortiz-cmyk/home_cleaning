@@ -13,6 +13,14 @@ class CalculatePriceRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'rooms' => 1,
+            'bathrooms' => 1,
+        ]);
+    }
+
     public function rules(): array
     {
         $validSlugs = Service::where('is_active', true)->pluck('slug')->toArray();
@@ -21,8 +29,8 @@ class CalculatePriceRequest extends FormRequest
         return [
             'service_type' => ['required', Rule::in($validSlugs)],
             'property_type' => 'required|in:house,apartment,boarding_house',
-            'rooms' => 'required|integer|min:1|max:20',
-            'bathrooms' => 'required|integer|min:1|max:10',
+            'rooms' => 'nullable|integer|min:1|max:20',
+            'bathrooms' => 'nullable|integer|min:1|max:10',
             'floor_area' => 'required|integer|min:10|max:1000',
             'add_ons' => 'nullable|array',
             'add_ons.*' => ['string', Rule::in($validAddOns)],

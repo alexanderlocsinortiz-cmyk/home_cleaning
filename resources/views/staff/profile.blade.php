@@ -8,7 +8,6 @@
     $initials = $user->initials;
     $tips = [
         'Keep your phone number updated so admins can reach you quickly for schedule changes.',
-        'Your assigned barangay helps align service coverage and nearby job assignments.',
         'A complete staff profile supports smoother coordination across active bookings.',
     ];
 @endphp
@@ -56,18 +55,13 @@
                             Keep your staff details ready for daily operations
                         </h1>
                         <p class="max-w-2xl text-sm leading-7 text-white/80 sm:text-base">
-                            Update your contact information and assigned barangay so admin coordination, job routing,
-                            and daily communication stay accurate.
+                            Update your contact information so admin coordination and daily communication stay accurate.
                         </p>
                     </div>
                     <div class="flex flex-wrap gap-3 text-sm text-white/85">
                         <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
                             <i class="fas fa-phone text-xs"></i>
                             Faster schedule updates
-                        </span>
-                        <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
-                            <i class="fas fa-location-dot text-xs"></i>
-                            Clear service coverage
                         </span>
                         <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
                             <i class="fas fa-user-check text-xs"></i>
@@ -160,20 +154,6 @@
                             @enderror
                         </div>
                     </div>
-
-                    <div class="mt-5 space-y-2">
-                        <label for="barangay" class="text-sm font-semibold text-slate-700">Assigned barangay</label>
-                        <select id="barangay" name="barangay" class="client-profile-input">
-                            @foreach ($barangays as $value => $label)
-                                <option value="{{ $value }}" {{ old('barangay', $user->barangay) === $value ? 'selected' : '' }}>
-                                    {{ $label }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('barangay')
-                            <p class="text-xs font-medium text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
                 </section>
 
                 <div class="flex flex-col gap-3 sm:flex-row">
@@ -223,16 +203,6 @@
                                 <span class="text-sm font-medium text-slate-500">Phone</span>
                             </div>
                             <span class="client-profile-summary-value text-sm">{{ $user->phone ?? 'Not set' }}</span>
-                        </div>
-
-                        <div class="client-profile-summary-row">
-                            <div class="flex items-center gap-3">
-                                <span class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm">
-                                    <i class="fas fa-location-dot text-sm"></i>
-                                </span>
-                                <span class="text-sm font-medium text-slate-500">Barangay</span>
-                            </div>
-                            <span class="client-profile-summary-value text-sm">{{ $barangays[$user->barangay] ?? ucfirst($user->barangay ?? 'N/A') }}</span>
                         </div>
                     </div>
                 </section>

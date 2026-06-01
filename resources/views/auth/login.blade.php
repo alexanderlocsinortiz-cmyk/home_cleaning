@@ -85,7 +85,7 @@
                         <p class="mt-3 text-base text-slate-500">Sign in to manage your bookings and account</p>
                     </div>
 
-                    @if ($errors->any())
+                    @if ($errors->any() && ! $loginLockout)
                         <div class="mt-7 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                             <i class="fas fa-circle-exclamation mt-0.5 text-red-500"></i>
                             <span>{{ $errors->first() }}</span>
@@ -131,7 +131,9 @@
                                 >
                             </div>
                             @error('email')
-                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                                @if(! $loginLockout)
+                                    <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                                @endif
                             @enderror
                         </div>
 
@@ -166,7 +168,7 @@
                                 <input type="checkbox" name="remember" class="h-5 w-5 rounded border-slate-300 text-blue-600" @checked(old('remember'))>
                                 <span>Remember me</span>
                             </label>
-                            <a href="#" class="text-sm font-semibold text-blue-600 transition hover:text-blue-700">Forgot password?</a>
+                            <a href="{{ route('password.request') }}" class="text-sm font-semibold text-blue-600 transition hover:text-blue-700">Forgot password?</a>
                         </div>
 
                         <button id="login-submit-button" type="submit" class="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-blue-600 text-base font-bold text-white shadow-[0_14px_28px_rgba(37,99,235,0.28)] transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">

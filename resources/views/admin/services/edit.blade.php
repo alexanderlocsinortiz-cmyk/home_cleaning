@@ -54,7 +54,12 @@
             <h3 class="text-lg font-extrabold text-slate-900">Service Details</h3>
             <p class="mt-1 text-sm text-slate-500">Update the catalog details clients and admins rely on during booking.</p>
         </div>
-        <form action="{{ route('admin.services.update', $service->id) }}" method="POST" class="space-y-6 px-6 py-6">
+        <form action="{{ route('admin.services.update', $service->id) }}" method="POST" class="space-y-6 px-6 py-6"
+            data-service-confirm
+            data-confirm-title="Save service changes?"
+            data-confirm-message="This will update {{ $service->name }} in the service catalog."
+            data-confirm-button="Save Changes"
+            data-confirm-tone="primary">
             @csrf
             @method('PUT')
             <div class="space-y-5">
@@ -101,4 +106,5 @@
         </form>
     </section>
 </div>
+@include('admin.services._confirm_modal')
 @endsection

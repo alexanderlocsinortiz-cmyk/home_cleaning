@@ -107,6 +107,119 @@ class AdminDashboardAnalyticsTest extends TestCase
         $response->assertDontSee('Peak Booking Demand');
     }
 
+    public function test_admin_dashboard_revenue_month_filter_uses_completed_month(): void
+    {
+        $this->travelTo('2026-05-15 09:00:00');
+
+        Service::create([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $admin = $this->createUser([
+            'email' => 'admin-revenue-filter@example.com',
+            'username' => 'adminrevenuefilter',
+            'role' => 'admin',
+        ]);
+        $client = $this->createUser([
+            'email' => 'client-revenue-filter@example.com',
+            'username' => 'clientrevenuefilter',
+            'role' => 'client',
+        ]);
+
+        Booking::create([
+            'user_id' => $client->id,
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 1,
+            'bathrooms' => 1,
+            'floor_area' => 30,
+            'barangay' => 'Poblacion',
+            'street_address' => 'March Completed Street',
+            'scheduled_date' => '2026-02-28',
+            'scheduled_time' => '09:00',
+            'price' => 1500,
+            'status' => 'completed',
+            'completed_at' => '2026-03-05 10:00:00',
+        ]);
+
+        Booking::create([
+            'user_id' => $client->id,
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 1,
+            'bathrooms' => 1,
+            'floor_area' => 30,
+            'barangay' => 'Poblacion',
+            'street_address' => 'March Legacy Street',
+            'scheduled_date' => '2026-03-10',
+            'scheduled_time' => '09:00',
+            'price' => 900,
+            'status' => 'completed',
+            'completed_at' => null,
+        ]);
+
+        Booking::create([
+            'user_id' => $client->id,
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 1,
+            'bathrooms' => 1,
+            'floor_area' => 30,
+            'barangay' => 'Poblacion',
+            'street_address' => 'April Completed Street',
+            'scheduled_date' => '2026-03-31',
+            'scheduled_time' => '09:00',
+            'price' => 700,
+            'status' => 'completed',
+            'completed_at' => '2026-04-01 10:00:00',
+        ]);
+
+        Booking::create([
+            'user_id' => $client->id,
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 1,
+            'bathrooms' => 1,
+            'floor_area' => 30,
+            'barangay' => 'Poblacion',
+            'street_address' => 'January Completed Street',
+            'scheduled_date' => '2026-01-15',
+            'scheduled_time' => '09:00',
+            'price' => 300,
+            'status' => 'completed',
+            'completed_at' => '2026-01-15 10:00:00',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.dashboard', [
+            'revenue_month' => '2026-03',
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('selectedRevenueMonth', '2026-03');
+        $response->assertViewHas('selectedRevenueMonthLabel', 'March 2026');
+        $response->assertViewHas('selectedRevenueTotal', 2400.0);
+        $response->assertViewHas('selectedRevenueCompletedCount', 2);
+        $response->assertViewHas('chartRevenueData', function (array $chartRevenueData) {
+            return count($chartRevenueData) === 31
+                && $chartRevenueData[4] === 1500.0
+                && $chartRevenueData[9] === 900.0
+                && array_sum($chartRevenueData) === 2400.0;
+        });
+        $response->assertViewHas('availableRevenueMonths', function ($months) {
+            return $months->take(5)->values()->all() === [
+                '2026-05',
+                '2026-04',
+                '2026-03',
+                '2026-02',
+                '2026-01',
+            ];
+        });
+    }
+
     private function createUser(array $overrides = []): User
     {
         $user = User::create(array_merge([

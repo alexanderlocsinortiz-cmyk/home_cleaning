@@ -217,6 +217,10 @@
             @if(in_array($booking->status, ['confirmed', 'in_progress']))
             <div class="sb-update-stack">
               @if($booking->status === 'confirmed')
+              <button type="button" onclick="shareLocation({{ $booking->id }})" id="share-location-btn-{{ $booking->id }}" class="share-location-btn">
+                <i class="fas fa-location-arrow"></i>
+                <span>Share Live Location</span>
+              </button>
               <form action="{{ route('staff.bookings.status', $booking->id) }}" method="POST" enctype="multipart/form-data" class="status-form-stack" novalidate>
                 @csrf @method('PATCH')
                 <input type="hidden" name="status" value="in_progress">
@@ -256,7 +260,7 @@
                 </button>
               </form>
               @endif
-              <button onclick="shareLocation({{ $booking->id }})" class="share-location-btn">
+              <button type="button" onclick="shareLocation({{ $booking->id }})" id="share-location-btn-{{ $booking->id }}" class="share-location-btn">
                 <i class="fas fa-location-arrow"></i>
                 <span>Share Live Location</span>
               </button>
@@ -1081,6 +1085,17 @@
 const staffBookingMaps = {};
 let staffCurrentPosition = null;
 let staffLocationPromise = null;
+const staffTravelMinutesPerKm = 5;
+
+function estimateStaffTravelMinutes(distanceKm) {
+    const numericDistance = Number.parseFloat(distanceKm);
+
+    if (!Number.isFinite(numericDistance) || numericDistance <= 0) {
+        return 1;
+    }
+
+    return Math.max(1, Math.round(numericDistance * staffTravelMinutesPerKm));
+}
 
 function staffMapIcon(type) {
     return L.divIcon({
@@ -1221,7 +1236,7 @@ async function drawStaffRoute(mapId) {
             const route = routeData.routes[0];
             const coords = route.geometry.coordinates.map((coord) => [coord[1], coord[0]]);
             const distanceKm = (route.distance / 1000).toFixed(1);
-            const durationMin = Math.max(1, Math.round(route.duration / 60));
+            const durationMin = estimateStaffTravelMinutes(distanceKm);
 
             state.routeLayer = L.polyline(coords, {
                 color: '#2563eb',
@@ -1377,42 +1392,75 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
+const staffLocationWatchIds = {};
+
+async function postStaffLocation(bookingId, position) {
+    const response = await fetch('/bookings/' + bookingId + '/location/update', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+        })
+    });
+
+    if (!response.ok) {
+        const payload = await response.json().catch(function () {
+            return null;
+        });
+
+        throw new Error(payload && payload.message ? payload.message : 'We could not share your location. Please try again.');
+    }
+}
+
+function setShareLocationButtonState(bookingId, isLive) {
+    const button = document.getElementById('share-location-btn-' + bookingId);
+
+    if (!button) {
+        return;
+    }
+
+    button.classList.toggle('is-live', isLive);
+    button.innerHTML = isLive
+        ? '<i class="fas fa-satellite-dish"></i><span>Location Live</span>'
+        : '<i class="fas fa-location-arrow"></i><span>Share Live Location</span>';
+}
+
 async function shareLocation(bookingId) {
     if (!navigator.geolocation) {
         alert('This device does not support location sharing.');
         return;
     }
 
-    navigator.geolocation.getCurrentPosition(async function (position) {
+    if (staffLocationWatchIds[bookingId]) {
+        navigator.geolocation.clearWatch(staffLocationWatchIds[bookingId]);
+        delete staffLocationWatchIds[bookingId];
+        setShareLocationButtonState(bookingId, false);
+        return;
+    }
+
+    staffLocationWatchIds[bookingId] = navigator.geolocation.watchPosition(async function (position) {
         try {
-            const response = await fetch('/bookings/' + bookingId + '/location/update', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude
-                })
-            });
-
-            if (!response.ok) {
-                const payload = await response.json().catch(function () {
-                    return null;
-                });
-
-                alert(payload && payload.message ? payload.message : 'We could not share your location. Please try again.');
-                return;
-            }
-
-            alert('Live location shared with the client.');
+            await postStaffLocation(bookingId, position);
+            setShareLocationButtonState(bookingId, true);
         } catch (error) {
-            alert('We could not share your location. Please try again.');
+            navigator.geolocation.clearWatch(staffLocationWatchIds[bookingId]);
+            delete staffLocationWatchIds[bookingId];
+            setShareLocationButtonState(bookingId, false);
+            alert(error.message || 'We could not share your location. Please try again.');
         }
     }, function () {
+        delete staffLocationWatchIds[bookingId];
+        setShareLocationButtonState(bookingId, false);
         alert('We could not access your location. Please allow location sharing and try again.');
+    }, {
+        enableHighAccuracy: true,
+        maximumAge: 15000,
+        timeout: 20000
     });
 }
 </script>

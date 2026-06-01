@@ -2574,6 +2574,15 @@ input[type='radio'] {
     box-shadow: 0 14px 24px rgba(var(--accent-rgb), 0.22);
 }
 
+.staff-bookings-page .share-location-btn.is-live {
+    background: var(--success-color);
+    box-shadow: 0 10px 18px rgba(var(--success-rgb), 0.2);
+}
+
+.staff-bookings-page .share-location-btn.is-live:hover {
+    box-shadow: 0 14px 24px rgba(var(--success-rgb), 0.26);
+}
+
 .staff-bookings-page .live-video-btn {
     justify-content: center;
     background: var(--primary-color);

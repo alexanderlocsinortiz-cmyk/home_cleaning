@@ -169,15 +169,15 @@ class AdminAttendanceController extends Controller
 
         $this->createNotification([
             'user_id' => $staff->id,
-            'title' => 'Fingerprint enrollment consent required',
-            'message' => 'Please review and accept the biometric attendance terms before admin can continue your fingerprint enrollment.',
+            'title' => 'Fingerprint enrollment consent request',
+            'message' => 'Please review the biometric consent request and choose Accept & Continue or Decline.',
             'type' => 'warning',
             'link' => route('staff.fingerprint-consent.show', $enrollmentRequest),
         ]);
 
         return redirect()
             ->route('admin.attendance')
-            ->with('success', 'Fingerprint consent request sent to '.$staff->display_name.'. Enrollment can continue only after the staff member accepts the terms.');
+            ->with('success', 'Biometric consent request sent to '.$staff->display_name.'. Enrollment can continue only after staff approval.');
     }
 
     public function continueAttendanceEnrollmentRequest(DeviceEnrollmentRequest $enrollmentRequest)

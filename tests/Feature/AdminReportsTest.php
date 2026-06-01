@@ -277,6 +277,33 @@ class AdminReportsTest extends TestCase
         });
     }
 
+    public function test_admin_can_export_reports_as_pdf_and_excel(): void
+    {
+        $admin = $this->createUser([
+            'email' => 'admin-export-reports@example.com',
+            'username' => 'adminexportreports',
+            'role' => 'admin',
+        ]);
+
+        $pdfResponse = $this->actingAs($admin)->get(route('admin.reports.export', [
+            'format' => 'pdf',
+            'period' => 'this_month',
+        ]));
+
+        $pdfResponse->assertOk();
+        $this->assertSame('application/pdf', $pdfResponse->headers->get('content-type'));
+        $this->assertStringContainsString('attachment; filename="reports_', $pdfResponse->headers->get('content-disposition'));
+
+        $excelResponse = $this->actingAs($admin)->get(route('admin.reports.export', [
+            'format' => 'excel',
+            'period' => 'this_month',
+        ]));
+
+        $excelResponse->assertOk();
+        $this->assertStringContainsString('application/vnd.ms-excel', $excelResponse->headers->get('content-type'));
+        $excelResponse->assertSee('Reports &amp; Analytics', false);
+    }
+
     private function createUser(array $overrides = []): User
     {
         $user = User::create(array_merge([

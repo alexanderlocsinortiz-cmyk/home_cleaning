@@ -63,7 +63,7 @@ class BookingCreationTest extends TestCase
         $response->assertSee('Cash on Service Day', false);
         $response->assertSee('Subscription Plan', false);
         $response->assertSee('Post Construction Cleaning', false);
-        $response->assertSee('Eco-Friendly Supplies', false);
+        $response->assertSee('Yard Sweeping', false);
     }
 
     public function test_booking_form_prefills_address_from_client_profile(): void
@@ -153,11 +153,11 @@ class BookingCreationTest extends TestCase
         $this->assertSame('pending', $booking->status);
         $this->assertSame('not_required', $booking->manual_review_status);
         $this->assertNull($booking->risk_reasons);
-        $this->assertSame(2525.0, (float) $booking->price);
+        $this->assertSame(2125.0, (float) $booking->price);
         $this->assertSame(0.0, (float) $booking->base_price);
-        $this->assertSame(200.0, (float) $booking->property_fee);
-        $this->assertSame(100.0, (float) $booking->rooms_fee);
-        $this->assertSame(100.0, (float) $booking->bathrooms_fee);
+        $this->assertSame(0.0, (float) $booking->property_fee);
+        $this->assertSame(0.0, (float) $booking->rooms_fee);
+        $this->assertSame(0.0, (float) $booking->bathrooms_fee);
         $this->assertSame(1575.0, (float) $booking->floor_area_fee);
         $this->assertSame(550.0, (float) $booking->add_ons_fee);
         $this->assertSame(['window_glass', 'refrigerator'], $booking->add_ons);
@@ -181,6 +181,27 @@ class BookingCreationTest extends TestCase
         $this->assertSame(95.0, $pricing['floor_area_rate']);
         $this->assertSame(4275.0, $pricing['floor_area_fee']);
         $this->assertSame(4275.0, $pricing['total']);
+    }
+
+    public function test_basic_clean_alias_is_priced_per_square_meter(): void
+    {
+        Service::updateOrCreate(['slug' => 'basic-clean'], [
+            'name' => 'Basic Clean',
+            'description' => 'Routine cleaning',
+            'price' => 35,
+            'duration_minutes' => 60,
+            'is_active' => true,
+        ]);
+
+        $pricing = Booking::calculatePrice('basic-clean', 'house', 1, 1, 45, []);
+        $pricingConfig = Booking::pricingConfiguration();
+
+        $this->assertContains('basic-clean', $pricingConfig['per_square_meter_services']);
+        $this->assertSame(0.0, $pricing['base_price']);
+        $this->assertSame(45, $pricing['billable_floor_area']);
+        $this->assertSame(35.0, $pricing['floor_area_rate']);
+        $this->assertSame(1575.0, $pricing['floor_area_fee']);
+        $this->assertSame(1575.0, $pricing['total']);
     }
 
     public function test_post_construction_cleaning_is_priced_per_square_meter(): void
@@ -215,13 +236,13 @@ class BookingCreationTest extends TestCase
         $pricing = Booking::calculatePrice('moveinout', 'apartment', 2, 2, 80, []);
 
         $this->assertSame(0.0, $pricing['base_price']);
-        $this->assertSame(200.0, $pricing['property_fee']);
-        $this->assertSame(50.0, $pricing['rooms_fee']);
-        $this->assertSame(100.0, $pricing['bathrooms_fee']);
+        $this->assertSame(0.0, $pricing['property_fee']);
+        $this->assertSame(0.0, $pricing['rooms_fee']);
+        $this->assertSame(0.0, $pricing['bathrooms_fee']);
         $this->assertSame(80, $pricing['billable_floor_area']);
         $this->assertSame(80.0, $pricing['floor_area_rate']);
         $this->assertSame(6400.0, $pricing['floor_area_fee']);
-        $this->assertSame(6750.0, $pricing['total']);
+        $this->assertSame(6400.0, $pricing['total']);
     }
 
     public function test_general_regular_cleaning_uses_per_session_range(): void
@@ -244,8 +265,8 @@ class BookingCreationTest extends TestCase
         $this->assertSame(0.0, $smallSessionPricing['floor_area_fee']);
         $this->assertSame(500.0, $smallSessionPricing['total']);
 
-        $this->assertSame(800.0, $largerSessionPricing['base_price']);
-        $this->assertSame(800.0, $largerSessionPricing['total']);
+        $this->assertSame(500.0, $largerSessionPricing['base_price']);
+        $this->assertSame(500.0, $largerSessionPricing['total']);
     }
 
     public function test_add_on_catalog_uses_final_suggested_prices(): void
@@ -255,7 +276,7 @@ class BookingCreationTest extends TestCase
         $this->assertSame(300.0, (float) Booking::ADD_ON_CATALOG['inside_cabinets']['price']);
         $this->assertSame(400.0, (float) Booking::ADD_ON_CATALOG['sofa_vacuum']['price']);
         $this->assertSame(300.0, (float) Booking::ADD_ON_CATALOG['pet_hair_removal']['price']);
-        $this->assertSame(150.0, (float) Booking::ADD_ON_CATALOG['eco_friendly_supplies']['price']);
+        $this->assertSame(250.0, (float) Booking::ADD_ON_CATALOG['yard_sweeping']['price']);
     }
 
     public function test_booking_details_page_shows_price_breakdown_for_floor_area_and_add_ons(): void
@@ -402,7 +423,7 @@ class BookingCreationTest extends TestCase
             'rooms' => 2,
             'bathrooms' => 1,
             'floor_area' => 30,
-            'add_ons' => ['eco_friendly_supplies'],
+            'add_ons' => ['yard_sweeping'],
             'payment_method' => 'gcash',
             'service_plan' => 'subscription',
             'subscription_frequency' => 'weekly',

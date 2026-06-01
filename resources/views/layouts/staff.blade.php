@@ -14,9 +14,10 @@
 <body class="admin-ui staff-ui bg-slate-50 flex min-h-screen overflow-x-hidden">
     <div class="fixed inset-0 z-50 hidden bg-black/50" id="staff-sidebar-overlay" onclick="toggleStaffSidebar()"></div>
 
-    <aside class="admin-sidebar fixed left-0 top-0 z-50 flex min-h-screen w-64 flex-col bg-blue-800" id="staff-sidebar">
-        <div class="p-4 border-b border-slate-700 flex items-center">
+    <aside class="admin-sidebar staff-sidebar fixed left-0 top-0 z-50 flex min-h-screen w-64 flex-col bg-blue-800" id="staff-sidebar">
+        <div class="p-4 border-b border-slate-700 flex items-center gap-3">
             <img src="{{ $siteSettings->logo_url }}" alt="{{ $siteSettings->website_name }}" class="h-12 w-auto shrink-0">
+            <span class="min-w-0 text-lg font-bold leading-tight text-white">{{ $siteSettings->website_name }}</span>
         </div>
         <nav class="py-4 flex-1">
             <div class="px-6 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-4">Main</div>

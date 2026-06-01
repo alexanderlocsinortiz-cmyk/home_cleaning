@@ -42,8 +42,20 @@ class AttendanceEnrollmentFlowTest extends TestCase
 
         $this->assertDatabaseHas('notifications', [
             'user_id' => $staff->id,
-            'title' => 'Fingerprint enrollment consent required',
+            'title' => 'Fingerprint enrollment consent request',
         ]);
+
+        $this->actingAs($staff)
+            ->get(route('staff.fingerprint-consent.show', $enrollmentRequest))
+            ->assertOk()
+            ->assertSee('Fingerprint Enrollment Consent')
+            ->assertSee('Data to be collected')
+            ->assertSee('Purpose of collection')
+            ->assertSee('Privacy policy')
+            ->assertSee('Device usage')
+            ->assertSee('Consent agreement')
+            ->assertSee('Accept &amp; Continue', false)
+            ->assertSee('Decline');
 
         $this->actingAs($admin)
             ->post(route('admin.attendance.enrollments.continue', $enrollmentRequest))
@@ -63,6 +75,30 @@ class AttendanceEnrollmentFlowTest extends TestCase
             ->assertRedirect(route('admin.attendance'));
 
         $this->assertSame('pending', $enrollmentRequest->fresh()->status);
+    }
+
+    public function test_staff_can_decline_fingerprint_enrollment_consent(): void
+    {
+        $staff = $this->createUser('staff', 'staff-decline-consent@example.com', 'staffdeclineconsent');
+        $device = $this->createDevice('ESP32-DECLINE', str_repeat('b', 64));
+
+        $enrollmentRequest = DeviceEnrollmentRequest::create([
+            'device_id' => $device->id,
+            'user_id' => $staff->id,
+            'template_id' => 9,
+            'status' => 'awaiting_consent',
+            'consent_token' => Str::random(48),
+            'consent_requested_at' => now(),
+        ]);
+
+        $this->actingAs($staff)
+            ->delete(route('staff.fingerprint-consent.decline', $enrollmentRequest))
+            ->assertRedirect(route('staff.fingerprint-consent.show', $enrollmentRequest));
+
+        $enrollmentRequest->refresh();
+
+        $this->assertSame('declined', $enrollmentRequest->status);
+        $this->assertSame('Staff declined biometric consent.', $enrollmentRequest->error_message);
     }
 
     public function test_device_cannot_fetch_enrollment_before_staff_consent_and_admin_continue(): void

@@ -17,6 +17,11 @@ class SiteSetting extends Model
         'admin_name',
         'admin_email',
         'admin_phone',
+        'database_backup_password_hash',
+    ];
+
+    protected $hidden = [
+        'database_backup_password_hash',
     ];
 
     public static function current(): self

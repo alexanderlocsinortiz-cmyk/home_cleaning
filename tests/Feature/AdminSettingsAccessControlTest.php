@@ -160,6 +160,101 @@ class AdminSettingsAccessControlTest extends TestCase
         $this->assertTrue(Hash::check('new-password-123', $admin->fresh()->password));
     }
 
+    public function test_admin_settings_show_database_backup_action(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.settings'))
+            ->assertOk()
+            ->assertSee('Database Backup')
+            ->assertSee(route('admin.settings.database-backup'), false)
+            ->assertSee('data-database-backup-confirm', false)
+            ->assertSee('text-amber-900 hidden" data-database-backup-confirm', false)
+            ->assertSee('<label class="hidden" data-database-backup-confirm>', false)
+            ->assertSee('name="database_backup_password"', false)
+            ->assertSee('disabled', false)
+            ->assertSee('Change backup password')
+            ->assertSee(route('admin.settings.database-backup.password'), false)
+            ->assertSee('Backup files may contain confidential information')
+            ->assertSee('Store backup files securely.')
+            ->assertSee('Database backup password');
+    }
+
+    public function test_admin_must_set_backup_password_before_database_backup_download(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'password' => Hash::make('correct-password'),
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.settings').'#database-backup')
+            ->post(route('admin.settings.database-backup'), [
+                'database_backup_password' => 'correct-password',
+            ])
+            ->assertRedirect(route('admin.settings').'#database-backup')
+            ->assertSessionHasErrors('database_backup_password');
+    }
+
+    public function test_admin_can_change_database_backup_password(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'password' => Hash::make('admin-password'),
+        ]);
+
+        $this->actingAs($admin)
+            ->patch(route('admin.settings.database-backup.password'), [
+                'database_backup_admin_password' => 'admin-password',
+                'database_backup_new_password' => 'backup-password-123',
+                'database_backup_new_password_confirmation' => 'backup-password-123',
+            ])
+            ->assertRedirect(route('admin.settings').'#database-backup')
+            ->assertSessionHas('success');
+
+        $this->assertTrue(Hash::check('backup-password-123', SiteSetting::current()->database_backup_password_hash));
+    }
+
+    public function test_database_backup_password_validation_returns_to_database_backup_tab(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'password' => Hash::make('admin-password'),
+        ]);
+
+        $this->actingAs($admin)
+            ->patch(route('admin.settings.database-backup.password'), [
+                'database_backup_admin_password' => 'admin-password',
+                'database_backup_new_password' => 'short',
+                'database_backup_new_password_confirmation' => 'short',
+            ])
+            ->assertRedirect(route('admin.settings').'#database-backup')
+            ->assertSessionHasErrors('database_backup_new_password');
+
+        $this->assertNull(SiteSetting::current()->database_backup_password_hash);
+    }
+
+    public function test_admin_can_download_sqlite_database_backup_with_backup_password(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'password' => Hash::make('admin-password'),
+        ]);
+        SiteSetting::current()->update([
+            'database_backup_password_hash' => Hash::make('backup-password-123'),
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->post(route('admin.settings.database-backup'), [
+                'database_backup_password' => 'backup-password-123',
+            ]);
+
+        $response->assertOk();
+        $response->assertDownload();
+        $this->assertMatchesRegularExpression('/\.(sqlite|sql)/', $response->headers->get('content-disposition'));
+    }
+
     public function test_admin_password_change_requires_current_password(): void
     {
         $admin = User::factory()->create([

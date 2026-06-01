@@ -205,7 +205,7 @@
             <div class="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                     <h3 class="text-lg font-extrabold text-slate-900">Fingerprint Enrollment</h3>
-                    <p class="mt-1 text-sm text-slate-500">Send the biometric terms to the staff member first. Enrollment can continue only after the staff member accepts.</p>
+                    <p class="mt-1 text-sm text-slate-500">Send a biometric consent request first. The ESP32 enrollment queue unlocks only after the staff member approves.</p>
                 </div>
                 <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600">
                     <i class="fas fa-user-plus text-slate-400"></i>
@@ -215,6 +215,21 @@
 
             <form method="POST" action="{{ route('admin.attendance.enrollments.store') }}" class="space-y-6 px-6 py-6">
                 @csrf
+                <div class="relative grid gap-4 rounded-3xl border border-blue-100 bg-blue-50/40 px-4 py-4 md:grid-cols-4 md:before:absolute md:before:left-[12%] md:before:right-[12%] md:before:top-8 md:before:h-0.5 md:before:bg-blue-200">
+                    @foreach([
+                        ['number' => '1', 'label' => 'Select Staff', 'icon' => 'fa-user-check'],
+                        ['number' => '2', 'label' => 'Send Consent', 'icon' => 'fa-paper-plane'],
+                        ['number' => '3', 'label' => 'Await Approval', 'icon' => 'fa-hourglass-half'],
+                        ['number' => '4', 'label' => 'Enroll Fingerprint', 'icon' => 'fa-fingerprint'],
+                    ] as $step)
+                        <div class="relative z-10 flex flex-col items-center text-center">
+                            <span class="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white shadow-sm ring-4 ring-blue-50">{{ $step['number'] }}</span>
+                            <span class="mt-2 text-sm font-black text-blue-950">{{ $step['label'] }}</span>
+                            <span class="mt-1 text-xs text-blue-500"><i class="fas {{ $step['icon'] }}"></i></span>
+                        </div>
+                    @endforeach
+                </div>
+
                 <div class="grid gap-4 lg:grid-cols-3">
                     <div>
                         <label for="device_id" class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Device</label>
@@ -246,14 +261,19 @@
                     </div>
                 </div>
 
-                <div class="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-                    <p class="text-sm leading-7 text-slate-500">
-                        The website sends the terms and agreement to the selected staff member first. The ESP32 queue is locked until staff consent is accepted.
-                    </p>
-                    <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-full bg-cyan-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-cyan-800">
+                <div class="rounded-3xl border border-blue-100 bg-blue-50/60 px-5 py-4">
+                    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div class="min-w-0">
+                            <div class="text-sm font-black text-blue-950">Staff Receives Consent</div>
+                            <p class="mt-1 text-sm leading-7 text-blue-900">
+                                The request opens a Fingerprint Enrollment Consent page covering data collected, purpose, privacy policy, device usage, and consent agreement.
+                            </p>
+                        </div>
+                        <button type="submit" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-blue-700">
                         <i class="fas fa-fingerprint"></i>
-                        Send Terms
-                    </button>
+                        Send Biometric Consent Request
+                        </button>
+                    </div>
                 </div>
             </form>
         </section>
@@ -276,10 +296,17 @@
                         $queueBadgeClasses = match ($request->status) {
                             'completed' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
                             'failed' => 'border-danger-200 bg-danger-50 text-danger-700',
+                            'declined' => 'border-danger-200 bg-danger-50 text-danger-700',
                             'in_progress' => 'border-teal-200 bg-teal-50 text-teal-700',
                             'consent_accepted' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
                             'awaiting_consent' => 'border-amber-200 bg-amber-50 text-amber-700',
                             default => 'border-amber-200 bg-amber-50 text-amber-700',
+                        };
+                        $queueStatusLabel = match ($request->status) {
+                            'consent_accepted' => 'Approved',
+                            'awaiting_consent' => 'Awaiting Staff Approval',
+                            'declined' => 'Consent Declined',
+                            default => str_replace('_', ' ', $request->status),
                         };
                     @endphp
                     <article class="rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4">
@@ -290,22 +317,29 @@
                                 <div class="mt-1 text-xs text-slate-400">{{ $request->created_at->diffForHumans() }}</div>
                             </div>
                             <span class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold capitalize {{ $queueBadgeClasses }}">
-                                <i class="fas fa-wave-square"></i>
-                                {{ str_replace('_', ' ', $request->status) }}
+                                <i class="fas {{ $request->status === 'consent_accepted' ? 'fa-circle-check' : 'fa-wave-square' }}"></i>
+                                {{ $queueStatusLabel }}
                             </span>
                         </div>
                         @if($request->status === 'awaiting_consent')
                             <div class="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">
-                                Waiting for {{ $request->user->display_name }} to accept the fingerprint terms.
+                                Waiting for {{ $request->user->display_name }} to approve the fingerprint enrollment consent.
                             </div>
                         @elseif($request->status === 'consent_accepted')
+                            <div class="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-700">
+                                Enrollment Status: Approved. Queue unlocked for device enrollment.
+                            </div>
                             <form method="POST" action="{{ route('admin.attendance.enrollments.continue', $request) }}" class="mt-3">
                                 @csrf
                                 <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700">
                                     <i class="fas fa-play"></i>
-                                    Continue Enrollment
+                                    Enroll Fingerprint
                                 </button>
                             </form>
+                        @elseif($request->status === 'declined')
+                            <div class="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700">
+                                {{ $request->user->display_name }} declined biometric consent. Enrollment is locked.
+                            </div>
                         @endif
                         @if($request->error_message)
                             <div class="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700">

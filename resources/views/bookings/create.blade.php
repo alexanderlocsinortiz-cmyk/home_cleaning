@@ -141,7 +141,7 @@
                         <div class="property-card selection-card {{ old('property_type') == 'apartment' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="apartment">
                             <div class="text-3xl text-blue-600"><i class="fas fa-building"></i></div>
                             <div class="mt-3 text-base font-semibold text-slate-900">Apartment</div>
-                            <div class="mt-1 text-xs text-slate-500">Plus &#8369;200 adjustment</div>
+                            <div class="mt-1 text-xs text-slate-500">Included base rate</div>
                         </div>
                     </label>
 
@@ -150,7 +150,7 @@
                         <div class="property-card selection-card {{ old('property_type') == 'boarding_house' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="boarding_house">
                             <div class="text-3xl text-blue-600"><i class="fas fa-bed"></i></div>
                             <div class="mt-3 text-base font-semibold text-slate-900">Boarding House</div>
-                            <div class="mt-1 text-xs text-slate-500">Plus &#8369;300 adjustment</div>
+                            <div class="mt-1 text-xs text-slate-500">Included base rate</div>
                         </div>
                     </label>
                 </div>
@@ -232,46 +232,27 @@
                     <span class="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Required</span>
                 </div>
 
-                <div class="grid gap-4 md:grid-cols-3">
-                    <div>
-                        <label class="mb-2 block text-sm font-semibold text-slate-700">Number of Rooms</label>
-                        <select name="rooms" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
-                            @for($i = 1; $i <= 10; $i++)
-                            <option value="{{ $i }}" {{ old('rooms', 1) == $i ? 'selected' : '' }}>{{ $i }} Room{{ $i > 1 ? 's' : '' }}</option>
-                            @endfor
-                        </select>
-                        <div class="mt-2 text-xs text-slate-500">Plus &#8369;50 per extra room</div>
-                        @error('rooms')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
-                    </div>
+                <input type="hidden" name="rooms" value="1">
+                <input type="hidden" name="bathrooms" value="1">
 
-                    <div>
-                        <label class="mb-2 block text-sm font-semibold text-slate-700">Number of Bathrooms</label>
-                        <select name="bathrooms" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
-                            @for($i = 1; $i <= 5; $i++)
-                            <option value="{{ $i }}" {{ old('bathrooms', 1) == $i ? 'selected' : '' }}>{{ $i }} Bathroom{{ $i > 1 ? 's' : '' }}</option>
-                            @endfor
-                        </select>
-                        <div class="mt-2 text-xs text-slate-500">Plus &#8369;100 per extra bathroom</div>
-                        @error('bathrooms')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
-                    </div>
-
+                <div class="grid gap-4 md:grid-cols-2">
                     <div>
                         <label class="mb-2 block text-sm font-semibold text-slate-700">Floor Area (sqm)</label>
                         <input type="number" name="floor_area" value="{{ old('floor_area', $includedFloorArea) }}" min="10" max="1000" step="1" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                        <div class="mt-2 text-xs text-slate-500">The first {{ $includedFloorArea }} sqm are included. Excess area is charged per sqm based on the selected service.</div>
+                        <div class="mt-2 text-xs text-slate-500">Enter the total size of the house to be cleaned.</div>
                         @error('floor_area')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
 
                 <div class="mt-5 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-slate-600">
                     <div class="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">Pricing Basis</div>
-                    <div class="mt-2 leading-6" id="floor-area-rule">The first {{ $includedFloorArea }} sqm are included. Any excess area is billed per sqm based on the cleaning service you choose.</div>
+                    <div class="mt-2 leading-6" id="floor-area-rule">Floor area is billed per sqm based on the cleaning service you choose.</div>
                 </div>
 
                 <div class="mt-5">
                     <div class="mb-3">
                         <h3 class="text-sm font-semibold text-slate-900">Add-ons (optional)</h3>
-                        <p class="mt-1 text-xs text-slate-500">Select only the extra cleaning tasks you want included in the quotation, including the eco-friendly cleaning option.</p>
+                        <p class="mt-1 text-xs text-slate-500">Select only the extra cleaning tasks you want included in the quotation.</p>
                     </div>
 
                     <div class="grid gap-4 md:grid-cols-2">
@@ -563,20 +544,6 @@
                                 </div>
                                 <span id="pb-property">&#8369;0</span>
                             </div>
-                            <div class="flex items-start justify-between gap-4" id="pb-rooms-row">
-                                <div>
-                                    <span>Rooms adjustment</span>
-                                    <div id="pb-rooms-meta" class="text-xs text-slate-400">1 room included in the base setup.</div>
-                                </div>
-                                <span id="pb-rooms">&#8369;0</span>
-                            </div>
-                            <div class="flex items-start justify-between gap-4" id="pb-bathrooms-row">
-                                <div>
-                                    <span>Bathrooms adjustment</span>
-                                    <div id="pb-bathrooms-meta" class="text-xs text-slate-400">1 bathroom included in the base setup.</div>
-                                </div>
-                                <span id="pb-bathrooms">&#8369;0</span>
-                            </div>
                             <div class="flex items-start justify-between gap-4" id="pb-floor-area-row">
                                 <div>
                                     <span>Floor area adjustment</span>
@@ -598,7 +565,7 @@
                         </div>
 
                         <div class="mt-4 rounded-xl bg-blue-100/70 px-4 py-3 text-xs font-medium text-blue-700" id="payment-summary-note">
-                            The total is based on the service type, property type, rooms, bathrooms, floor area, and any selected add-ons. Cash payments stay pending until the service is completed.
+                            The total is based on the service type, property type, floor area, and any selected add-ons. Cash payments stay pending until the service is completed.
                         </div>
                         <div class="mt-3 rounded-xl border border-blue-200 bg-white/80 px-4 py-3 text-xs text-slate-600" id="service-plan-summary-note">
                             This is currently set as a one-time booking.
@@ -1529,8 +1496,6 @@ function useCurrentLocation() {
 function updatePrice() {
     const serviceType = document.querySelector('input[name="service_type"]:checked')?.value;
     const propertyType = document.querySelector('input[name="property_type"]:checked')?.value;
-    const rooms = parseInt(document.querySelector('select[name="rooms"]')?.value || 1, 10);
-    const bathrooms = parseInt(document.querySelector('select[name="bathrooms"]')?.value || 1, 10);
     const floorArea = parseInt(document.querySelector('input[name="floor_area"]')?.value || 0, 10);
     const selectedAddOns = getSelectedAddOns();
     const paymentMethod = document.querySelector('input[name="payment_method"]:checked')?.value || 'on_site_cash';
@@ -1545,23 +1510,17 @@ function updatePrice() {
     const isFlatRateRange = Boolean(flatRateRange);
     const basePrice = isPerSquareMeter
         ? 0
-        : isFlatRateRange && rooms >= 3
-            ? Number(flatRateRange.max || basePrices[serviceType] || 0)
-            : Number(flatRateRange?.min || basePrices[serviceType] || 0);
+        : Number(flatRateRange?.min || basePrices[serviceType] || 0);
     const propertyFee = isFlatRateRange ? 0 : (propertyFees[propertyType] || 0);
-    const roomsFee = isFlatRateRange ? 0 : (rooms - 1) * 50;
-    const bathroomsFee = isFlatRateRange ? 0 : (bathrooms - 1) * 100;
     const floorAreaRate = floorAreaRates[serviceType] || 0;
     const billableFloorArea = isFlatRateRange ? 0 : isPerSquareMeter ? Math.max(0, floorArea) : Math.max(0, floorArea - includedFloorArea);
     const floorAreaFee = billableFloorArea * floorAreaRate;
     const addOnsFee = selectedAddOns.reduce((sum, key) => sum + Number(addOnCatalog[key]?.price || 0), 0);
-    const total = basePrice + propertyFee + roomsFee + bathroomsFee + floorAreaFee + addOnsFee;
+    const total = basePrice + propertyFee + floorAreaFee + addOnsFee;
 
     document.getElementById('pb-base').textContent = formatCurrency(basePrice);
     document.getElementById('pb-base-row').classList.toggle('hidden', isPerSquareMeter);
-    document.getElementById('pb-property').textContent = propertyFee > 0 ? '+' + formatCurrency(propertyFee) : formatCurrency(0);
-    document.getElementById('pb-rooms').textContent = roomsFee > 0 ? '+' + formatCurrency(roomsFee) : formatCurrency(0);
-    document.getElementById('pb-bathrooms').textContent = bathroomsFee > 0 ? '+' + formatCurrency(bathroomsFee) : formatCurrency(0);
+    document.getElementById('pb-property').textContent = formatCurrency(propertyFee);
     document.getElementById('pb-floor-area').textContent = floorAreaFee > 0 ? '+' + formatCurrency(floorAreaFee) : formatCurrency(0);
     document.getElementById('pb-add-ons').textContent = addOnsFee > 0 ? '+' + formatCurrency(addOnsFee) : formatCurrency(0);
     document.getElementById('pb-total').textContent = formatCurrency(total);
@@ -1576,16 +1535,6 @@ function updatePrice() {
             ? `${serviceLabels[serviceType]} uses flat-rate pricing for standard homes.`
             : `${propertyTypeLabels[propertyType] || 'Selected property'}${propertyFee > 0 ? ' adds an adjustment.' : ' has no extra charge.'}`
         : 'Select a property type.';
-    document.getElementById('pb-rooms-meta').textContent = rooms > 1
-        ? isFlatRateRange
-            ? `${rooms} room${rooms > 1 ? 's' : ''} selected; flat rate applied.`
-            : `${rooms - 1} extra room${rooms - 1 > 1 ? 's' : ''} x ${formatCurrency(50)}`
-        : '1 room included in the base setup.';
-    document.getElementById('pb-bathrooms-meta').textContent = bathrooms > 1
-        ? isFlatRateRange
-            ? `${bathrooms} bathroom${bathrooms > 1 ? 's' : ''} selected; flat rate applied.`
-            : `${bathrooms - 1} extra bathroom${bathrooms - 1 > 1 ? 's' : ''} x ${formatCurrency(100)}`
-        : '1 bathroom included in the base setup.';
     document.getElementById('pb-floor-area-meta').textContent = floorArea > 0
         ? isFlatRateRange
             ? `Floor area is covered by the selected flat-rate package.`
@@ -1605,14 +1554,14 @@ function updatePrice() {
                 : isPerSquareMeter
                 ? `${serviceLabels[serviceType]} is billed at ${formatCurrency(floorAreaRate)}/sqm.`
                 : `The first ${includedFloorArea} sqm are included in ${serviceLabels[serviceType]}. Excess floor area is billed at ${formatCurrency(floorAreaRate)}/sqm.`
-            : `The first ${includedFloorArea} sqm are included. Excess area is billed per sqm based on the selected service.`;
+            : `Floor area is billed per sqm based on the selected service.`;
     }
 
     const paymentSummaryNote = document.getElementById('payment-summary-note');
     if (paymentSummaryNote) {
         paymentSummaryNote.textContent = paymentMethod === 'on_site_cash'
-            ? 'The total is based on the service type, property type, rooms, bathrooms, floor area, and any selected add-ons. Cash payments stay pending until the service is completed.'
-            : `The total is based on the service type, property type, rooms, bathrooms, floor area, and any selected add-ons. ${paymentMethodLabels[paymentMethod] || 'Digital payment'} is recorded immediately with a payment reference.`;
+            ? 'The total is based on the service type, property type, floor area, and any selected add-ons. Cash payments stay pending until the service is completed.'
+            : `The total is based on the service type, property type, floor area, and any selected add-ons. ${paymentMethodLabels[paymentMethod] || 'Digital payment'} is recorded immediately with a payment reference.`;
     }
 
     const servicePlanSummaryNote = document.getElementById('service-plan-summary-note');
@@ -1674,10 +1623,6 @@ document.querySelectorAll('input[name="service_plan"]').forEach((input) => {
         toggleSubscriptionFields();
         updatePrice();
     });
-});
-
-document.querySelectorAll('select[name="rooms"], select[name="bathrooms"]').forEach((input) => {
-    input.addEventListener('change', updatePrice);
 });
 
 document.querySelectorAll('input[name="scheduled_date"], select[name="scheduled_time"]').forEach((input) => {

@@ -3,8 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Notifications\ResetPasswordOtp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 use Tests\TestCase;
 
@@ -169,7 +172,6 @@ class LoginTest extends TestCase
     {
         RateLimiter::clear('login-attempts:locked-client@example.com|127.0.0.1');
         RateLimiter::clear('login-lockout:locked-client@example.com|127.0.0.1');
-        RateLimiter::clear('login-lockout-rounds:locked-client@example.com|127.0.0.1');
 
         $user = $this->createUser([
             'email' => 'locked-client@example.com',
@@ -216,11 +218,10 @@ class LoginTest extends TestCase
         $response->assertSee('cleanflow.login.lockout', false);
     }
 
-    public function test_second_invalid_login_batch_locks_for_three_minutes(): void
+    public function test_login_lockout_escalates_after_each_additional_invalid_attempt(): void
     {
         RateLimiter::clear('login-attempts:escalated-client@example.com|127.0.0.1');
         RateLimiter::clear('login-lockout:escalated-client@example.com|127.0.0.1');
-        RateLimiter::clear('login-lockout-rounds:escalated-client@example.com|127.0.0.1');
 
         $user = $this->createUser([
             'email' => 'escalated-client@example.com',
@@ -236,21 +237,138 @@ class LoginTest extends TestCase
 
         $this->travel(61)->seconds();
 
-        for ($attempt = 1; $attempt <= 4; $attempt++) {
-            $this->from(route('login'))->post(route('login.store'), [
+        $this->from(route('login'))->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ])->assertSessionHasErrors([
+            'email' => 'Too many incorrect login attempts. Please try again in 5 minutes.',
+        ]);
+
+        $this->travel(301)->seconds();
+
+        $this->from(route('login'))->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ])->assertSessionHasErrors([
+            'email' => 'Too many incorrect login attempts. Please try again in 10 minutes.',
+        ]);
+
+        $this->assertGuest();
+    }
+
+    public function test_login_lockout_is_capped_at_one_hour(): void
+    {
+        RateLimiter::clear('login-attempts:capped-client@example.com|127.0.0.1');
+        RateLimiter::clear('login-lockout:capped-client@example.com|127.0.0.1');
+
+        $user = $this->createUser([
+            'email' => 'capped-client@example.com',
+            'username' => 'cappedclient',
+        ]);
+
+        for ($attempt = 1; $attempt <= 17; $attempt++) {
+            $response = $this->from(route('login'))->post(route('login.store'), [
                 'email' => $user->email,
                 'password' => 'wrong-password',
-            ])->assertSessionHasErrors('email');
+            ]);
+
+            if ($attempt >= 5) {
+                $response->assertSessionHasErrors('email');
+                $this->travel(61 * 60)->seconds();
+            }
         }
 
         $this->from(route('login'))->post(route('login.store'), [
             'email' => $user->email,
             'password' => 'wrong-password',
         ])->assertSessionHasErrors([
-            'email' => 'Too many incorrect login attempts. Please try again in 3 minutes.',
+            'email' => 'Too many incorrect login attempts. Please try again in 60 minutes.',
         ]);
 
         $this->assertGuest();
+    }
+
+    public function test_user_can_reset_password_with_email_otp(): void
+    {
+        Notification::fake();
+
+        $user = $this->createUser([
+            'email' => 'forgot-client@example.com',
+            'username' => 'forgotclient',
+        ]);
+
+        $this->from(route('login'))->get(route('login'))
+            ->assertOk()
+            ->assertSee(route('password.request'), false);
+
+        $response = $this->post(route('password.email'), [
+            'email' => $user->email,
+        ]);
+
+        $response->assertRedirect(route('password.reset.verify'));
+        $response->assertSessionHas('password_reset_email', $user->email);
+
+        Notification::assertSentTo($user, ResetPasswordOtp::class, function (ResetPasswordOtp $notification) use (&$code) {
+            $code = $notification->code;
+
+            return $notification->expiresInMinutes === 60;
+        });
+
+        $this->assertDatabaseHas('password_reset_tokens', [
+            'email' => $user->email,
+        ]);
+
+        $resetResponse = $this
+            ->withSession(['password_reset_email' => $user->email])
+            ->post(route('password.update'), [
+                'code' => $code,
+                'password' => 'new-password-123',
+                'password_confirmation' => 'new-password-123',
+            ]);
+
+        $resetResponse->assertRedirect(route('login'));
+        $resetResponse->assertSessionHas('success', 'Password reset successful. You can now sign in.');
+
+        $this->assertTrue(Hash::check('new-password-123', $user->fresh()->password));
+        $this->assertDatabaseMissing('password_reset_tokens', [
+            'email' => $user->email,
+        ]);
+
+        $this->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'new-password-123',
+        ])->assertRedirect(route('client.dashboard'));
+    }
+
+    public function test_expired_password_reset_code_is_rejected(): void
+    {
+        $user = $this->createUser([
+            'email' => 'expired-reset@example.com',
+            'username' => 'expiredreset',
+        ]);
+        $code = '123456';
+
+        DB::table('password_reset_tokens')->insert([
+            'email' => $user->email,
+            'token' => Hash::make($code),
+            'created_at' => now()->subMinutes(61),
+        ]);
+
+        $response = $this
+            ->withSession(['password_reset_email' => $user->email])
+            ->from(route('password.reset.verify'))
+            ->post(route('password.update'), [
+                'code' => $code,
+                'password' => 'new-password-123',
+                'password_confirmation' => 'new-password-123',
+            ]);
+
+        $response->assertRedirect(route('password.reset.verify'));
+        $response->assertSessionHasErrors('code');
+        $this->assertTrue(Hash::check('password123', $user->fresh()->password));
+        $this->assertDatabaseMissing('password_reset_tokens', [
+            'email' => $user->email,
+        ]);
     }
 
     private function createUser(array $overrides = []): User

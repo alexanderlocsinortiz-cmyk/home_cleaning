@@ -37,8 +37,8 @@
 
     $instantQuotePropertyOptions = [
         ['key' => 'house', 'label' => 'House', 'fee' => 0],
-        ['key' => 'apartment', 'label' => 'Apartment', 'fee' => 200],
-        ['key' => 'boarding_house', 'label' => 'Boarding House', 'fee' => 300],
+        ['key' => 'apartment', 'label' => 'Apartment', 'fee' => 0],
+        ['key' => 'boarding_house', 'label' => 'Boarding House', 'fee' => 0],
     ];
     $defaultInstantQuoteFloorArea = 30;
     $defaultInstantQuoteTotal = (int) (($instantQuotePackages[0]['base'] ?? 0) + (($instantQuotePackages[0]['area_rate'] ?? 0) * $defaultInstantQuoteFloorArea) + ($instantQuotePropertyOptions[0]['fee'] ?? 0));
@@ -60,7 +60,7 @@
         'inside_cabinets' => 'fa-table-cells-large',
         'sofa_vacuum' => 'fa-couch',
         'pet_hair_removal' => 'fa-paw',
-        'eco_friendly_supplies' => 'fa-leaf',
+        'yard_sweeping' => 'fa-broom',
     ];
     $showEarlyLaunchBanner = (bool) config('cleanflow.marketing.show_early_launch_banner', false);
     $businessStartYear = (int) config('cleanflow.marketing.business_start_year', 2024);
@@ -118,15 +118,15 @@
         ],
         [
             'question' => 'How is pricing computed?',
-            'answer' => 'Each package has a starting rate. Your final total depends on your property type, bedrooms, bathrooms, floor area beyond ' . $includedFloorArea . ' sqm, and any add-ons you choose.',
+            'answer' => 'Each package has a starting rate. Your final total depends on your property type, floor area, and any add-ons you choose.',
         ],
         [
             'question' => 'Which payment methods are available?',
             'answer' => 'You can pay with cash on cleaning day, GCash, or Maya.',
         ],
         [
-            'question' => 'Can I request eco-friendly cleaning?',
-            'answer' => 'Yes. You can add eco-friendly supplies when you book if you prefer a greener clean.',
+            'question' => 'Can I request yard sweeping?',
+            'answer' => 'Yes. You can add yard sweeping when you book if you want accessible outdoor areas included.',
         ],
         [
             'question' => 'Can I book recurring cleaning visits?',
@@ -399,7 +399,7 @@
                             </div>
                             <h3 class="mt-4 text-2xl font-extrabold text-slate-900 sm:text-3xl">Estimate your cleaning total in seconds</h3>
                             <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                                Set your package, property type, floor area, add-ons, and extra rooms. The estimate updates live so you can compare options without losing the total.
+                                Set your package, property type, floor area, and add-ons. The estimate updates live so you can compare options without losing the total.
                             </p>
 
                             <div class="mt-6 space-y-5">
@@ -445,24 +445,6 @@
                                             <option value="{{ $property['key'] }}">{{ $property['label'] }}{{ $property['fee'] > 0 ? ' (+₱' . number_format($property['fee'], 0) . ')' : ' (+₱0)' }}</option>
                                             @endforeach
                                         </select>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label for="iq_rooms" class="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">Bedrooms</label>
-                                            <select id="iq_rooms" class="w-full rounded-2xl border border-slate-200 bg-white/85 px-3 py-3 text-sm font-medium text-slate-700 outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
-                                                @for($i = 1; $i <= 8; $i++)
-                                                <option value="{{ $i }}">{{ $i }}</option>
-                                                @endfor
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label for="iq_bathrooms" class="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">Bathrooms</label>
-                                            <select id="iq_bathrooms" class="w-full rounded-2xl border border-slate-200 bg-white/85 px-3 py-3 text-sm font-medium text-slate-700 outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
-                                                @for($i = 1; $i <= 6; $i++)
-                                                <option value="{{ $i }}">{{ $i }}</option>
-                                                @endfor
-                                            </select>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -601,14 +583,9 @@
     const checkoutBaseUrl = @json($quoteCheckoutUrl);
     const includedArea = @json($includedFloorArea);
     const maxArea = 200;
-    const extraBedroomRate = 50;
-    const extraBathroomRate = 100;
-    const ecoAddOnKey = 'eco_friendly_supplies';
 
     const packageInputs = Array.from(document.querySelectorAll('input[name="iq_package"]'));
     const propertySelect = document.getElementById('iq_property');
-    const roomsSelect = document.getElementById('iq_rooms');
-    const bathroomsSelect = document.getElementById('iq_bathrooms');
     const floorAreaSlider = document.getElementById('iq_floor_area');
     const floorAreaValue = document.getElementById('iq_floor_area_value');
     const addOnInputs = Array.from(document.querySelectorAll('input[name="iq_add_ons[]"]'));
@@ -622,16 +599,14 @@
     const bookButtonLabel = document.getElementById('iq_book_button_label');
     const fabButton = document.getElementById('iq_fab_button');
     const fabButtonLabel = document.getElementById('iq_fab_button_label');
-    const ecoAddOnInput = addOnInputs.find((input) => input.value === ecoAddOnKey) ?? null;
 
-    if (!packageInputs.length || !propertySelect || !roomsSelect || !bathroomsSelect || !floorAreaSlider || !floorAreaValue || !mobileTotalElement || !mobileBreakdownListElement || !mobileFormulaLineElement || !fabButton || !bookButton) {
+    if (!packageInputs.length || !propertySelect || !floorAreaSlider || !floorAreaValue || !mobileTotalElement || !mobileBreakdownListElement || !mobileFormulaLineElement || !fabButton || !bookButton) {
         return;
     }
 
     const formatPeso = (amount) => `\u20B1${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
     let displayedTotal = 0;
     let totalAnimationFrame = null;
-    let lastSelectedPackageSlug = packageInputs.find((input) => input.checked)?.value ?? packageInputs[0].value;
 
     const getSelectedPackage = () => {
         const checkedPackage = packageInputs.find((input) => input.checked)?.value || packageInputs[0].value;
@@ -702,12 +677,11 @@
         totalAnimationFrame = requestAnimationFrame(frame);
     };
 
-    const buildBreakdown = ({ packageBase, propertyFee, sqmExcessCost, roomBathCost, addOnsCost, areaLabel = 'Excess Area' }) => {
+    const buildBreakdown = ({ packageBase, propertyFee, sqmExcessCost, addOnsCost, areaLabel = 'Excess Area' }) => {
         const lineItems = [
             packageBase > 0 ? { label: 'Package Base', value: packageBase } : null,
             propertyFee > 0 ? { label: 'Property Fee', value: propertyFee } : null,
             sqmExcessCost > 0 ? { label: areaLabel, value: sqmExcessCost } : null,
-            roomBathCost > 0 ? { label: 'Room/Bath Add-ons', value: roomBathCost } : null,
             addOnsCost > 0 ? { label: 'Service Add-ons', value: addOnsCost } : null,
         ].filter(Boolean);
 
@@ -742,13 +716,9 @@
         const selectedPackage = getSelectedPackage();
         const selectedProperty = propertyMap[propertySelect.value] ?? propertyMap.house;
         const floorArea = getFloorArea();
-        const bedrooms = Math.max(1, Number.parseInt(roomsSelect.value, 10) || 1);
-        const bathrooms = Math.max(1, Number.parseInt(bathroomsSelect.value, 10) || 1);
         const selectedAddOns = addOnInputs.filter((input) => input.checked).map((input) => input.value);
 
-        const packageBase = selectedPackage?.pricing_unit === 'flat_range' && bedrooms >= 3
-            ? Number(selectedPackage?.max_base ?? selectedPackage?.base ?? 0)
-            : Number(selectedPackage?.base ?? 0);
+        const packageBase = Number(selectedPackage?.base ?? 0);
         const propertyFee = Number(selectedProperty?.fee ?? 0);
         const areaRate = Number(selectedPackage?.area_rate ?? 0);
 
@@ -757,28 +727,23 @@
             : selectedPackage?.pricing_unit === 'sqm' ? floorArea : Math.max(0, floorArea - includedArea);
         const sqmExcessCost = excessSqm * areaRate;
 
-        const extraBedroomCount = Math.max(0, bedrooms - 1);
-        const extraBathroomCount = Math.max(0, bathrooms - 1);
-        const roomBathCost = selectedPackage?.pricing_unit === 'flat_range'
-            ? 0
-            : (extraBedroomCount * extraBedroomRate) + (extraBathroomCount * extraBathroomRate);
         const addOnsCost = selectedAddOns.reduce((total, key) => total + Number(addOnCatalog[key]?.price ?? 0), 0);
 
         const appliedPropertyFee = selectedPackage?.pricing_unit === 'flat_range' ? 0 : propertyFee;
-        const totalEstimate = packageBase + appliedPropertyFee + sqmExcessCost + roomBathCost + addOnsCost;
+        const totalEstimate = packageBase + appliedPropertyFee + sqmExcessCost + addOnsCost;
 
         floorAreaSlider.value = String(floorArea);
         floorAreaValue.textContent = `${floorArea} sqm`;
         animateTotalTo(totalEstimate, animateTotal);
         const areaLabel = selectedPackage?.pricing_unit === 'sqm' ? 'Floor Area' : 'Excess Area';
-        buildBreakdown({ packageBase, propertyFee: appliedPropertyFee, sqmExcessCost, roomBathCost, addOnsCost, areaLabel });
+        buildBreakdown({ packageBase, propertyFee: appliedPropertyFee, sqmExcessCost, addOnsCost, areaLabel });
 
         const prefillParams = new URLSearchParams({
             service_type: selectedPackage?.slug ?? 'basic',
             property_type: selectedProperty?.key ?? 'house',
             floor_area: String(floorArea),
-            rooms: String(bedrooms),
-            bathrooms: String(bathrooms),
+            rooms: '1',
+            bathrooms: '1',
             add_ons: selectedAddOns.join(','),
             estimated_total: String(totalEstimate),
             quote_source: 'landing_instant_quote',
@@ -792,19 +757,8 @@
         }
     };
 
-    packageInputs.forEach((input) => input.addEventListener('change', () => {
-        const selectedPackage = getSelectedPackage();
-
-        if (selectedPackage?.slug === 'deep' && lastSelectedPackageSlug !== 'deep' && ecoAddOnInput) {
-            ecoAddOnInput.checked = true;
-        }
-
-        lastSelectedPackageSlug = selectedPackage?.slug ?? lastSelectedPackageSlug;
-        calculateInstantQuote();
-    }));
+    packageInputs.forEach((input) => input.addEventListener('change', () => calculateInstantQuote()));
     propertySelect.addEventListener('change', () => calculateInstantQuote());
-    roomsSelect.addEventListener('change', () => calculateInstantQuote());
-    bathroomsSelect.addEventListener('change', () => calculateInstantQuote());
     floorAreaSlider.addEventListener('input', () => calculateInstantQuote());
     addOnInputs.forEach((input) => input.addEventListener('change', () => calculateInstantQuote({ animateTotal: true })));
 

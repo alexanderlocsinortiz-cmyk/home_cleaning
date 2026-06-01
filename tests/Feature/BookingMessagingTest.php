@@ -36,6 +36,52 @@ class BookingMessagingTest extends TestCase
         ]);
     }
 
+    public function test_booking_show_displays_messages_for_client(): void
+    {
+        [$client, $staff, $booking] = $this->bookingWithAssignedStaff();
+
+        $booking->messages()->create([
+            'sender_id' => $staff->id,
+            'message' => 'I am on the way.',
+        ]);
+
+        $response = $this->actingAs($client)->get(route('bookings.show', $booking->id));
+
+        $response->assertOk();
+        $response->assertSee('Booking Messages');
+        $response->assertSee('I am on the way.');
+        $response->assertSee('Send message');
+    }
+
+    public function test_booking_show_displays_messages_for_assigned_staff(): void
+    {
+        [$client, $staff, $booking] = $this->bookingWithAssignedStaff();
+
+        $booking->messages()->create([
+            'sender_id' => $client->id,
+            'message' => 'Please call when you arrive.',
+        ]);
+
+        $response = $this->actingAs($staff)->get(route('bookings.show', $booking->id));
+
+        $response->assertOk();
+        $response->assertSee('Booking Messages');
+        $response->assertSee('Please call when you arrive.');
+        $response->assertSee('Send message');
+    }
+
+    public function test_booking_show_explains_messaging_when_no_staff_is_assigned(): void
+    {
+        [$client, , $booking] = $this->bookingWithAssignedStaff(['staff_id' => null, 'status' => 'pending']);
+
+        $response = $this->actingAs($client)->get(route('bookings.show', $booking->id));
+
+        $response->assertOk();
+        $response->assertSee('Booking Messages');
+        $response->assertSee('Messaging becomes available after a cleaner is assigned to this booking.');
+        $response->assertDontSee('Send message');
+    }
+
     public function test_assigned_staff_can_message_booking_client(): void
     {
         [$client, $staff, $booking] = $this->bookingWithAssignedStaff();

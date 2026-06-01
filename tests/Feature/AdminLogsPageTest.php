@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AttendanceLog;
+use App\Models\AccessRestrictionHistory;
 use App\Models\Booking;
 use App\Models\BookingActivityLog;
 use App\Models\User;
@@ -94,6 +95,58 @@ class AdminLogsPageTest extends TestCase
         $response->assertOk();
         $response->assertSee('Payment status changed to paid.');
         $response->assertDontSee('Status changed from pending to confirmed.');
+    }
+
+    public function test_admin_can_view_admin_logs_separately(): void
+    {
+        $admin = $this->createUser('admin', 'admin-admin-logs@example.com', 'adminadminlogs');
+        $staff = $this->createUser('staff', 'staff-admin-logs@example.com', 'staffadminlogs');
+
+        AccessRestrictionHistory::create([
+            'target_user_id' => $staff->id,
+            'actor_user_id' => $admin->id,
+            'target_name' => $staff->display_name,
+            'target_email' => $staff->email,
+            'target_role' => 'staff',
+            'action' => 'staff_pages_updated',
+            'reason' => 'Schedule access changed.',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.logs', ['source' => 'admin']));
+
+        $response->assertOk();
+        $response->assertSee('Admin Logs');
+        $response->assertSee('Staff pages updated');
+        $response->assertSee('Schedule access changed.');
+        $response->assertSee($staff->email);
+    }
+
+    public function test_admin_can_export_booking_logs_as_excel_and_pdf(): void
+    {
+        $admin = $this->createUser('admin', 'admin-logs-export@example.com', 'adminlogsexport');
+        $client = $this->createUser('client', 'client-logs-export@example.com', 'clientlogsexport');
+        $booking = $this->createBooking($client);
+
+        BookingActivityLog::create([
+            'booking_id' => $booking->id,
+            'actor_id' => $admin->id,
+            'actor_role' => 'admin',
+            'actor_name' => $admin->display_name,
+            'action' => 'status_updated',
+            'description' => 'Status changed from pending to confirmed.',
+        ]);
+
+        $excel = $this->actingAs($admin)->get(route('admin.logs.export', ['source' => 'bookings', 'format' => 'excel']));
+
+        $excel->assertOk();
+        $excel->assertHeader('Content-Type', 'application/vnd.ms-excel; charset=UTF-8');
+        $excel->assertSee('Status changed from pending to confirmed.');
+
+        $pdf = $this->actingAs($admin)->get(route('admin.logs.export', ['source' => 'bookings', 'format' => 'pdf']));
+
+        $pdf->assertOk();
+        $pdf->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-1.4', $pdf->getContent());
     }
 
     public function test_client_cannot_view_admin_logs(): void

@@ -249,9 +249,8 @@ class StaffPortalController extends Controller
     public function profile()
     {
         $user = Auth::user();
-        $barangays = config('cleanflow.barangays');
 
-        return view('staff.profile', compact('user', 'barangays'));
+        return view('staff.profile', compact('user'));
     }
 
     public function updateProfile(Request $request)
@@ -262,7 +261,6 @@ class StaffPortalController extends Controller
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'phone' => ['nullable', 'string', 'max:30'],
-            'barangay' => ['required', 'in:'.implode(',', array_keys(config('cleanflow.barangays')))],
         ]);
 
         $user->update($validated);
@@ -455,7 +453,32 @@ class StaffPortalController extends Controller
 
         return redirect()
             ->route('staff.fingerprint-consent.show', $enrollmentRequest)
-            ->with('success', 'Terms accepted. Admin can now continue your fingerprint enrollment on the device.');
+            ->with('success', 'Consent approved. Admin can now continue your fingerprint enrollment on the device.');
+    }
+
+    public function declineFingerprintConsent(DeviceEnrollmentRequest $enrollmentRequest)
+    {
+        abort_unless($enrollmentRequest->user_id === Auth::id(), 403);
+
+        if ($enrollmentRequest->status !== 'awaiting_consent') {
+            return redirect()
+                ->route('staff.fingerprint-consent.show', $enrollmentRequest)
+                ->with('success', 'Fingerprint enrollment consent was already reviewed.');
+        }
+
+        $enrollmentRequest->update([
+            'status' => 'declined',
+            'error_message' => 'Staff declined biometric consent.',
+        ]);
+
+        Notification::where('user_id', Auth::id())
+            ->where('link', route('staff.fingerprint-consent.show', $enrollmentRequest))
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        return redirect()
+            ->route('staff.fingerprint-consent.show', $enrollmentRequest)
+            ->with('success', 'Fingerprint enrollment consent declined.');
     }
 
     private function storeProofBatch(

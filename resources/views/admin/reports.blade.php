@@ -244,10 +244,55 @@
     </section>
 
     <div class="report-print-hidden flex justify-end">
-        <button onclick="window.print()" class="inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700">
-            <i class="fas fa-print"></i>
+        <button type="button" data-report-export-open class="inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700">
+            <i class="fas fa-file-export"></i>
             Print / Export Report
         </button>
+    </div>
+
+    <div id="report-export-modal" class="report-print-hidden fixed inset-0 z-[200] hidden items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="report-export-title">
+        <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <div class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                        <i class="fas fa-file-export"></i>
+                    </div>
+                    <h3 id="report-export-title" class="mt-4 text-lg font-black text-slate-950">Export Report</h3>
+                    <p class="mt-2 text-sm leading-6 text-slate-500">Choose a file format for the current report range: {{ $reportInsights['date_label'] }}.</p>
+                </div>
+                <button type="button" data-report-export-close class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50" aria-label="Close export options">
+                    <i class="fas fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="mt-6 grid gap-3">
+                <a href="{{ route('admin.reports.export', array_merge(['format' => 'pdf'], request()->query())) }}" class="flex items-center justify-between gap-4 rounded-xl border border-red-100 bg-red-50 px-4 py-4 text-left transition hover:border-red-200 hover:bg-red-100">
+                    <span class="flex items-center gap-3">
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white text-red-600 shadow-sm">
+                            <i class="fas fa-file-pdf"></i>
+                        </span>
+                        <span>
+                            <span class="block text-sm font-black text-slate-900">Export as PDF</span>
+                            <span class="block text-xs text-slate-500">Download a printable report summary.</span>
+                        </span>
+                    </span>
+                    <i class="fas fa-download text-red-600"></i>
+                </a>
+
+                <a href="{{ route('admin.reports.export', array_merge(['format' => 'excel'], request()->query())) }}" class="flex items-center justify-between gap-4 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-4 text-left transition hover:border-emerald-200 hover:bg-emerald-100">
+                    <span class="flex items-center gap-3">
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white text-emerald-600 shadow-sm">
+                            <i class="fas fa-file-excel"></i>
+                        </span>
+                        <span>
+                            <span class="block text-sm font-black text-slate-900">Export as Excel</span>
+                            <span class="block text-xs text-slate-500">Download report rows in spreadsheet format.</span>
+                        </span>
+                    </span>
+                    <i class="fas fa-download text-emerald-600"></i>
+                </a>
+            </div>
+        </div>
     </div>
 
     <section class="report-print-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -811,3 +856,38 @@
 
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(() => {
+    const modal = document.getElementById('report-export-modal');
+    const openButton = document.querySelector('[data-report-export-open]');
+    const closeButtons = document.querySelectorAll('[data-report-export-close]');
+
+    if (!modal || !openButton) {
+        return;
+    }
+
+    const setOpen = (isOpen) => {
+        modal.classList.toggle('hidden', !isOpen);
+        modal.classList.toggle('flex', isOpen);
+        openButton.setAttribute('aria-expanded', String(isOpen));
+    };
+
+    openButton.addEventListener('click', () => setOpen(true));
+    closeButtons.forEach((button) => button.addEventListener('click', () => setOpen(false)));
+
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            setOpen(false);
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            setOpen(false);
+        }
+    });
+})();
+</script>
+@endpush

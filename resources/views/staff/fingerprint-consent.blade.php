@@ -1,15 +1,17 @@
 @extends('layouts.staff')
-@section('title', 'Fingerprint Consent - Home Cleaning Service')
-@section('page-title', 'Fingerprint Consent')
-@section('page-subtitle', 'Review biometric attendance terms before enrollment')
+@section('title', 'Fingerprint Enrollment Consent - Home Cleaning Service')
+@section('page-title', 'Fingerprint Enrollment Consent')
+@section('page-subtitle', 'Review biometric consent before fingerprint enrollment')
 
 @section('content')
 @php
-    $alreadyAccepted = $enrollmentRequest->status !== 'awaiting_consent';
+    $isAwaitingConsent = $enrollmentRequest->status === 'awaiting_consent';
+    $isApproved = $enrollmentRequest->status === 'consent_accepted';
+    $isDeclined = $enrollmentRequest->status === 'declined';
 @endphp
 
 <div class="cleanflow-page-shell min-h-[calc(100vh-81px)] px-4 py-6 sm:px-6 sm:py-8">
-    <div class="mx-auto max-w-4xl space-y-6">
+    <div class="mx-auto max-w-5xl space-y-6">
         @if (session('success'))
             <div class="cleanflow-alert cleanflow-alert--success flex items-start gap-3">
                 <i class="fas fa-circle-check mt-0.5 text-base"></i>
@@ -35,34 +37,66 @@
         @endif
 
         <section class="cleanflow-panel overflow-hidden">
-            <div class="border-b border-slate-100 px-6 py-5">
+            <div class="border-b border-slate-100 px-6 py-6">
                 <div class="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-blue-700">
                     <i class="fas fa-fingerprint"></i>
-                    Biometric enrollment
+                    Staff Receives Consent
                 </div>
-                <h1 class="mt-4 text-2xl font-black text-slate-900">Fingerprint Attendance Terms and Agreement</h1>
-                <p class="mt-2 text-sm leading-7 text-slate-500">
-                    Admin requested to enroll your fingerprint for attendance verification. Review these terms before the enrollment can continue.
+                <h1 class="mt-4 text-3xl font-black text-slate-900">Fingerprint Enrollment Consent</h1>
+                <p class="mt-2 max-w-3xl text-sm leading-7 text-slate-500">
+                    Your administrator requested fingerprint enrollment for attendance verification. Review each section before choosing whether to continue.
                 </p>
             </div>
 
-            <div class="grid gap-5 px-6 py-6 lg:grid-cols-[1fr_0.8fr]">
-                <div class="space-y-4 text-sm leading-7 text-slate-600">
+            <div class="grid gap-6 px-6 py-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+                <div class="grid gap-4 md:grid-cols-2">
                     <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                        <h2 class="text-base font-bold text-slate-900">What you are agreeing to</h2>
-                        <ul class="mt-3 list-disc space-y-2 pl-5">
-                            <li>Your fingerprint template will be used only for staff attendance time-in and time-out verification.</li>
-                            <li>The system stores the assigned fingerprint slot number, not a photo of your finger.</li>
-                            <li>The fingerprint device may match your scan against the enrolled template when recording attendance.</li>
-                            <li>Admin can continue enrollment only after you accept this agreement.</li>
-                            <li>You may ask management how your attendance data is used, corrected, or removed when employment policies allow it.</li>
-                        </ul>
+                        <h2 class="flex items-center gap-2 text-base font-black text-slate-900">
+                            <i class="fas fa-database text-blue-600"></i>
+                            Data to be collected
+                        </h2>
+                        <p class="mt-2 text-sm leading-7 text-slate-600">
+                            The system records your staff account, assigned fingerprint slot number, attendance punch time, device source, and enrollment status.
+                        </p>
                     </div>
 
-                    <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-amber-900">
-                        <h2 class="text-base font-bold">Important</h2>
-                        <p class="mt-2">
-                            Do not accept if you do not understand the purpose of enrollment. Contact admin first before continuing.
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                        <h2 class="flex items-center gap-2 text-base font-black text-slate-900">
+                            <i class="fas fa-bullseye text-blue-600"></i>
+                            Purpose of collection
+                        </h2>
+                        <p class="mt-2 text-sm leading-7 text-slate-600">
+                            Fingerprint enrollment is used only to verify staff time-in and time-out activity for attendance monitoring.
+                        </p>
+                    </div>
+
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                        <h2 class="flex items-center gap-2 text-base font-black text-slate-900">
+                            <i class="fas fa-shield-halved text-blue-600"></i>
+                            Privacy policy
+                        </h2>
+                        <p class="mt-2 text-sm leading-7 text-slate-600">
+                            Your biometric enrollment is tied to attendance operations. Ask management if you need access, correction, or removal under company policy.
+                        </p>
+                    </div>
+
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                        <h2 class="flex items-center gap-2 text-base font-black text-slate-900">
+                            <i class="fas fa-microchip text-blue-600"></i>
+                            Device usage
+                        </h2>
+                        <p class="mt-2 text-sm leading-7 text-slate-600">
+                            The fingerprint device may compare your scan with the enrolled slot when recording attendance. The admin queue stays locked until you approve.
+                        </p>
+                    </div>
+
+                    <div class="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4 md:col-span-2">
+                        <h2 class="flex items-center gap-2 text-base font-black text-blue-950">
+                            <i class="fas fa-file-signature text-blue-600"></i>
+                            Consent agreement
+                        </h2>
+                        <p class="mt-2 text-sm leading-7 text-blue-900">
+                            By selecting Accept & Continue, you confirm that you understand the collection and use of fingerprint enrollment data for attendance verification.
                         </p>
                     </div>
                 </div>
@@ -83,29 +117,45 @@
                             <span class="font-semibold text-slate-900">{{ $enrollmentRequest->requestedBy?->display_name ?? 'Admin' }}</span>
                         </div>
                         <div class="flex items-center justify-between gap-4">
-                            <span class="text-slate-500">Status</span>
-                            <span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $alreadyAccepted ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }}">
-                                {{ $alreadyAccepted ? 'Accepted' : 'Waiting for consent' }}
+                            <span class="text-slate-500">Enrollment Status</span>
+                            <span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $isApproved ? 'bg-emerald-50 text-emerald-700' : ($isDeclined ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700') }}">
+                                {{ $isApproved ? 'Approved' : ($isDeclined ? 'Declined' : 'Awaiting Approval') }}
                             </span>
                         </div>
                     </div>
 
-                    @if (! $alreadyAccepted)
-                        <form method="POST" action="{{ route('staff.fingerprint-consent.accept', $enrollmentRequest) }}" class="mt-5 space-y-4">
-                            @csrf
-                            <label class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                                <input type="checkbox" name="accept_terms" value="1" class="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500" required>
-                                <span>I have read and accept the fingerprint attendance terms and agreement.</span>
-                            </label>
-                            <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-700">
-                                <i class="fas fa-check-circle"></i>
-                                Accept Terms
-                            </button>
-                        </form>
-                    @else
+                    @if ($isAwaitingConsent)
+                        <div class="mt-5 grid gap-3">
+                            <form method="POST" action="{{ route('staff.fingerprint-consent.accept', $enrollmentRequest) }}">
+                                @csrf
+                                <input type="hidden" name="accept_terms" value="1">
+                                <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-700">
+                                    <i class="fas fa-check-circle"></i>
+                                    Accept &amp; Continue
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ route('staff.fingerprint-consent.decline', $enrollmentRequest) }}">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
+                                    <i class="fas fa-xmark"></i>
+                                    Decline
+                                </button>
+                            </form>
+                        </div>
+                    @elseif ($isApproved)
                         <div class="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
                             <i class="fas fa-circle-check mr-1"></i>
-                            Terms accepted. Wait for admin to continue enrollment.
+                            Enrollment Status: Approved. Admin can now enroll your fingerprint on the device.
+                        </div>
+                    @elseif ($isDeclined)
+                        <div class="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                            <i class="fas fa-circle-xmark mr-1"></i>
+                            You declined fingerprint enrollment consent.
+                        </div>
+                    @else
+                        <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+                            Current status: {{ ucfirst(str_replace('_', ' ', $enrollmentRequest->status)) }}.
                         </div>
                     @endif
                 </aside>

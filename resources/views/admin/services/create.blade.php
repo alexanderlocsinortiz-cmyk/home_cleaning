@@ -44,7 +44,12 @@
             <h3 class="text-lg font-extrabold text-slate-900">Service Details</h3>
             <p class="mt-1 text-sm text-slate-500">Define the service name, description, price, and availability for clients.</p>
         </div>
-        <form action="{{ route('admin.services.store') }}" method="POST" class="space-y-6 px-6 py-6">
+        <form action="{{ route('admin.services.store') }}" method="POST" class="space-y-6 px-6 py-6"
+            data-service-confirm
+            data-confirm-title="Create this service?"
+            data-confirm-message="This will add a new service package to the admin service catalog."
+            data-confirm-button="Create Service"
+            data-confirm-tone="primary">
             @csrf
             <div class="space-y-5">
                 <div>
@@ -85,4 +90,5 @@
         </form>
     </section>
 </div>
+@include('admin.services._confirm_modal')
 @endsection

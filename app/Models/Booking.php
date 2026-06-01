@@ -81,8 +81,8 @@ class Booking extends Model
 
     public const PROPERTY_FEES = [
         'house' => 0.0,
-        'apartment' => 200.0,
-        'boarding_house' => 300.0,
+        'apartment' => 0.0,
+        'boarding_house' => 0.0,
     ];
 
     public const PROPERTY_TYPE_LABELS = [
@@ -129,10 +129,10 @@ class Booking extends Model
             'price' => 300.0,
             'description' => 'Extra removal for fur on floors, rugs, and furniture.',
         ],
-        'eco_friendly_supplies' => [
-            'label' => 'Eco-Friendly Supplies',
-            'price' => 150.0,
-            'description' => 'Use greener, lower-residue cleaning products when available.',
+        'yard_sweeping' => [
+            'label' => 'Yard Sweeping',
+            'price' => 250.0,
+            'description' => 'Sweeping for walkways, patios, and accessible yard areas.',
         ],
     ];
 
@@ -512,23 +512,37 @@ class Booking extends Model
 
     public static function pricingConfiguration(): array
     {
+        $catalogAliases = [
+            'basic' => ['basic-clean'],
+        ];
+
+        $perSquareMeterServices = collect(Service::PACKAGE_CATALOG)
+            ->filter(fn (array $package) => ($package['pricing_unit'] ?? null) === 'sqm')
+            ->keys()
+            ->flatMap(fn (string $slug) => array_merge([$slug], $catalogAliases[$slug] ?? []))
+            ->values()
+            ->all();
+
+        $flatRateRangeServices = collect(Service::PACKAGE_CATALOG)
+            ->filter(fn (array $package) => ($package['pricing_unit'] ?? null) === 'flat_range')
+            ->flatMap(function (array $package, string $slug) use ($catalogAliases) {
+                $range = [
+                    'min' => (float) ($package['price_range']['min'] ?? $package['recommended_price'] ?? 0),
+                    'max' => (float) ($package['price_range']['max'] ?? $package['recommended_price'] ?? 0),
+                ];
+
+                return collect(array_merge([$slug], $catalogAliases[$slug] ?? []))
+                    ->mapWithKeys(fn (string $serviceSlug) => [$serviceSlug => $range]);
+            })
+            ->all();
+
         return [
             'property_fees' => self::PROPERTY_FEES,
             'property_type_labels' => self::PROPERTY_TYPE_LABELS,
             'included_floor_area' => self::includedFloorArea(),
             'floor_area_rates' => self::floorAreaRates(),
-            'per_square_meter_services' => collect(Service::PACKAGE_CATALOG)
-                ->filter(fn (array $package) => ($package['pricing_unit'] ?? null) === 'sqm')
-                ->keys()
-                ->values()
-                ->all(),
-            'flat_rate_range_services' => collect(Service::PACKAGE_CATALOG)
-                ->filter(fn (array $package) => ($package['pricing_unit'] ?? null) === 'flat_range')
-                ->map(fn (array $package) => [
-                    'min' => (float) ($package['price_range']['min'] ?? $package['recommended_price'] ?? 0),
-                    'max' => (float) ($package['price_range']['max'] ?? $package['recommended_price'] ?? 0),
-                ])
-                ->all(),
+            'per_square_meter_services' => $perSquareMeterServices,
+            'flat_rate_range_services' => $flatRateRangeServices,
             'add_ons' => self::addOnCatalog(),
         ];
     }
@@ -632,10 +646,10 @@ class Booking extends Model
         $completedAt = $this->completed_at ? Carbon::parse($this->completed_at) : null;
 
         $this->started_late_minutes = $startedAt && $startedAt->gt($expectedStartedAt)
-            ? $expectedStartedAt->diffInMinutes($startedAt)
+            ? $this->wholeLateMinutes($expectedStartedAt, $startedAt)
             : 0;
         $this->completed_late_minutes = $completedAt && $completedAt->gt($expectedCompletedAt)
-            ? $expectedCompletedAt->diffInMinutes($completedAt)
+            ? $this->wholeLateMinutes($expectedCompletedAt, $completedAt)
             : 0;
 
         $this->on_time_status = match (true) {
@@ -647,6 +661,11 @@ class Booking extends Model
         };
 
         $this->on_time_notes = $this->timelinessSummary();
+    }
+
+    private function wholeLateMinutes(Carbon $expectedAt, Carbon $actualAt): int
+    {
+        return max(0, (int) ceil($expectedAt->diffInMinutes($actualAt)));
     }
 
     public function timelinessLabel(): string
@@ -985,12 +1004,12 @@ class Booking extends Model
         $isFlatRateRange = Service::usesFlatRateRangePricing($serviceType);
         if ($isFlatRateRange) {
             $range = Service::priceRangeForSlug($serviceType);
-            $basePrice = ((int) $rooms) >= 3 ? (float) ($range['max'] ?? $basePrice) : (float) ($range['min'] ?? $basePrice);
+            $basePrice = (float) ($range['min'] ?? $basePrice);
         }
         $basePrice = $isPerSquareMeter ? 0.0 : $basePrice;
         $propertyFee = $isFlatRateRange ? 0.0 : (float) (self::PROPERTY_FEES[$propertyType] ?? 0.0);
-        $roomsFee = $isFlatRateRange ? 0.0 : max(0, ((int) $rooms) - 1) * 50;
-        $bathroomsFee = $isFlatRateRange ? 0.0 : max(0, ((int) $bathrooms) - 1) * 100;
+        $roomsFee = 0.0;
+        $bathroomsFee = 0.0;
         $floorArea = max(0, (int) $floorArea);
         $includedFloorArea = self::includedFloorArea();
         $billableFloorArea = $isFlatRateRange ? 0 : self::billableFloorAreaForService($serviceType, $floorArea);

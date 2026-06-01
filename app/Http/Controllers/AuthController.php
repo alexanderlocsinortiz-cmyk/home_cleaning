@@ -3,20 +3,25 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Notifications\ResetPasswordOtp;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
     private const LOGIN_MAX_ATTEMPTS = 5;
-    private const LOGIN_ATTEMPT_DECAY_SECONDS = 3600;
-    private const LOGIN_LOCKOUT_ROUND_DECAY_SECONDS = 86400;
+    private const LOGIN_ATTEMPT_DECAY_SECONDS = 86400;
     private const LOGIN_BASE_LOCKOUT_SECONDS = 60;
+    private const LOGIN_ESCALATED_LOCKOUT_STEP_SECONDS = 300;
+    private const LOGIN_MAX_LOCKOUT_SECONDS = 3600;
 
     public function showRegister()
     {
@@ -91,6 +96,119 @@ class AuthController extends Controller
     public function showLogin()
     {
         return view('auth.login');
+    }
+
+    public function showForgotPassword()
+    {
+        return view('auth.forgot-password', [
+            'codeExpiresInMinutes' => $this->passwordResetCodeExpiresInMinutes(),
+        ]);
+    }
+
+    public function sendPasswordResetCode(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $email = strtolower($validated['email']);
+        $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
+
+        if ($user) {
+            $expiresInMinutes = $this->passwordResetCodeExpiresInMinutes();
+            $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+            DB::table('password_reset_tokens')->updateOrInsert(
+                ['email' => $user->email],
+                [
+                    'token' => Hash::make($code),
+                    'created_at' => now(),
+                ]
+            );
+
+            try {
+                $user->notify(new ResetPasswordOtp($code, $expiresInMinutes));
+            } catch (\Exception $e) {
+                Log::error('Failed to send password reset code', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return back()
+                    ->withInput()
+                    ->withErrors(['email' => 'Failed to send reset code. Please try again.']);
+            }
+        }
+
+        $request->session()->put('password_reset_email', $email);
+
+        return redirect()
+            ->route('password.reset.verify')
+            ->with('success', 'If that email exists, a password reset code was sent.');
+    }
+
+    public function showResetPassword(Request $request)
+    {
+        if (! $request->session()->has('password_reset_email')) {
+            return redirect()->route('password.request');
+        }
+
+        return view('auth.reset-password', [
+            'email' => $request->session()->get('password_reset_email'),
+            'codeExpiresInMinutes' => $this->passwordResetCodeExpiresInMinutes(),
+        ]);
+    }
+
+    public function resetPasswordWithCode(Request $request)
+    {
+        $sessionEmail = $request->session()->get('password_reset_email');
+
+        if (! $sessionEmail) {
+            return redirect()->route('password.request');
+        }
+
+        $validated = $request->validate([
+            'code' => ['required', 'digits:6'],
+            'password' => ['required', 'confirmed', Password::min(8)],
+        ]);
+
+        $user = User::whereRaw('LOWER(email) = ?', [strtolower($sessionEmail)])->first();
+        $reset = DB::table('password_reset_tokens')->where('email', $user?->email ?? $sessionEmail)->first();
+
+        if (! $user || ! $reset) {
+            return back()
+                ->withErrors(['code' => 'No active reset code was found. Request a new code to continue.'])
+                ->onlyInput('code');
+        }
+
+        $createdAt = $reset->created_at ? Carbon::parse($reset->created_at) : null;
+
+        if (! $createdAt || $createdAt->addMinutes($this->passwordResetCodeExpiresInMinutes())->isPast()) {
+            DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+
+            return back()
+                ->withErrors(['code' => 'The reset code has expired. Request a new code to continue.'])
+                ->onlyInput('code');
+        }
+
+        if (! Hash::check($validated['code'], $reset->token)) {
+            return back()
+                ->withErrors(['code' => 'The reset code is invalid. Please try again.'])
+                ->onlyInput('code');
+        }
+
+        $user->forceFill([
+            'password' => Hash::make($validated['password']),
+            'remember_token' => null,
+        ])->save();
+
+        DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+        $request->session()->forget('password_reset_email');
+
+        return redirect()
+            ->route('login')
+            ->with('success', 'Password reset successful. You can now sign in.');
     }
 
     public function showVerifyEmail(Request $request)
@@ -249,16 +367,7 @@ class AuthController extends Controller
             return;
         }
 
-        RateLimiter::clear($this->loginAttemptKey($request));
-
-        $lockoutRound = RateLimiter::hit(
-            $this->loginLockoutRoundKey($request),
-            self::LOGIN_LOCKOUT_ROUND_DECAY_SECONDS
-        );
-        $seconds = $lockoutRound === 1
-            ? self::LOGIN_BASE_LOCKOUT_SECONDS
-            : ($lockoutRound + 1) * self::LOGIN_BASE_LOCKOUT_SECONDS;
-
+        $seconds = $this->loginLockoutSecondsForAttempt($attempts);
         RateLimiter::hit($this->loginLockoutKey($request), $seconds);
         $this->flashLoginLockout($request, $seconds);
 
@@ -279,7 +388,6 @@ class AuthController extends Controller
     {
         RateLimiter::clear($this->loginAttemptKey($request));
         RateLimiter::clear($this->loginLockoutKey($request));
-        RateLimiter::clear($this->loginLockoutRoundKey($request));
     }
 
     private function loginAttemptKey(Request $request): string
@@ -292,14 +400,21 @@ class AuthController extends Controller
         return 'login-lockout:'.$this->normalizedLoginEmail($request).'|'.$request->ip();
     }
 
-    private function loginLockoutRoundKey(Request $request): string
-    {
-        return 'login-lockout-rounds:'.$this->normalizedLoginEmail($request).'|'.$request->ip();
-    }
-
     private function normalizedLoginEmail(Request $request): string
     {
         return strtolower((string) $request->input('email'));
+    }
+
+    private function loginLockoutSecondsForAttempt(int $attempts): int
+    {
+        if ($attempts <= self::LOGIN_MAX_ATTEMPTS) {
+            return self::LOGIN_BASE_LOCKOUT_SECONDS;
+        }
+
+        return min(
+            self::LOGIN_MAX_LOCKOUT_SECONDS,
+            ($attempts - self::LOGIN_MAX_ATTEMPTS) * self::LOGIN_ESCALATED_LOCKOUT_STEP_SECONDS
+        );
     }
 
     private function loginLockoutMessage(int $seconds): string
@@ -308,5 +423,10 @@ class AuthController extends Controller
 
         return 'Too many incorrect login attempts. Please try again in '
             .$minutes.' minute'.($minutes === 1 ? '' : 's').'.';
+    }
+
+    private function passwordResetCodeExpiresInMinutes(): int
+    {
+        return max(1, (int) config('auth.passwords.users.expire', 60));
     }
 }

@@ -117,29 +117,30 @@ class AdminController extends Controller
             $chartCursor->addDay();
         }
 
-        $availableRevenueMonths = Booking::query()
-            ->where('status', 'completed')
-            ->whereNotNull('scheduled_date')
-            ->orderByDesc('scheduled_date')
-            ->pluck('scheduled_date')
-            ->map(fn ($date) => Carbon::parse($date)->format('Y-m'))
-            ->unique()
-            ->values();
+        $availableRevenueMonths = $this->availableRevenueMonths($dashboardNow);
         $currentMonthKey = $dashboardNow->format('Y-m');
         $requestedRevenueMonth = $request->query('revenue_month');
-        $selectedRevenueMonth = $requestedRevenueMonth
-            ?: ($availableRevenueMonths->contains($currentMonthKey) ? $currentMonthKey : ($availableRevenueMonths->first() ?? $currentMonthKey));
-        if (! preg_match('/^\d{4}-\d{2}$/', (string) $selectedRevenueMonth)) {
-            $selectedRevenueMonth = $currentMonthKey;
-        }
+        $selectedRevenueMonth = $this->resolveRevenueMonth(
+            $requestedRevenueMonth,
+            $availableRevenueMonths,
+            $currentMonthKey
+        );
 
         $revenueMonthStart = Carbon::createFromFormat('Y-m-d', $selectedRevenueMonth.'-01')->startOfMonth();
         $revenueMonthEnd = $revenueMonthStart->copy()->endOfMonth();
         $revenueBookings = Booking::query()
             ->where('status', 'completed')
-            ->whereBetween('scheduled_date', [$revenueMonthStart->toDateString(), $revenueMonthEnd->toDateString()])
-            ->get(['id', 'scheduled_date', 'price']);
-        $revenueByDate = $revenueBookings->groupBy(fn (Booking $b) => Carbon::parse($b->scheduled_date)->toDateString());
+            ->where(function ($query) use ($revenueMonthStart, $revenueMonthEnd) {
+                $query
+                    ->whereBetween('completed_at', [$revenueMonthStart->copy()->startOfDay(), $revenueMonthEnd->copy()->endOfDay()])
+                    ->orWhere(function ($fallbackQuery) use ($revenueMonthStart, $revenueMonthEnd) {
+                        $fallbackQuery
+                            ->whereNull('completed_at')
+                            ->whereBetween('scheduled_date', [$revenueMonthStart->toDateString(), $revenueMonthEnd->toDateString()]);
+                    });
+            })
+            ->get(['id', 'scheduled_date', 'completed_at', 'price']);
+        $revenueByDate = $revenueBookings->groupBy(fn (Booking $b) => $this->bookingRevenueDate($b)->toDateString());
         $revenueLabels = $revenueDateLabels = $chartRevenueData = [];
         $revenueCursor = $revenueMonthStart->copy();
         while ($revenueCursor->lte($revenueMonthEnd)) {
@@ -210,6 +211,60 @@ class AdminController extends Controller
             'staff' => (int) ($userCounts->staff ?? 0),
             'active_devices' => Device::where('is_active', true)->count(),
         ];
+    }
+
+    private function availableRevenueMonths(Carbon $dashboardNow)
+    {
+        $revenueMonths = Booking::query()
+            ->where('status', 'completed')
+            ->where(function ($query) {
+                $query->whereNotNull('completed_at')
+                    ->orWhereNotNull('scheduled_date');
+            })
+            ->get(['scheduled_date', 'completed_at'])
+            ->map(fn (Booking $booking) => $this->bookingRevenueDate($booking)->format('Y-m'))
+            ->unique()
+            ->sort()
+            ->values();
+
+        $firstRevenueMonth = $revenueMonths->first() ?? $dashboardNow->format('Y-m');
+        $lastRevenueMonth = $revenueMonths->last() ?? $dashboardNow->format('Y-m');
+        $startYear = min(
+            (int) substr($firstRevenueMonth, 0, 4),
+            (int) $dashboardNow->format('Y')
+        );
+
+        $start = Carbon::create($startYear, 1, 1, 0, 0, 0, $this->attendanceTimezone())->startOfMonth();
+        $end = Carbon::createFromFormat('Y-m-d', max($lastRevenueMonth, $dashboardNow->format('Y-m')).'-01')->startOfMonth();
+        $months = [];
+
+        for ($cursor = $end->copy(); $cursor->gte($start); $cursor->subMonth()) {
+            $months[] = $cursor->format('Y-m');
+        }
+
+        return collect(array_values(array_unique($months)));
+    }
+
+    private function resolveRevenueMonth(?string $requestedMonth, $availableRevenueMonths, string $currentMonthKey): string
+    {
+        if ($requestedMonth && preg_match('/^\d{4}-\d{2}$/', $requestedMonth) === 1) {
+            try {
+                return Carbon::createFromFormat('Y-m-d', $requestedMonth.'-01')->format('Y-m');
+            } catch (\Throwable) {
+                return $currentMonthKey;
+            }
+        }
+
+        return $availableRevenueMonths->contains($currentMonthKey)
+            ? $currentMonthKey
+            : ($availableRevenueMonths->first() ?? $currentMonthKey);
+    }
+
+    private function bookingRevenueDate(Booking $booking): Carbon
+    {
+        return $booking->completed_at
+            ? Carbon::parse($booking->completed_at, $this->attendanceTimezone())
+            : Carbon::parse($booking->scheduled_date, $this->attendanceTimezone());
     }
 
     private function dashboardTopStaff(Carbon $dashboardNow)

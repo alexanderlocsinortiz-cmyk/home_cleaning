@@ -13,8 +13,17 @@
 </head>
 <body class="admin-ui bg-slate-50 flex min-h-screen overflow-x-hidden">
     @php
-        $adminDateRangeEnd = now();
-        $adminDateRangeStart = now()->subDays(29);
+        $adminTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+        $adminToday = now($adminTimezone);
+        $adminDateRangeStart = $adminToday->copy()->startOfMonth();
+        $adminDateRangeEnd = $adminToday->copy()->endOfMonth();
+        $adminCalendarStart = $adminDateRangeStart->copy()->startOfWeek(\Carbon\CarbonInterface::SUNDAY);
+        $adminCalendarEnd = $adminDateRangeEnd->copy()->endOfWeek(\Carbon\CarbonInterface::SATURDAY);
+        $adminCalendarDays = [];
+
+        for ($day = $adminCalendarStart->copy(); $day->lte($adminCalendarEnd); $day->addDay()) {
+            $adminCalendarDays[] = $day->copy();
+        }
     @endphp
     <div class="fixed inset-0 z-90 hidden bg-black/50 backdrop-blur-[2px]" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
@@ -103,9 +112,14 @@
                             </span>
                             <i class="fas fa-chevron-down text-xs text-blue-900"></i>
                         </button>
-                        <div id="date-range-menu" class="absolute right-0 top-full z-[60] mt-3 hidden w-80 rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
-                            <div class="text-sm font-bold text-slate-900">Dashboard date range</div>
-                            <div class="mt-1 text-xs text-slate-500">Current view covers the last 30 days.</div>
+                        <div id="date-range-menu" class="absolute right-0 top-full z-[60] mt-3 hidden w-96 rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <div class="text-sm font-bold text-slate-900">Dashboard date range</div>
+                                    <div class="mt-1 text-xs text-slate-500">Current view covers {{ $adminToday->format('F Y') }}.</div>
+                                </div>
+                                <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">Today {{ $adminToday->format('M d') }}</span>
+                            </div>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
                                 <div class="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
                                     <div class="font-bold uppercase tracking-wide text-slate-400">From</div>
@@ -114,6 +128,28 @@
                                 <div class="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
                                     <div class="font-bold uppercase tracking-wide text-slate-400">To</div>
                                     <div class="mt-1 font-semibold text-slate-900">{{ $adminDateRangeEnd->format('M d, Y') }}</div>
+                                </div>
+                            </div>
+                            <div class="mt-4 rounded-xl border border-slate-100 p-3">
+                                <div class="mb-3 flex items-center justify-between">
+                                    <div class="text-sm font-black text-slate-900">{{ $adminToday->format('F Y') }}</div>
+                                    <div class="text-xs font-semibold text-slate-500">{{ $adminTimezone }}</div>
+                                </div>
+                                <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase text-slate-400">
+                                    @foreach(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $weekday)
+                                        <div class="py-1">{{ $weekday }}</div>
+                                    @endforeach
+                                </div>
+                                <div class="mt-1 grid grid-cols-7 gap-1 text-center text-xs">
+                                    @foreach($adminCalendarDays as $calendarDay)
+                                        @php
+                                            $isCurrentMonth = $calendarDay->isSameMonth($adminToday);
+                                            $isToday = $calendarDay->isSameDay($adminToday);
+                                        @endphp
+                                        <div class="flex h-8 items-center justify-center rounded-lg font-bold {{ $isToday ? 'bg-blue-700 text-white' : ($isCurrentMonth ? 'text-slate-800 hover:bg-blue-50' : 'text-slate-300') }}">
+                                            {{ $calendarDay->day }}
+                                        </div>
+                                    @endforeach
                                 </div>
                             </div>
                             <div class="mt-4 flex items-center justify-between gap-3">

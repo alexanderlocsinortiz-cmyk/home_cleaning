@@ -74,6 +74,10 @@
             <i class="fas fa-users"></i>
             Client Restrictions
         </button>
+        <button type="button" data-settings-tab="database-backup" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
+            <i class="fas fa-database"></i>
+            Database Backup
+        </button>
     </nav>
 
     <section id="general-settings" data-settings-panel="general-settings" class="cleanflow-panel scroll-mt-24 overflow-hidden">
@@ -220,6 +224,130 @@
                 </div>
             </div>
         </form>
+    </section>
+
+    <section id="database-backup" data-settings-panel="database-backup" class="cleanflow-panel hidden scroll-mt-24 overflow-hidden">
+        <div class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h3 class="text-lg font-black text-slate-900">Database Backup</h3>
+                <p class="mt-1 text-sm text-slate-500">Download a point-in-time copy of the application database.</p>
+            </div>
+            <span class="inline-flex w-fit items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                <i class="fas fa-shield-halved"></i>
+                Admin only
+            </span>
+        </div>
+
+        <div class="grid gap-5 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,24rem)] lg:items-start">
+            <div class="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+                <div class="flex items-start gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-700 shadow-sm">
+                        <i class="fas fa-download"></i>
+                    </div>
+                    <div>
+                        <div class="text-sm font-black text-slate-900">Download database backup</div>
+                        <p class="mt-1 text-sm leading-6 text-slate-600">
+                            This creates a temporary backup file and downloads it immediately. Store it somewhere private because it can contain customers, staff, bookings, payments, and messages.
+                        </p>
+                        <button type="button" data-database-backup-password-toggle class="mt-4 inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm font-black text-blue-700 transition hover:bg-blue-50">
+                            <i class="fas fa-key"></i>
+                            Change backup password
+                        </button>
+
+                        <form method="POST" action="{{ route('admin.settings.database-backup.password') }}" class="mt-4 hidden rounded-2xl border border-blue-100 bg-white p-4" data-database-backup-password-form>
+                            @csrf
+                            @method('PATCH')
+                            <div class="mb-4 text-sm font-black text-slate-900">Change backup password</div>
+                            <div class="space-y-3">
+                                <label class="block">
+                                    <span class="text-sm font-bold text-slate-700">Current password</span>
+                                    <div class="relative mt-2">
+                                        <input type="password" name="database_backup_admin_password" autocomplete="current-password" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                                        <button type="button" data-password-toggle class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-blue-700" aria-label="Show current password">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    @error('database_backup_admin_password')
+                                        <span class="mt-1 block text-xs font-semibold text-red-600">{{ $message }}</span>
+                                    @enderror
+                                </label>
+                                <label class="block">
+                                    <span class="text-sm font-bold text-slate-700">New backup password</span>
+                                    <div class="relative mt-2">
+                                        <input type="password" name="database_backup_new_password" autocomplete="new-password" minlength="8" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                                        <button type="button" data-password-toggle class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-blue-700" aria-label="Show new backup password">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    <p class="mt-1 text-xs text-slate-500">Use at least 8 characters.</p>
+                                    @error('database_backup_new_password')
+                                        <span class="mt-1 block text-xs font-semibold text-red-600">{{ $message }}</span>
+                                    @enderror
+                                </label>
+                                <label class="block">
+                                    <span class="text-sm font-bold text-slate-700">Confirm new backup password</span>
+                                    <div class="relative mt-2">
+                                        <input type="password" name="database_backup_new_password_confirmation" autocomplete="new-password" minlength="8" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                                        <button type="button" data-password-toggle class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-blue-700" aria-label="Show confirm new backup password">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </label>
+                            </div>
+                            <button type="submit" class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white transition hover:bg-blue-700">
+                                <i class="fas fa-key"></i>
+                                Save backup password
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <form method="POST" action="{{ route('admin.settings.database-backup') }}" class="rounded-2xl border border-slate-100 bg-white p-4" data-database-backup-form>
+                    @csrf
+                    @unless($generalSettings->database_backup_password_hash)
+                        <div class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-900">
+                            Set a backup password before downloading database backups.
+                        </div>
+                    @endunless
+                    <div class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900 hidden" data-database-backup-confirm>
+                        <div class="font-black">Warning:</div>
+                        <p class="mt-1">
+                            Backup files may contain confidential information such as customer records, staff accounts, bookings, and payment history.
+                            Store backup files securely.
+                        </p>
+                    </div>
+                    <label class="hidden" data-database-backup-confirm>
+                        <span class="text-sm font-bold text-slate-700">Database backup password</span>
+                        <div class="relative mt-2">
+                            <input
+                                type="password"
+                                name="database_backup_password"
+                                autocomplete="off"
+                                class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                                required
+                                disabled
+                            >
+                            <button type="button" data-password-toggle class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-blue-700" aria-label="Show backup password">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        @error('database_backup_password')
+                            <span class="mt-1 block text-xs font-semibold text-red-600">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    @error('database_backup')
+                        <div class="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{{ $message }}</div>
+                    @enderror
+                    <button type="submit" class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white transition hover:bg-blue-700">
+                        <i class="fas fa-database"></i>
+                        <span data-database-backup-button-label>Download Database</span>
+                    </button>
+                </form>
+
+            </div>
+        </div>
     </section>
 
     <section id="restriction-history" data-settings-panel="restriction-history" class="cleanflow-panel hidden scroll-mt-24 overflow-hidden">
@@ -575,6 +703,71 @@
             icon.classList.toggle('fa-eye', !willShow);
             icon.classList.toggle('fa-eye-slash', willShow);
             button.setAttribute('aria-label', willShow ? 'Hide password' : 'Show password');
+        });
+    });
+})();
+
+(() => {
+    const passwordFormHasErrors = @json($errors->has('database_backup_admin_password') || $errors->has('database_backup_new_password'));
+
+    document.querySelectorAll('[data-database-backup-password-toggle]').forEach((button) => {
+        const form = document.querySelector('[data-database-backup-password-form]');
+
+        button.addEventListener('click', () => {
+            form?.classList.toggle('hidden');
+            form?.querySelector('input')?.focus();
+        });
+    });
+
+    if (passwordFormHasErrors) {
+        const form = document.querySelector('[data-database-backup-password-form]');
+        form?.classList.remove('hidden');
+        form?.querySelector('input')?.focus();
+    }
+
+    document.querySelectorAll('[data-database-backup-form]').forEach((form) => {
+        const confirmBlocks = form.querySelectorAll('[data-database-backup-confirm]');
+        const passwordInput = form.querySelector('[name="database_backup_password"]');
+        const buttonLabel = form.querySelector('[data-database-backup-button-label]');
+        const shouldOpen = @json($errors->has('database_backup_password') || $errors->has('database_backup'));
+
+        function openConfirmation() {
+            confirmBlocks.forEach((block) => block.classList.remove('hidden'));
+            if (passwordInput) {
+                passwordInput.disabled = false;
+            }
+            if (buttonLabel) {
+                buttonLabel.textContent = 'Confirm and Download';
+            }
+            passwordInput?.focus();
+            form.dataset.databaseBackupReady = 'true';
+        }
+
+        if (shouldOpen) {
+            openConfirmation();
+        }
+
+        form.addEventListener('submit', (event) => {
+            if (form.dataset.databaseBackupReady === 'true') {
+                window.setTimeout(() => {
+                    if (passwordInput) {
+                        passwordInput.value = '';
+                        passwordInput.type = 'password';
+                    }
+
+                    const toggleIcon = form.querySelector('[data-password-toggle] i');
+
+                    if (toggleIcon) {
+                        toggleIcon.classList.add('fa-eye');
+                        toggleIcon.classList.remove('fa-eye-slash');
+                    }
+                }, 500);
+
+                return;
+            }
+
+            event.preventDefault();
+            openConfirmation();
         });
     });
 })();

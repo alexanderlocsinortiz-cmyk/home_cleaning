@@ -213,12 +213,26 @@
                     <div class="mt-2 text-xs font-semibold text-emerald-600">{{ number_format($selectedRevenueCompletedCount) }} completed booking{{ $selectedRevenueCompletedCount === 1 ? '' : 's' }}</div>
                 </div>
                 <form method="GET" action="{{ route('admin.dashboard') }}" class="shrink-0">
-                    <label for="dashboard-revenue-month" class="sr-only">Revenue month</label>
-                    <select id="dashboard-revenue-month" name="revenue_month" onchange="this.form.submit()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm">
-                        @if(! $availableRevenueMonths->contains($selectedRevenueMonth))
-                            <option value="{{ $selectedRevenueMonth }}" selected>{{ $selectedRevenueMonthLabel }}</option>
+                    @foreach(request()->except('revenue_month') as $queryKey => $queryValue)
+                        @if(is_array($queryValue))
+                            @foreach($queryValue as $nestedValue)
+                                <input type="hidden" name="{{ $queryKey }}[]" value="{{ $nestedValue }}">
+                            @endforeach
+                        @else
+                            <input type="hidden" name="{{ $queryKey }}" value="{{ $queryValue }}">
                         @endif
-                        @forelse($availableRevenueMonths as $month)
+                    @endforeach
+                    <label for="dashboard-revenue-month" class="sr-only">Revenue month</label>
+                    @php
+                        $revenueMonthOptions = collect($availableRevenueMonths)
+                            ->prepend($selectedRevenueMonth)
+                            ->map(fn ($month) => (string) $month)
+                            ->filter(fn ($month) => preg_match('/^\d{4}-\d{2}$/', $month) === 1)
+                            ->unique()
+                            ->values();
+                    @endphp
+                    <select id="dashboard-revenue-month" name="revenue_month" onchange="this.form.submit()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm">
+                        @forelse($revenueMonthOptions as $month)
                             <option value="{{ $month }}" @selected($selectedRevenueMonth === $month)>
                                 {{ \Carbon\Carbon::createFromFormat('Y-m', $month)->format('F Y') }}
                             </option>
@@ -232,6 +246,11 @@
                 <div class="h-36">
                     <canvas id="dashboard-revenue-chart"></canvas>
                 </div>
+                @if($selectedRevenueCompletedCount === 0)
+                    <div class="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-center text-sm text-slate-500">
+                        No completed bookings for {{ $selectedRevenueMonthLabel }}.
+                    </div>
+                @endif
             </div>
         </section>
 
