@@ -173,7 +173,7 @@ class StaffPortalController extends Controller
 
             $videoUploaded = false;
             if ($request->hasFile('completion_video')) {
-                $videoPath = $request->file('completion_video')->store('booking-proofs/after', 'public');
+                $videoPath = $request->file('completion_video')->store('booking-proofs/after', config('filesystems.public_uploads_disk'));
 
                 $booking->serviceProofs()->create([
                     'uploaded_by' => $actor->id,
@@ -489,7 +489,7 @@ class StaffPortalController extends Controller
         int $uploadedBy
     ): int {
         foreach ($files as $file) {
-            $path = $file->store('booking-proofs/'.$stage, 'public');
+            $path = $file->store('booking-proofs/'.$stage, config('filesystems.public_uploads_disk'));
 
             $booking->serviceProofs()->create([
                 'uploaded_by' => $uploadedBy,

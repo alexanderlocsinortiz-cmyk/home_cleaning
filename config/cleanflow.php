@@ -1,7 +1,7 @@
 <?php
 
-// Service areas are fixed by project scope.
-// Do not add, remove, or rename barangays here unless the approved project coverage changes.
+// Customer booking service areas are fixed by project scope.
+// Do not add, remove, or rename barangays here unless the approved booking coverage changes.
 $serviceAreas = [
     ['name' => 'Poblacion', 'lat' => 7.9073, 'lng' => 125.0920, 'type' => 'service_center', 'services' => ['Deep Cleaning', 'Basic Cleaning']],
     ['name' => 'Bagontaas', 'lat' => 7.9477, 'lng' => 125.1009, 'type' => 'residential', 'services' => ['Basic Cleaning']],
@@ -36,6 +36,31 @@ $serviceAreas = [
     ['name' => 'Vintar', 'lat' => 7.9463, 'lng' => 125.1747, 'type' => 'residential', 'services' => ['Basic Cleaning']],
 ];
 
+$bukidnonCoverageAreas = [
+    'Baungon' => 'Baungon',
+    'Cabanglasan' => 'Cabanglasan',
+    'Damulog' => 'Damulog',
+    'Dangcagan' => 'Dangcagan',
+    'Don Carlos' => 'Don Carlos',
+    'Impasugong' => 'Impasugong',
+    'Kadingilan' => 'Kadingilan',
+    'Kalilangan' => 'Kalilangan',
+    'Kibawe' => 'Kibawe',
+    'Kitaotao' => 'Kitaotao',
+    'Lantapan' => 'Lantapan',
+    'Libona' => 'Libona',
+    'Malaybalay City' => 'Malaybalay City',
+    'Malitbog' => 'Malitbog',
+    'Manolo Fortich' => 'Manolo Fortich',
+    'Maramag' => 'Maramag',
+    'Pangantucan' => 'Pangantucan',
+    'Quezon' => 'Quezon',
+    'San Fernando' => 'San Fernando',
+    'Sumilao' => 'Sumilao',
+    'Talakag' => 'Talakag',
+    'Valencia City' => 'Valencia City',
+];
+
 $barangays = [];
 $barangayCenters = [];
 
@@ -61,7 +86,11 @@ return [
         'max_request_kb' => (int) env('PROOF_UPLOAD_MAX_REQUEST_KB', 32768),
         'max_video_kb' => (int) env('PROOF_UPLOAD_MAX_VIDEO_KB', 10240),
     ],
+    'marketplace' => [
+        'default_commission_rate' => (float) env('MARKETPLACE_DEFAULT_COMMISSION_RATE', 0.15),
+    ],
     'barangays' => $barangays,
+    'bukidnon_coverage_areas' => $bukidnonCoverageAreas,
     'barangay_centers' => $barangayCenters,
     'service_areas' => $serviceAreas,
     'map' => [

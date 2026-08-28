@@ -33,6 +33,297 @@ Authorization: Bearer <token>
 
 ---
 
+## Mobile Authentication Endpoints
+
+Mobile endpoints are under:
+```
+/api/mobile
+```
+
+### 1. Register Client
+
+**Endpoint:** `POST /mobile/register`
+
+**Authentication:** Not required
+
+**Request Body:**
+```json
+{
+  "first_name": "Maria",
+  "last_name": "Cruz",
+  "email": "maria@example.com",
+  "phone": "09123456789",
+  "date_of_birth": "1999-01-10",
+  "password": "Password123",
+  "password_confirmation": "Password123"
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "message": "Registration successful.",
+  "token": "1|plain_token_value",
+  "token_type": "Bearer",
+  "expires_in_days": 60,
+  "requires_email_verification": true,
+  "user": {
+    "id": 1,
+    "first_name": "Maria",
+    "last_name": "Cruz",
+    "full_name": "Maria Cruz",
+    "email": "maria@example.com",
+    "phone": "09123456789",
+    "role": "client",
+    "email_verified": false
+  }
+}
+```
+
+### 2. Login
+
+**Endpoint:** `POST /mobile/login`
+
+**Authentication:** Not required
+
+**Request Body:**
+```json
+{
+  "email": "maria@example.com",
+  "password": "Password123",
+  "device_name": "Expo Go"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "message": "Login successful.",
+  "token": "1|plain_token_value",
+  "token_type": "Bearer",
+  "expires_in_days": 60,
+  "requires_email_verification": false,
+  "user": {
+    "id": 1,
+    "first_name": "Maria",
+    "last_name": "Cruz",
+    "full_name": "Maria Cruz",
+    "email": "maria@example.com",
+    "phone": "09123456789",
+    "role": "client",
+    "email_verified": true
+  }
+}
+```
+
+### 3. Current User
+
+**Endpoint:** `GET /mobile/me`
+
+**Authentication:** Bearer token required
+
+**Request Headers:**
+```
+Authorization: Bearer <token>
+Accept: application/json
+```
+
+### 4. Logout
+
+**Endpoint:** `POST /mobile/logout`
+
+**Authentication:** Bearer token required
+
+Deletes the current mobile token.
+
+### 5. Notifications
+
+**Endpoints:**
+- `GET /mobile/notifications`
+- `POST /mobile/notifications/{notification}/read`
+- `POST /mobile/notifications/read-all`
+
+**Authentication:** Bearer token required
+
+Notifications are limited to the authenticated user's records. The list response includes `notifications` and `unread_count`.
+
+### 6. Mobile Password Reset
+
+**Endpoints:**
+- `POST /mobile/password/request-code`
+- `POST /mobile/password/verify-code`
+- `POST /mobile/password/reset`
+
+**Authentication:** Not required
+
+The request endpoint sends the same six-digit email OTP used by the web app. After successful OTP verification, the API returns a short-lived one-time `reset_token`, which must be sent to the reset endpoint with `password` and `password_confirmation`.
+
+### 7. Get Service Catalog
+
+**Endpoint:** `GET /mobile/services`
+
+**Authentication:** Not required
+
+Returns active services, property types, add-ons, payment methods, service plans, subscription frequencies, and pricing configuration.
+
+**Request Headers:**
+```
+Accept: application/json
+```
+
+### 7. Calculate Price
+
+**Endpoint:** `POST /mobile/calculate-price`
+
+**Authentication:** Not required
+
+**Request Body:**
+```json
+{
+  "service_type": "deep",
+  "property_type": "house",
+  "floor_area": 30,
+  "add_ons": []
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "pricing": {
+    "base_price": 0,
+    "property_fee": 0,
+    "floor_area": 30,
+    "floor_area_rate": 95,
+    "floor_area_fee": 2850,
+    "add_ons": [],
+    "add_on_breakdown": [],
+    "add_ons_fee": 0,
+    "total": 2850
+  },
+  "formatted_total": "P2,850"
+}
+```
+
+### 7. List Client Bookings
+
+**Endpoint:** `GET /mobile/bookings`
+
+**Authentication:** Bearer token required
+
+Returns the authenticated client's latest mobile/web bookings.
+
+### 8. Create Client Booking
+
+**Endpoint:** `POST /mobile/bookings`
+
+**Authentication:** Bearer token required, client account only
+
+**Request Body:**
+```json
+{
+  "service_type": "deep",
+  "property_type": "house",
+  "floor_area": 30,
+  "add_ons": [],
+  "payment_method": "on_site_cash",
+  "barangay": "Poblacion",
+  "street_address": "123 Sample Street",
+  "scheduled_date": "2026-08-24",
+  "scheduled_time": "08:00",
+  "notes": "Please call on arrival."
+}
+```
+
+### 8a. Manage Client Booking
+
+Authenticated clients can also use these mobile endpoints:
+
+- `POST /mobile/bookings/{booking}/cancel` - cancels an unassigned pending booking
+- `POST /mobile/bookings/{booking}/reschedule` - changes a pending or confirmed booking schedule
+- `POST /mobile/bookings/{booking}/rate` - rates an eligible completed booking (`stars`, optional `comment`)
+- `POST /mobile/bookings/{booking}/dispute` - opens a dispute (`dispute_reason`, `dispute_description`)
+
+Each endpoint verifies that the booking belongs to the authenticated client and returns the updated booking payload.
+
+**Response:** `201 Created`
+```json
+{
+  "message": "Your booking request has been received.",
+  "booking": {
+    "id": 12,
+    "code": "CF-00012",
+    "service": {
+      "slug": "deep",
+      "label": "Deep Clean"
+    },
+    "status": "pending",
+    "payment_method_label": "Cash on Service Day",
+    "payment_status_label": "Pending Payment",
+    "formatted_price": "P2,850",
+    "scheduled_date": "2026-08-24",
+    "scheduled_time": "08:00",
+    "schedule_label": "2026-08-24 08:00",
+    "barangay": "Poblacion",
+    "street_address": "123 Sample Street"
+  },
+  "formatted_total": "P2,850"
+}
+```
+
+### 9. List Staff Assigned Bookings
+
+**Endpoint:** `GET /mobile/staff/bookings`
+
+**Authentication:** Bearer token required, staff account only
+
+Returns confirmed, in-progress, completed, and cancelled bookings assigned to the authenticated staff member.
+
+### 10. Get Staff Performance
+
+**Endpoint:** `GET /mobile/staff/performance`
+
+**Authentication:** Bearer token required, staff account only
+
+Returns the authenticated staff member's booking totals, completion rate, earnings, review summary, star breakdown, current rank, and the top five staff leaderboard entries.
+
+### 11. Start Staff Booking With Proof
+
+**Endpoint:** `POST /mobile/staff/bookings/{booking}/start`
+
+**Authentication:** Bearer token required, assigned staff only
+
+**Content-Type:** `multipart/form-data`
+
+**Form Fields:**
+- `before_photos[]` - required, 1 to 4 image files, JPG/PNG/WebP, max 5 MB each
+- `proof_captured_at` - required ISO 8601 timestamp from the mobile device
+- `proof_latitude` - required GPS latitude captured by the mobile device
+- `proof_longitude` - required GPS longitude captured by the mobile device
+- `proof_source` - required, must be `camera`
+
+Starts a confirmed booking and stores before-service proof photos. Mobile proof uploads must come from camera capture with GPS metadata.
+
+### 12. Complete Staff Booking With Proof
+
+**Endpoint:** `POST /mobile/staff/bookings/{booking}/complete`
+
+**Authentication:** Bearer token required, assigned staff only
+
+**Content-Type:** `multipart/form-data`
+
+**Form Fields:**
+- `after_photos[]` - required, 1 to 4 image files, JPG/PNG/WebP, max 5 MB each
+- `completion_video` - optional video proof, max size follows `PROOF_UPLOAD_MAX_REQUEST_KB`
+- `proof_captured_at` - required ISO 8601 timestamp from the mobile device
+- `proof_latitude` - required GPS latitude captured by the mobile device
+- `proof_longitude` - required GPS longitude captured by the mobile device
+- `proof_source` - required, must be `camera`
+
+Completes an in-progress booking and stores after-service proof. Mobile proof uploads must come from camera capture with GPS metadata. Cash bookings are marked paid on completion.
+
+---
+
 ## IoT Device Endpoints
 
 ### 1. Staff Attendance Punch

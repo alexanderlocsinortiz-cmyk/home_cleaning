@@ -24,6 +24,16 @@ class BookingServiceProof extends Model
         'media_type',
         'file_path',
         'original_name',
+        'captured_at',
+        'latitude',
+        'longitude',
+        'capture_source',
+    ];
+
+    protected $casts = [
+        'captured_at' => 'datetime',
+        'latitude' => 'decimal:7',
+        'longitude' => 'decimal:7',
     ];
 
     public function booking()

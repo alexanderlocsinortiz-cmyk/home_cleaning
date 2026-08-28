@@ -57,6 +57,87 @@ class Booking extends Model
         'alternate_assigned',
     ];
 
+    public const PROVIDER_ASSIGNMENT_STATUSES = [
+        'pending',
+        'accepted',
+        'declined',
+    ];
+
+    public const PROVIDER_ASSIGNMENT_STATUS_LABELS = [
+        'pending' => 'Pending response',
+        'accepted' => 'Accepted',
+        'declined' => 'Declined',
+    ];
+
+    public const PROVIDER_PAYOUT_STATUSES = [
+        'pending',
+        'ready',
+        'paid',
+        'held',
+        'cash_collected',
+    ];
+
+    public const PROVIDER_PAYOUT_STATUS_LABELS = [
+        'pending' => 'Pending payout',
+        'ready' => 'Ready for payout',
+        'paid' => 'Paid',
+        'held' => 'Held',
+        'cash_collected' => 'Cash collected by provider',
+    ];
+
+    public const PROVIDER_COMMISSION_STATUSES = [
+        'not_applicable',
+        'unpaid',
+        'paid',
+        'held',
+        'waived',
+    ];
+
+    public const PROVIDER_COMMISSION_STATUS_LABELS = [
+        'not_applicable' => 'Not applicable',
+        'unpaid' => 'Commission unpaid',
+        'paid' => 'Commission paid',
+        'held' => 'Commission held',
+        'waived' => 'Commission waived',
+    ];
+
+    public const DISPUTE_STATUSES = [
+        'open',
+        'resolved',
+        'rejected',
+    ];
+
+    public const DISPUTE_STATUS_LABELS = [
+        'open' => 'Open dispute',
+        'resolved' => 'Resolved',
+        'rejected' => 'Rejected',
+    ];
+
+    public const DISPUTE_REASONS = [
+        'poor_quality' => 'Poor service quality',
+        'incomplete_service' => 'Incomplete service',
+        'late_or_no_show' => 'Late or no-show',
+        'damage_or_missing_item' => 'Damage or missing item',
+        'payment_or_refund' => 'Payment or refund issue',
+        'other' => 'Other',
+    ];
+
+    public const DISPUTE_RESOLUTIONS = [
+        'release_payout' => 'Release payout',
+        'refund_customer' => 'Refund customer',
+        'partial_refund' => 'Partial refund',
+        'reject_dispute' => 'Reject dispute',
+    ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Booking $booking): void {
+            if ($booking->shouldRefreshMarketplaceAmountsForDirtyMoneyFields()) {
+                $booking->refreshMarketplaceAmounts();
+            }
+        });
+    }
+
     public const PAYMENT_METHOD_LABELS = [
         'on_site_cash' => 'Cash on Service Day',
         'gcash' => 'GCash',
@@ -83,12 +164,14 @@ class Booking extends Model
         'house' => 0.0,
         'apartment' => 0.0,
         'boarding_house' => 0.0,
+        'office' => 0.0,
     ];
 
     public const PROPERTY_TYPE_LABELS = [
         'house' => 'House',
         'apartment' => 'Apartment',
         'boarding_house' => 'Boarding House',
+        'office' => 'Office',
     ];
 
     public const INCLUDED_FLOOR_AREA = 30;
@@ -99,7 +182,9 @@ class Booking extends Model
         'deep' => 95.0,
         'moveinout' => 80.0,
         'postconstruction' => 105.0,
-        'commercial' => 13.0,
+        'commercial' => 35.0,
+        'office-basic' => 30.0,
+        'office-deep' => 60.0,
         'weeklymaintenance' => 9.0,
     ];
 
@@ -167,14 +252,10 @@ class Booking extends Model
         'reviewed_at',
         'price',
         'base_price',
-        'property_adjustment',
         'property_fee',
-        'room_bathroom_fees',
         'rooms_fee',
         'bathrooms_fee',
-        'floor_area_fees',
         'floor_area_fee',
-        'add_on_fees',
         'add_ons_fee',
         'payment_method',
         'payment_status',
@@ -188,9 +269,38 @@ class Booking extends Model
         'subscription_sequence',
         'status',
         'staff_id',
+        'cleaner_application_id',
+        'provider_assignment_status',
+        'provider_assignment_responded_at',
+        'provider_assignment_notes',
+        'provider_gross_amount',
+        'platform_commission_rate',
+        'platform_commission_amount',
+        'provider_payout_amount',
+        'provider_payout_status',
+        'provider_payout_reference',
+        'provider_payout_paid_at',
+        'provider_payout_processed_by',
+        'provider_payout_proof_path',
+        'provider_payout_proof_original_filename',
+        'cash_collected_amount',
+        'provider_commission_due',
+        'provider_commission_status',
+        'provider_commission_reference',
+        'provider_commission_paid_at',
+        'provider_commission_collected_by',
+        'provider_commission_proof_path',
+        'provider_commission_proof_original_filename',
+        'dispute_status',
+        'dispute_reason',
+        'dispute_description',
+        'disputed_at',
+        'dispute_resolution',
+        'dispute_admin_notes',
+        'dispute_reviewed_by',
+        'dispute_resolved_at',
         'preferred_staff_id',
         'preferred_staff_status',
-        'address',
         'current_latitude',
         'current_longitude',
         'location_updated_at',
@@ -211,6 +321,17 @@ class Booking extends Model
         'expected_completed_at' => 'datetime',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
+        'provider_assignment_responded_at' => 'datetime',
+        'provider_gross_amount' => 'decimal:2',
+        'platform_commission_rate' => 'decimal:4',
+        'platform_commission_amount' => 'decimal:2',
+        'provider_payout_amount' => 'decimal:2',
+        'provider_payout_paid_at' => 'datetime',
+        'cash_collected_amount' => 'decimal:2',
+        'provider_commission_due' => 'decimal:2',
+        'provider_commission_paid_at' => 'datetime',
+        'disputed_at' => 'datetime',
+        'dispute_resolved_at' => 'datetime',
         'daily_room_expires_at' => 'datetime',
         'live_video_started_at' => 'datetime',
         'live_video_ended_at' => 'datetime',
@@ -226,9 +347,24 @@ class Booking extends Model
         return $this->belongsTo(User::class, 'staff_id');
     }
 
+    public function cleanerApplication()
+    {
+        return $this->belongsTo(CleanerApplication::class);
+    }
+
     public function preferredStaff()
     {
         return $this->belongsTo(User::class, 'preferred_staff_id');
+    }
+
+    public function providerPayoutProcessor()
+    {
+        return $this->belongsTo(User::class, 'provider_payout_processed_by');
+    }
+
+    public function providerPayoutTransactions()
+    {
+        return $this->hasMany(ProviderPayoutTransaction::class)->latest();
     }
 
     public function service()
@@ -318,6 +454,215 @@ class Booking extends Model
     public static function preferredStaffStatuses(): array
     {
         return self::PREFERRED_STAFF_STATUSES;
+    }
+
+    public static function providerAssignmentStatuses(): array
+    {
+        return self::PROVIDER_ASSIGNMENT_STATUSES;
+    }
+
+    public static function providerAssignmentStatusLabel(?string $status): string
+    {
+        return self::PROVIDER_ASSIGNMENT_STATUS_LABELS[$status ?: 'pending'] ?? Str::of((string) $status)
+            ->replace(['_', '-'], ' ')
+            ->title()
+            ->value();
+    }
+
+    public function effectiveProviderAssignmentStatus(): ?string
+    {
+        if (! $this->cleaner_application_id) {
+            return null;
+        }
+
+        return $this->provider_assignment_status ?: 'pending';
+    }
+
+    public function hasAcceptedProviderAssignment(): bool
+    {
+        return $this->cleaner_application_id !== null
+            && $this->effectiveProviderAssignmentStatus() === 'accepted';
+    }
+
+    public function providerAssignmentBadgeClass(): string
+    {
+        return match ($this->effectiveProviderAssignmentStatus()) {
+            'accepted' => 'bg-emerald-100 text-emerald-700',
+            'declined' => 'bg-red-100 text-red-700',
+            'pending' => 'bg-amber-100 text-amber-700',
+            default => 'bg-slate-100 text-slate-500',
+        };
+    }
+
+    public function canProviderRespondToAssignment(): bool
+    {
+        return $this->cleaner_application_id !== null
+            && $this->effectiveProviderAssignmentStatus() === 'pending'
+            && ! in_array($this->status, ['completed', 'cancelled'], true);
+    }
+
+    public static function providerPayoutStatusLabel(?string $status): string
+    {
+        return self::PROVIDER_PAYOUT_STATUS_LABELS[$status ?: 'pending'] ?? Str::of((string) $status)
+            ->replace(['_', '-'], ' ')
+            ->title()
+            ->value();
+    }
+
+    public static function providerPayoutStatuses(): array
+    {
+        return self::PROVIDER_PAYOUT_STATUSES;
+    }
+
+    public static function providerCommissionStatuses(): array
+    {
+        return self::PROVIDER_COMMISSION_STATUSES;
+    }
+
+    public static function providerCommissionStatusLabel(?string $status): string
+    {
+        return self::PROVIDER_COMMISSION_STATUS_LABELS[$status ?: 'not_applicable'] ?? Str::of((string) $status)
+            ->replace(['_', '-'], ' ')
+            ->title()
+            ->value();
+    }
+
+    public static function disputeStatuses(): array
+    {
+        return self::DISPUTE_STATUSES;
+    }
+
+    public static function disputeReasons(): array
+    {
+        return self::DISPUTE_REASONS;
+    }
+
+    public static function disputeResolutions(): array
+    {
+        return self::DISPUTE_RESOLUTIONS;
+    }
+
+    public static function disputeStatusLabel(?string $status): string
+    {
+        return self::DISPUTE_STATUS_LABELS[$status ?: ''] ?? Str::of((string) $status)
+            ->replace(['_', '-'], ' ')
+            ->title()
+            ->value();
+    }
+
+    public function disputeReasonLabel(): string
+    {
+        return self::DISPUTE_REASONS[$this->dispute_reason] ?? Str::of((string) $this->dispute_reason)
+            ->replace(['_', '-'], ' ')
+            ->title()
+            ->value();
+    }
+
+    public function disputeResolutionLabel(): ?string
+    {
+        if (! $this->dispute_resolution) {
+            return null;
+        }
+
+        return self::DISPUTE_RESOLUTIONS[$this->dispute_resolution] ?? Str::of((string) $this->dispute_resolution)
+            ->replace(['_', '-'], ' ')
+            ->title()
+            ->value();
+    }
+
+    public function hasOpenDispute(): bool
+    {
+        return $this->dispute_status === 'open';
+    }
+
+    public function canClientOpenDispute(User $user): bool
+    {
+        return (int) $this->user_id === (int) $user->id
+            && $this->status === 'completed'
+            && ! $this->dispute_status
+            && $this->provider_payout_status !== 'paid';
+    }
+
+    public function calculateMarketplaceCommission(?float $commissionRate = null): array
+    {
+        $gross = round((float) ($this->price ?? 0), 2);
+        $rate = round((float) ($commissionRate ?? config('cleanflow.marketplace.default_commission_rate', 0.15)), 4);
+        $commission = round($gross * $rate, 2);
+        $payout = round(max(0, $gross - $commission), 2);
+        $isCash = $this->payment_method === 'on_site_cash';
+
+        return [
+            'provider_gross_amount' => $gross,
+            'platform_commission_rate' => $rate,
+            'platform_commission_amount' => $commission,
+            'provider_payout_amount' => $payout,
+            'provider_payout_status' => $isCash ? 'cash_collected' : 'pending',
+            'cash_collected_amount' => $isCash ? $gross : null,
+            'provider_commission_due' => $isCash ? $commission : null,
+            'provider_commission_status' => $isCash ? 'unpaid' : 'not_applicable',
+        ];
+    }
+
+    public function shouldRefreshMarketplaceAmountsForDirtyMoneyFields(): bool
+    {
+        return $this->exists
+            && $this->cleaner_application_id !== null
+            && $this->provider_gross_amount !== null
+            && $this->isDirty(['price', 'payment_method'])
+            && ! $this->marketplaceAmountsAreSettled();
+    }
+
+    public function marketplaceAmountsAreSettled(): bool
+    {
+        return $this->provider_payout_status === 'paid'
+            || in_array($this->provider_commission_status, ['paid', 'waived'], true);
+    }
+
+    public function refreshMarketplaceAmounts(?float $commissionRate = null): bool
+    {
+        if (! $this->cleaner_application_id || $this->provider_gross_amount === null || $this->marketplaceAmountsAreSettled()) {
+            return false;
+        }
+
+        $this->forceFill($this->calculateMarketplaceCommission($commissionRate));
+
+        if ($this->payment_method === 'on_site_cash') {
+            $this->provider_payout_reference = null;
+            $this->provider_payout_paid_at = null;
+            $this->provider_payout_processed_by = null;
+            $this->provider_payout_proof_path = null;
+            $this->provider_payout_proof_original_filename = null;
+        } else {
+            $this->provider_commission_reference = null;
+            $this->provider_commission_paid_at = null;
+            $this->provider_commission_collected_by = null;
+            $this->provider_commission_proof_path = null;
+            $this->provider_commission_proof_original_filename = null;
+        }
+
+        return true;
+    }
+
+    public function clearMarketplaceCommission(): void
+    {
+        $this->provider_gross_amount = null;
+        $this->platform_commission_rate = null;
+        $this->platform_commission_amount = null;
+        $this->provider_payout_amount = null;
+        $this->provider_payout_status = null;
+        $this->provider_payout_reference = null;
+        $this->provider_payout_paid_at = null;
+        $this->provider_payout_processed_by = null;
+        $this->provider_payout_proof_path = null;
+        $this->provider_payout_proof_original_filename = null;
+        $this->cash_collected_amount = null;
+        $this->provider_commission_due = null;
+        $this->provider_commission_status = null;
+        $this->provider_commission_reference = null;
+        $this->provider_commission_paid_at = null;
+        $this->provider_commission_collected_by = null;
+        $this->provider_commission_proof_path = null;
+        $this->provider_commission_proof_original_filename = null;
     }
 
     public static function paymentMethods(): array
@@ -430,12 +775,25 @@ class Booking extends Model
 
     public static function floorAreaRates(): array
     {
-        return self::FLOOR_AREA_RATES;
+        $rates = collect(Service::PACKAGE_CATALOG)
+            ->filter(fn (array $package) => ($package['pricing_unit'] ?? null) === 'sqm')
+            ->mapWithKeys(fn (array $package, string $slug) => [$slug => Service::effectiveRateForSlug($slug)])
+            ->all();
+
+        if (array_key_exists('basic', $rates)) {
+            $rates['basic-clean'] = $rates['basic'];
+        }
+
+        return $rates;
     }
 
     public static function floorAreaRateForService(?string $serviceType): float
     {
-        return (float) (self::FLOOR_AREA_RATES[$serviceType] ?? 0.0);
+        if (! Service::usesPerSquareMeterPricing($serviceType)) {
+            return 0.0;
+        }
+
+        return Service::effectiveRateForSlug($serviceType);
     }
 
     public static function billableFloorAreaForService(?string $serviceType, int $floorArea): int
@@ -996,7 +1354,9 @@ class Booking extends Model
                 'deep' => 95.0,
                 'moveinout' => 80.0,
                 'postconstruction' => 105.0,
-                'commercial' => 1600.0,
+                'commercial' => 35.0,
+                'office-basic' => 30.0,
+                'office-deep' => 60.0,
                 'weeklymaintenance' => 500.0,
                 default => 0.0,
             };

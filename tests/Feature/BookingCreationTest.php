@@ -19,7 +19,7 @@ class BookingCreationTest extends TestCase
 
     public function test_client_booking_create_route_uses_the_real_booking_form(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -57,18 +57,30 @@ class BookingCreationTest extends TestCase
         $response->assertViewIs('bookings.create');
         $response->assertSee('Floor Area (sqm)', false);
         $response->assertSee('Add-ons (optional)', false);
+        $response->assertSee('Budget Summary', false);
+        $response->assertSee('Estimated total', false);
+        $response->assertSee('Estimate only: the current calculator adds no travel, tax, discount, or manual-adjustment charges.', false);
+        $response->assertSee('Package features are a summary, not a promise that every possible task is included.', false);
         $response->assertSee('Street / Purok / House Details', false);
         $response->assertSee('Preferred Cleaner (optional)', false);
         $response->assertSee('Payment and Service Plan', false);
         $response->assertSee('Cash on Service Day', false);
         $response->assertSee('Subscription Plan', false);
         $response->assertSee('Post Construction Cleaning', false);
+        $response->assertSee('Bathroom and kitchen touch-up cleaning', false);
+        $response->assertSee('Office', false);
+        $response->assertSee('Office Cleaning (Basic)', false);
+        $response->assertSee('&#8369;30/sqm', false);
+        $response->assertSee('Office Cleaning (Standard)', false);
+        $response->assertSee('&#8369;35/sqm', false);
+        $response->assertSee('Office Cleaning (Deep)', false);
+        $response->assertSee('&#8369;60/sqm', false);
         $response->assertSee('Yard Sweeping', false);
     }
 
     public function test_booking_form_prefills_address_from_client_profile(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -102,11 +114,15 @@ class BookingCreationTest extends TestCase
 
     public function test_authenticated_client_can_create_a_booking_with_calculated_price(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
-            'price' => 570,
+            'price' => 35,
+            'scope_max_floor_area' => 45,
+            'scope_cleaner_count' => 1,
+            'scope_status' => 'provisional',
+            'scope_manual_review_above_limit' => true,
             'is_active' => true,
         ]);
 
@@ -163,9 +179,109 @@ class BookingCreationTest extends TestCase
         $this->assertSame(['window_glass', 'refrigerator'], $booking->add_ons);
     }
 
+    public function test_booking_is_rejected_above_an_approved_service_area_limit(): void
+    {
+        $this->canonicalService([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'price' => 35,
+            'scope_max_floor_area' => 30,
+            'scope_cleaner_count' => 1,
+            'scope_status' => 'approved',
+            'scope_manual_review_above_limit' => true,
+            'is_active' => true,
+        ]);
+
+        $user = User::create([
+            'first_name' => 'Scope',
+            'last_name' => 'Client',
+            'email' => 'scope-limit@example.com',
+            'phone' => '09171234569',
+            'date_of_birth' => '2000-01-01',
+            'gender' => 'female',
+            'street' => '123 Rizal Street',
+            'barangay' => 'Poblacion',
+            'city' => 'Valencia City',
+            'zip_code' => '8709',
+            'username' => 'scopelimit',
+            'role' => 'client',
+            'password' => Hash::make('password123'),
+        ]);
+        $user->forceFill(['email_verified_at' => now()])->save();
+
+        $response = $this->actingAs($user)->from(route('bookings.create'))->post(route('bookings.store'), [
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'floor_area' => 31,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Rizal Street',
+            'scheduled_date' => now()->addDays(3)->toDateString(),
+            'scheduled_time' => '09:00',
+            'payment_method' => 'on_site_cash',
+            'service_plan' => 'one_time',
+        ]);
+
+        $response->assertRedirect(route('bookings.create'));
+        $response->assertSessionHasErrors([
+            'floor_area' => 'This service is approved for up to 30 sqm. Please choose a smaller area or contact us for a manual quote.',
+        ]);
+        $this->assertDatabaseCount('bookings', 0);
+    }
+
+    public function test_authenticated_client_can_create_office_cleaning_booking(): void
+    {
+        Service::updateOrCreate(['slug' => 'office-basic'], [
+            'name' => 'Office Cleaning (Basic)',
+            'description' => 'Light office cleaning',
+            'price' => 30,
+            'duration_minutes' => 120,
+            'is_active' => true,
+        ]);
+
+        $user = User::create([
+            'first_name' => 'Office',
+            'last_name' => 'Client',
+            'email' => 'office-client@example.com',
+            'phone' => '09171234567',
+            'date_of_birth' => '2000-01-01',
+            'gender' => 'female',
+            'street' => 'Business Center',
+            'barangay' => 'Poblacion',
+            'city' => 'Valencia City',
+            'zip_code' => '8709',
+            'username' => 'officeclient',
+            'role' => 'client',
+            'password' => Hash::make('password123'),
+        ]);
+        $user->forceFill(['email_verified_at' => now()])->save();
+
+        $response = $this->actingAs($user)->post(route('bookings.store'), [
+            'service_type' => 'office-basic',
+            'property_type' => 'office',
+            'floor_area' => 100,
+            'barangay' => 'Poblacion',
+            'street_address' => 'Business Center',
+            'scheduled_date' => now()->addDays(4)->toDateString(),
+            'scheduled_time' => '10:00',
+            'payment_method' => 'on_site_cash',
+            'service_plan' => 'one_time',
+        ]);
+
+        $response->assertRedirect(route('bookings.index'));
+
+        $this->assertDatabaseHas('bookings', [
+            'user_id' => $user->id,
+            'service_type' => 'office-basic',
+            'property_type' => 'office',
+            'floor_area' => 100,
+            'price' => 3000,
+            'floor_area_fee' => 3000,
+        ]);
+    }
+
     public function test_deep_clean_is_priced_per_square_meter(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Deep Clean',
             'slug' => 'deep',
             'description' => 'Detailed cleaning',
@@ -181,6 +297,21 @@ class BookingCreationTest extends TestCase
         $this->assertSame(95.0, $pricing['floor_area_rate']);
         $this->assertSame(4275.0, $pricing['floor_area_fee']);
         $this->assertSame(4275.0, $pricing['total']);
+    }
+
+    public function test_office_cleaning_rates_are_priced_per_square_meter(): void
+    {
+        $basicPricing = Booking::calculatePrice('office-basic', 'office', 1, 1, 100, []);
+        $standardPricing = Booking::calculatePrice('commercial', 'office', 1, 1, 100, []);
+        $deepPricing = Booking::calculatePrice('office-deep', 'office', 1, 1, 100, []);
+
+        $this->assertSame(30.0, $basicPricing['floor_area_rate']);
+        $this->assertSame(3000.0, $basicPricing['total']);
+        $this->assertSame(35.0, $standardPricing['floor_area_rate']);
+        $this->assertSame(3500.0, $standardPricing['total']);
+        $this->assertSame(60.0, $deepPricing['floor_area_rate']);
+        $this->assertSame(6000.0, $deepPricing['total']);
+        $this->assertSame('Office', Booking::propertyTypeLabel('office'));
     }
 
     public function test_basic_clean_alias_is_priced_per_square_meter(): void
@@ -281,7 +412,7 @@ class BookingCreationTest extends TestCase
 
     public function test_booking_details_page_shows_price_breakdown_for_floor_area_and_add_ons(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -330,7 +461,8 @@ class BookingCreationTest extends TestCase
         $response->assertOk();
         $response->assertSee('Price Breakdown', false);
         $response->assertSee('Service Basis', false);
-        $response->assertSee('Floor area adjustment', false);
+        $response->assertSee('Floor area charge', false);
+        $response->assertSee('Saved pricing snapshot for this booking', false);
         $response->assertSee('Window Glass Cleaning', false);
         $response->assertSee('Refrigerator Cleaning', false);
         $response->assertSee('Payment', false);
@@ -340,7 +472,7 @@ class BookingCreationTest extends TestCase
 
     public function test_assigned_staff_can_view_booking_details_with_service_proof_sections(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -404,7 +536,7 @@ class BookingCreationTest extends TestCase
 
     public function test_client_can_create_a_subscription_booking_with_digital_payment(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -460,7 +592,7 @@ class BookingCreationTest extends TestCase
 
     public function test_client_can_request_a_preferred_cleaner_when_the_schedule_is_available(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -510,7 +642,7 @@ class BookingCreationTest extends TestCase
 
     public function test_booking_marks_requested_cleaner_unavailable_when_they_are_already_busy(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -588,7 +720,7 @@ class BookingCreationTest extends TestCase
 
     public function test_client_cannot_create_another_active_booking_for_the_same_time_slot(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -648,7 +780,7 @@ class BookingCreationTest extends TestCase
 
     public function test_different_clients_can_book_the_same_time_slot_when_capacity_is_available(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -710,7 +842,7 @@ class BookingCreationTest extends TestCase
 
     public function test_client_cannot_book_a_time_slot_when_staff_capacity_is_full(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -771,7 +903,7 @@ class BookingCreationTest extends TestCase
 
     public function test_client_with_missing_profile_details_is_redirected_to_profile_edit_before_booking(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -807,7 +939,7 @@ class BookingCreationTest extends TestCase
 
     public function test_booking_is_flagged_for_manual_review_when_same_address_and_schedule_already_exists_for_another_client(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -874,7 +1006,7 @@ class BookingCreationTest extends TestCase
 
     public function test_booking_is_flagged_for_manual_review_when_client_creates_multiple_recent_requests(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -938,7 +1070,7 @@ class BookingCreationTest extends TestCase
 
     public function test_unverified_client_cannot_create_a_booking(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -980,7 +1112,7 @@ class BookingCreationTest extends TestCase
 
     public function test_staff_cannot_create_a_booking_through_client_routes(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -1025,7 +1157,7 @@ class BookingCreationTest extends TestCase
     {
         Carbon::setTestNow(Carbon::parse('2026-05-21 08:30:00', config('cleanflow.attendance_timezone', 'Asia/Manila')));
 
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -1065,7 +1197,7 @@ class BookingCreationTest extends TestCase
     {
         Carbon::setTestNow(Carbon::parse('2026-05-21 10:30:00', config('cleanflow.attendance_timezone', 'Asia/Manila')));
 
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -1105,7 +1237,7 @@ class BookingCreationTest extends TestCase
     {
         Carbon::setTestNow(Carbon::parse('2026-05-21 08:30:00', config('cleanflow.attendance_timezone', 'Asia/Manila')));
 
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -1154,7 +1286,7 @@ class BookingCreationTest extends TestCase
     {
         Carbon::setTestNow(Carbon::parse('2026-05-21 08:30:00', config('cleanflow.attendance_timezone', 'Asia/Manila')));
 
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',

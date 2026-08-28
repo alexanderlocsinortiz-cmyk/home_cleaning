@@ -47,6 +47,16 @@ class PaymongoWebhookController extends Controller
 
         $checkoutSessionId = data_get($event, 'data.attributes.data.id');
 
+        // PayMongo may retry a webhook. Once every matched booking already
+        // carries this provider reference, the event has been applied and
+        // there is no work left to repeat.
+        if ($bookings->every(fn (Booking $booking): bool =>
+            $booking->payment_status === 'paid'
+            && $booking->payment_reference === $paymentReference
+        )) {
+            return response()->json(['status' => 'already_processed']);
+        }
+
         $bookings->each(function (Booking $booking) use ($paymentReference, $checkoutSessionId): void {
             $wasPending = $booking->payment_status !== 'paid';
             $shouldReplaceReference = ! $booking->payment_reference || str_starts_with((string) $booking->payment_reference, 'cs_');

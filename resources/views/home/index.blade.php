@@ -335,6 +335,8 @@
                 @php
                     $package = $servicePackages[$service->slug] ?? null;
                     $features = array_slice($package['features'] ?? [], 0, 3);
+                    $scope = $service->scopeSummary();
+                    $scopeDefinition = $service->scopeDefinition();
                 @endphp
                 <article class="service-card reveal-on-scroll flex h-full flex-col rounded-3xl border border-slate-200 p-8 shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-xl">
                     <div class="flex items-start justify-between gap-4">
@@ -368,9 +370,24 @@
                             Starting at &#8369;{{ number_format($service->price, 0) }}
                         @endif
                     </div>
+                    <div class="mt-2 text-xs font-semibold text-slate-500">
+                        Up to {{ $scope['max_floor_area'] ? number_format($scope['max_floor_area']) . ' sqm' : 'manual quote' }}
+                        · {{ $scope['cleaner_count'] }} cleaner{{ $scope['cleaner_count'] === 1 ? '' : 's' }}
+                        · {{ $service->duration_minutes ?: \App\Models\Service::durationForSlug($service->slug) }} minutes
+                    </div>
                     <div class="service-note mt-5 rounded-2xl bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-600">
                         {{ $package['highlight'] ?? 'This package can be requested directly through our Valencia City cleaning team.' }}
                     </div>
+                    @if($service->scopeDefinitionIsComplete())
+                    <details class="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left">
+                        <summary class="cursor-pointer text-xs font-extrabold text-slate-700">View package boundaries</summary>
+                        <div class="mt-3 space-y-2 text-xs leading-5 text-slate-600">
+                            <div><span class="font-bold text-slate-800">Included:</span> {{ $scopeDefinition['included_tasks'] }}</div>
+                            <div><span class="font-bold text-slate-800">Excluded:</span> {{ $scopeDefinition['excluded_tasks'] }}</div>
+                            <div><span class="font-bold text-slate-800">Limits:</span> {{ $scopeDefinition['condition_limits'] }}</div>
+                        </div>
+                    </details>
+                    @endif
                     <a href="{{ $serviceCardUrl }}" class="sales-primary-button service-action mt-7 inline-flex w-full items-center justify-center rounded-2xl px-6 py-3.5 text-sm font-semibold text-white transition hover:-translate-y-0.5">
                         {{ $serviceCardLabel }}
                     </a>

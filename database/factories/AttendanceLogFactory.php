@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\AttendanceLog;
-use App\Models\Staff;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class AttendanceLogFactory extends Factory
@@ -13,10 +13,9 @@ class AttendanceLogFactory extends Factory
     public function definition(): array
     {
         return [
-            'staff_id' => Staff::factory()->create()->id,
+            'user_id' => User::factory()->create(['role' => 'staff'])->id,
             'punch_type' => $this->faker->randomElement(['in', 'out']),
-            'punched_at' => $this->faker->dateTime(),
-            'fingerprint_template_id' => null,
+            'logged_at' => $this->faker->dateTime(),
         ];
     }
 }

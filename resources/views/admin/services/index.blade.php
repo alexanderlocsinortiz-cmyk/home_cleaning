@@ -198,7 +198,7 @@
         </div>
 
         <div class="overflow-x-auto">
-            <table class="min-w-[760px] w-full text-sm">
+            <table class="min-w-[900px] w-full text-sm">
                 <thead class="bg-slate-50/90">
                     <tr>
                         <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">#</th>
@@ -206,6 +206,7 @@
                         <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Description</th>
                         <th class="px-5 py-3 text-center text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Price</th>
                         <th class="px-5 py-3 text-center text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Duration</th>
+                        <th class="px-5 py-3 text-center text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Measured Scope</th>
                         <th class="px-5 py-3 text-center text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Status</th>
                         <th class="px-5 py-3 text-right text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Actions</th>
                     </tr>
@@ -242,6 +243,11 @@
                                 @endif
                             </td>
                             <td class="px-5 py-4 text-center text-sm font-bold text-slate-700">{{ number_format($service->duration_minutes ?? \App\Models\Service::DEFAULT_DURATION_MINUTES) }} min</td>
+                            <td class="px-5 py-4 text-center text-xs font-semibold text-slate-600">
+                                <div>{{ $service->scope_max_floor_area ? number_format($service->scope_max_floor_area) . ' sqm' : 'No area limit' }}</div>
+                                <div class="mt-1 text-[11px] {{ $service->scopeDefinitionIsComplete() ? 'text-emerald-600' : 'text-amber-600' }}">{{ $service->scopeDefinitionIsComplete() ? 'Definition ready for approval' : 'Definition incomplete' }}</div>
+                                <div class="mt-1 text-[11px] text-slate-400">{{ $service->scope_cleaner_count ?: 1 }} cleaner · {{ ucfirst($service->scope_status ?: 'provisional') }}</div>
+                            </td>
                             <td class="px-5 py-4 text-center">
                                 @if($service->is_active)
                                     <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">Active</span>

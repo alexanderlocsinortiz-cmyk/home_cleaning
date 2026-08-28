@@ -223,20 +223,21 @@ class AttendanceController extends Controller
         }
 
         [$todayStartUtc, $todayEndUtc] = $this->attendanceUtcRange();
-        $staff = User::where('role', 'staff')->get();
+        $staff = User::where('role', 'staff')->get(['id', 'first_name', 'last_name']);
 
-        $attendance = $staff->map(function ($s) use ($todayStartUtc, $todayEndUtc) {
-            $timeIn = AttendanceLog::where('user_id', $s->id)
-                ->where('punch_type', 'in')
-                ->whereBetween('logged_at', [$todayStartUtc, $todayEndUtc])
-                ->latest('logged_at')
-                ->first();
+        // Load today's logs once instead of issuing two queries per staff member.
+        $logsByStaff = AttendanceLog::query()
+            ->whereIn('user_id', $staff->pluck('id'))
+            ->whereBetween('logged_at', [$todayStartUtc, $todayEndUtc])
+            ->whereIn('punch_type', ['in', 'out'])
+            ->orderByDesc('logged_at')
+            ->get(['user_id', 'punch_type', 'logged_at'])
+            ->groupBy('user_id');
 
-            $timeOut = AttendanceLog::where('user_id', $s->id)
-                ->where('punch_type', 'out')
-                ->whereBetween('logged_at', [$todayStartUtc, $todayEndUtc])
-                ->latest('logged_at')
-                ->first();
+        $attendance = $staff->map(function ($s) use ($logsByStaff) {
+            $logs = $logsByStaff->get($s->id, collect());
+            $timeIn = $logs->firstWhere('punch_type', 'in');
+            $timeOut = $logs->firstWhere('punch_type', 'out');
 
             return [
                 'id' => $s->id,

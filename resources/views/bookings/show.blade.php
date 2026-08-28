@@ -190,6 +190,52 @@
             </div>
         </div>
 
+        @if($booking->dispute_status)
+            <div class="cleanflow-panel mb-6 border-l-4 {{ $booking->hasOpenDispute() ? 'border-red-400 bg-red-50/80' : 'border-slate-300 bg-slate-50/80' }} p-5">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                        <div class="text-xs font-bold uppercase tracking-[0.18em] {{ $booking->hasOpenDispute() ? 'text-red-700' : 'text-slate-500' }}">Dispute Status</div>
+                        <h2 class="mt-2 text-lg font-black text-slate-950">{{ \App\Models\Booking::disputeStatusLabel($booking->dispute_status) }}</h2>
+                        <p class="mt-2 text-sm leading-6 text-slate-600">{{ $booking->disputeReasonLabel() }}</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-700">{{ $booking->dispute_description }}</p>
+                    </div>
+                    @if($booking->disputeResolutionLabel())
+                        <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                            <div class="text-xs font-bold uppercase text-slate-400">Resolution</div>
+                            <div class="mt-1 font-bold text-slate-900">{{ $booking->disputeResolutionLabel() }}</div>
+                            @if($booking->dispute_admin_notes)
+                                <div class="mt-2 text-xs leading-5 text-slate-500">{{ $booking->dispute_admin_notes }}</div>
+                            @endif
+                        </div>
+                    @endif
+                </div>
+            </div>
+        @elseif($isClient && $booking->canClientOpenDispute($viewer))
+            <div class="cleanflow-panel mb-6 border-l-4 border-red-300 bg-red-50/70 p-5">
+                <h2 class="text-lg font-black text-slate-950">Report a service issue</h2>
+                <p class="mt-1 text-sm leading-6 text-slate-600">Opening a dispute will hold provider payout while admin reviews your complaint.</p>
+                <form action="{{ route('bookings.dispute', $booking->id) }}" method="POST" class="mt-4 grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)_auto] lg:items-end">
+                    @csrf
+                    <div>
+                        <label for="dispute_reason" class="text-xs font-bold uppercase text-slate-500">Reason</label>
+                        <select id="dispute_reason" name="dispute_reason" class="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-hidden">
+                            @foreach(\App\Models\Booking::disputeReasons() as $reason => $label)
+                                <option value="{{ $reason }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label for="dispute_description" class="text-xs font-bold uppercase text-slate-500">Details</label>
+                        <textarea id="dispute_description" name="dispute_description" rows="2" class="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-hidden" placeholder="Describe what happened and what resolution you expect."></textarea>
+                    </div>
+                    <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-700">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        Submit dispute
+                    </button>
+                </form>
+            </div>
+        @endif
+
         <div class="booking-show-grid grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div class="space-y-6">
                 <div class="detail-card cleanflow-panel overflow-hidden">
@@ -451,7 +497,7 @@
                             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 @foreach($beforeProofs as $proof)
                                 <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                                    <img src="{{ asset('storage/' . $proof->file_path) }}" alt="Before service proof" class="h-44 w-full object-cover">
+                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" alt="Before service proof" class="h-44 w-full object-cover">
                                     <div class="space-y-1 px-3 py-2 text-xs text-slate-500">
                                         <div>Uploaded {{ $proof->created_at->format('M d, Y h:i A') }}</div>
                                         <div>By {{ $proof->uploader?->full_name ?? 'Assigned staff' }}</div>
@@ -475,7 +521,7 @@
                             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 @foreach($afterProofs as $proof)
                                 <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                                    <img src="{{ asset('storage/' . $proof->file_path) }}" alt="After service proof" class="h-44 w-full object-cover">
+                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" alt="After service proof" class="h-44 w-full object-cover">
                                     <div class="space-y-1 px-3 py-2 text-xs text-slate-500">
                                         <div>Uploaded {{ $proof->created_at->format('M d, Y h:i A') }}</div>
                                         <div>By {{ $proof->uploader?->full_name ?? 'Assigned staff' }}</div>
@@ -501,7 +547,7 @@
                             @foreach($completionVideos as $proof)
                             <div class="rounded-2xl border border-slate-200 bg-white p-3">
                                 <video controls preload="metadata" class="w-full rounded-2xl border border-slate-200 bg-slate-950">
-                                    <source src="{{ asset('storage/' . $proof->file_path) }}">
+                                    <source src="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}">
                                     Your browser does not support HTML video playback.
                                 </video>
                                 <div class="mt-2 text-xs text-slate-500">
@@ -830,7 +876,7 @@
                 <div class="detail-card cleanflow-panel p-5">
                     <div class="mb-5">
                         <h2 class="text-lg font-semibold text-slate-900">Price Breakdown</h2>
-                        <p class="text-sm text-slate-500">Clear basis of computation for this booking quotation.</p>
+                        <p class="text-sm text-slate-500">Saved pricing snapshot for this booking, including each applied charge.</p>
                     </div>
 
                     <div class="space-y-4">
@@ -851,14 +897,14 @@
                         @endunless
                         <div class="flex items-start justify-between gap-3 text-sm">
                             <div>
-                                <span class="text-slate-500">Property type adjustment</span>
+                                <span class="text-slate-500">Property charge</span>
                                 <div class="text-xs text-slate-400">{{ $propertyTypeLabel }}</div>
                             </div>
                             <span class="font-medium text-slate-800">{{ ($booking->property_fee ?? 0) > 0 ? '+' : '' }}&#8369;{{ number_format($booking->property_fee ?? 0, 2) }}</span>
                         </div>
                         <div class="flex items-start justify-between gap-3 text-sm">
                             <div>
-                                <span class="text-slate-500">Floor area adjustment</span>
+                            <span class="text-slate-500">Floor area charge</span>
                                 <div class="text-xs text-slate-400">
                                     @if($isFlatRateRangeService)
                                         Included in the flat-rate package
@@ -893,14 +939,14 @@
                             @endforeach
                         </div>
                         <div class="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
-                            <span class="text-lg font-bold text-slate-900">Total Amount</span>
+                            <span class="text-lg font-bold text-slate-900">Booking total</span>
                             <span class="text-lg font-bold text-emerald-600">&#8369;{{ number_format($booking->price, 2) }}</span>
                         </div>
                         <div class="rounded-xl border border-yellow-100 bg-yellow-50 p-3 text-xs text-yellow-700">
                             @if($booking->payment_method === 'on_site_cash')
-                            Cash payment will be collected and marked as paid once the service is completed. This total is based on the service type, property type, floor area, and selected add-ons.
+                            Cash payment will be collected and marked as paid once the service is completed. This saved total is based on the service type, property type, floor area, and selected add-ons.
                             @else
-                            This booking was recorded with {{ strtolower($paymentMethodLabel) }} and stores a digital payment reference for admin and client tracking. This total is based on the service type, property type, floor area, and selected add-ons.
+                            This booking was recorded with {{ strtolower($paymentMethodLabel) }} and stores a digital payment reference for admin and client tracking. This saved total is based on the service type, property type, floor area, and selected add-ons.
                             @endif
                         </div>
                     </div>

@@ -46,6 +46,7 @@
                     <a href="{{ $pricingLink }}" class="text-sm font-medium text-slate-600 transition hover:text-slate-900">Pricing</a>
                     <a href="{{ route('map') }}" class="text-sm font-medium text-slate-600 transition hover:text-slate-900">Service Areas</a>
                     <a href="{{ $faqLink }}" class="text-sm font-medium text-slate-600 transition hover:text-slate-900">FAQ</a>
+                    <a href="{{ route('cleaner-applications.create') }}" class="text-sm font-medium text-slate-600 transition hover:text-slate-900">Apply as Cleaner</a>
                 </div>
 
                 <div class="hidden items-center gap-2.5 md:flex">
@@ -77,6 +78,7 @@
                 <a href="{{ $pricingLink }}" onclick="closeMobileNav()" class="block border-b border-slate-50 px-1 py-2.5 text-[15px] font-medium text-gray-700 transition hover:text-gray-900">Pricing</a>
                 <a href="{{ route('map') }}" onclick="closeMobileNav()" class="block border-b border-slate-50 px-1 py-2.5 text-[15px] font-medium text-gray-700 transition hover:text-gray-900">Service Areas</a>
                 <a href="{{ $faqLink }}" onclick="closeMobileNav()" class="block border-b border-slate-50 px-1 py-2.5 text-[15px] font-medium text-gray-700 transition hover:text-gray-900">FAQ</a>
+                <a href="{{ route('cleaner-applications.create') }}" onclick="closeMobileNav()" class="block border-b border-slate-50 px-1 py-2.5 text-[15px] font-medium text-gray-700 transition hover:text-gray-900">Apply as Cleaner</a>
                 <div class="mt-4 flex flex-col gap-2">
                     @auth
                     <a href="{{ route(auth()->user()->role . '.dashboard') }}" class="rounded-xl bg-slate-100 px-3 py-3 text-center text-[15px] font-semibold text-gray-700 transition hover:bg-slate-200">Dashboard</a>
@@ -115,21 +117,34 @@
                     <div class="footer-support">
                         <p>
                             <i class="fas fa-envelope text-blue-400 w-4"></i>
-                            <span>{{ $siteSettings->contact_email ?: 'support@homecleaningservice.local' }}</span>
+                            @if($siteSettings->contact_email)
+                                <a href="mailto:{{ $siteSettings->contact_email }}" class="hover:text-white">{{ $siteSettings->contact_email }}</a>
+                            @else
+                                <span>Email contact not configured</span>
+                            @endif
                         </p>
                         @if($siteSettings->contact_phone)
                             <p>
                                 <i class="fas fa-phone text-blue-400 w-4"></i>
-                                <span>{{ $siteSettings->contact_phone }}</span>
+                                <a href="tel:{{ preg_replace('/[^0-9+]/', '', $siteSettings->contact_phone) }}" class="hover:text-white">{{ $siteSettings->contact_phone }}</a>
+                            </p>
+                            <p>
+                                <i class="fas fa-comment-sms text-blue-400 w-4"></i>
+                                <span>Call or SMS during office hours</span>
+                            </p>
+                        @else
+                            <p>
+                                <i class="fas fa-phone-slash text-amber-400 w-4"></i>
+                                <span>Call/SMS fallback is not configured yet</span>
                             </p>
                         @endif
                         <p>
-                            <i class="fas fa-comment-dots text-blue-400 w-4"></i>
-                            <span>Message us during operating hours</span>
+                            <i class="fas fa-building text-blue-400 w-4"></i>
+                            <span>Visit the office during the hours listed above</span>
                         </p>
                         <p>
                             <i class="fas fa-circle-check text-blue-400 w-4"></i>
-                            <span>Quotes and bookings are handled in one place</span>
+                            <span>Keep your booking reference when contacting us</span>
                         </p>
                     </div>
                 </div>
@@ -140,6 +155,7 @@
                         <li><a href="{{ $servicesLink }}">Services</a></li>
                         <li><a href="{{ $pricingLink }}">Pricing</a></li>
                         <li><a href="{{ route('map') }}">Service Areas</a></li>
+                        <li><a href="{{ route('cleaner-applications.create') }}">Apply as Cleaner</a></li>
                         <li><a href="{{ $faqLink }}">FAQ</a></li>
                     </ul>
                 </div>

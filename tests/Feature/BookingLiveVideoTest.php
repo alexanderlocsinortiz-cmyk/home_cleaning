@@ -143,7 +143,7 @@ class BookingLiveVideoTest extends TestCase
     {
         $client = User::factory()->create(['role' => 'client']);
         $staff = User::factory()->create(['role' => 'staff']);
-        $service = Service::factory()->create(['slug' => 'basic-clean', 'name' => 'Basic Clean']);
+        $service = $this->canonicalService(['slug' => 'basic-clean', 'name' => 'Basic Clean']);
 
         $booking = Booking::factory()->create(array_merge([
             'user_id' => $client->id,

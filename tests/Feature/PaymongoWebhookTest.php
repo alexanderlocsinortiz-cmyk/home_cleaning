@@ -67,6 +67,32 @@ class PaymongoWebhookTest extends TestCase
         $this->assertSame(0, Notification::count());
     }
 
+    public function test_repeated_paymongo_paid_webhook_is_a_no_op(): void
+    {
+        Config::set('services.paymongo.webhook_secret', 'whsec_test_secret');
+
+        $client = User::factory()->create(['role' => 'client']);
+        $service = Service::factory()->create();
+        $booking = Booking::factory()->create([
+            'user_id' => $client->id,
+            'service_id' => $service->id,
+            'payment_method' => 'gcash',
+            'payment_status' => 'pending',
+            'payment_reference' => null,
+        ]);
+
+        $payload = json_encode($this->paidCheckoutPayload($booking->id), JSON_UNESCAPED_SLASHES);
+        $signature = hash_hmac('sha256', '1710000000.'.$payload, 'whsec_test_secret');
+        $headers = ['Paymongo-Signature' => "t=1710000000,te={$signature},li="];
+
+        $this->withHeaders($headers)->postJson(route('api.paymongo.webhook'), json_decode($payload, true))->assertOk();
+        $this->withHeaders($headers)->postJson(route('api.paymongo.webhook'), json_decode($payload, true))
+            ->assertOk()
+            ->assertJson(['status' => 'already_processed']);
+
+        $this->assertSame(1, Notification::where('booking_id', $booking->id)->count());
+    }
+
     private function paidCheckoutPayload(int $bookingId): array
     {
         return [

@@ -178,7 +178,9 @@ class AdminSettingsAccessControlTest extends TestCase
             ->assertSee(route('admin.settings.database-backup.password'), false)
             ->assertSee('Backup files may contain confidential information')
             ->assertSee('Store backup files securely.')
-            ->assertSee('Database backup password');
+            ->assertSee('Database backup password')
+            ->assertSee('Upload database to private cloud storage')
+            ->assertSee(route('admin.settings.database-backup.cloud'), false);
     }
 
     public function test_admin_must_set_backup_password_before_database_backup_download(): void
@@ -253,6 +255,65 @@ class AdminSettingsAccessControlTest extends TestCase
         $response->assertOk();
         $response->assertDownload();
         $this->assertMatchesRegularExpression('/\.(sqlite|sql)/', $response->headers->get('content-disposition'));
+    }
+
+    public function test_admin_can_upload_sqlite_database_backup_to_private_cloud_disk(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'password' => Hash::make('admin-password'),
+        ]);
+        SiteSetting::current()->update([
+            'database_backup_password_hash' => Hash::make('backup-password-123'),
+        ]);
+
+        config([
+            'filesystems.disks.remote-backup' => [
+                'driver' => 'local',
+                'root' => storage_path('framework/testing/remote-backup'),
+            ],
+            'filesystems.database_backup_disk' => 'remote-backup',
+            'filesystems.database_backup_prefix' => 'database-backups',
+            'filesystems.database_backup_retention_count' => 30,
+        ]);
+        Storage::fake('remote-backup');
+
+        $response = $this->actingAs($admin)
+            ->post(route('admin.settings.database-backup.cloud'), [
+                'database_backup_password' => 'backup-password-123',
+            ]);
+
+        $response->assertRedirect(route('admin.settings').'#database-backup');
+        $response->assertSessionHas('success');
+
+        $files = Storage::disk('remote-backup')->allFiles('database-backups');
+
+        $this->assertCount(1, $files);
+        $this->assertMatchesRegularExpression('/database-backups\/cleanflow-sqlite-.*\.(sqlite|sql)$/', $files[0]);
+        $this->assertNotEmpty(Storage::disk('remote-backup')->get($files[0]));
+    }
+
+    public function test_database_backup_cloud_command_uploads_to_private_disk(): void
+    {
+        config([
+            'filesystems.disks.remote-backup' => [
+                'driver' => 'local',
+                'root' => storage_path('framework/testing/remote-backup-command'),
+            ],
+            'filesystems.database_backup_disk' => 'remote-backup',
+            'filesystems.database_backup_prefix' => 'database-backups',
+            'filesystems.database_backup_retention_count' => 30,
+        ]);
+        Storage::fake('remote-backup');
+
+        $this->artisan('database:backup-cloud')
+            ->assertExitCode(0)
+            ->expectsOutputToContain('Database backup uploaded: database-backups/');
+
+        $files = Storage::disk('remote-backup')->allFiles('database-backups');
+
+        $this->assertCount(1, $files);
+        $this->assertNotEmpty(Storage::disk('remote-backup')->get($files[0]));
     }
 
     public function test_admin_password_change_requires_current_password(): void

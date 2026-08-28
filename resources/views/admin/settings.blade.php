@@ -346,6 +346,33 @@
                     </button>
                 </form>
 
+                <form method="POST" action="{{ route('admin.settings.database-backup.cloud') }}" class="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+                    @csrf
+                    <div class="flex items-start gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-700 shadow-sm">
+                            <i class="fas fa-cloud-arrow-up"></i>
+                        </div>
+                        <div>
+                            <div class="text-sm font-black text-slate-900">Upload database to private cloud storage</div>
+                            <p class="mt-1 text-sm leading-6 text-slate-600">Creates the backup, uploads it to the configured private backup disk, confirms it exists, and removes the temporary local copy. Older backups beyond the retention count are pruned.</p>
+                        </div>
+                    </div>
+                    <label class="mt-4 block">
+                        <span class="text-sm font-bold text-slate-700">Database backup password</span>
+                        <input type="password" name="database_backup_password" autocomplete="off" class="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" required>
+                        @error('database_backup_password')
+                            <span class="mt-1 block text-xs font-semibold text-red-600">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    @error('database_backup')
+                        <div class="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{{ $message }}</div>
+                    @enderror
+                    <button type="submit" class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700">
+                        <i class="fas fa-cloud-arrow-up"></i>
+                        Upload Backup to Cloud
+                    </button>
+                </form>
+
             </div>
         </div>
     </section>

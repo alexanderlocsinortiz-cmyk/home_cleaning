@@ -14,7 +14,7 @@ class AdminAnalyticsPageTest extends TestCase
 {
     public function test_admin_analytics_dashboard_renders_current_metrics(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -122,7 +122,7 @@ class AdminAnalyticsPageTest extends TestCase
 
     public function test_admin_analytics_export_returns_csv(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',

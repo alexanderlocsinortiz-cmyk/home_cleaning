@@ -7,8 +7,12 @@ use App\Mail\BookingConfirmed;
 use App\Mail\BookingInProgress;
 use App\Mail\BookingStaffAssigned;
 use App\Mail\BookingSubmitted;
+use App\Mail\CleanerApplicationDecision;
+use App\Mail\MarketplaceProviderAssigned;
+use App\Mail\ProviderPayoutPaid;
 use App\Mail\QuickNotification;
 use App\Models\Booking;
+use App\Models\CleanerApplication;
 use App\Models\Notification;
 use App\Models\Service;
 use App\Models\User;
@@ -69,12 +73,98 @@ class EmailTemplateRenderTest extends TestCase
         $this->assertStringNotContainsString('â', $quickNotificationMarkup.$verifyEmailMarkup);
     }
 
+    public function test_cleaner_application_decision_email_template_renders(): void
+    {
+        $application = CleanerApplication::create([
+            'applicant_type' => CleanerApplication::TYPE_TEAM,
+            'business_name' => 'Bright Team Cleaners',
+            'contact_person' => 'Maria Santos',
+            'email' => 'bright-email-template@example.com',
+            'phone' => '09171234567',
+            'service_area' => 'Valencia City',
+            'years_experience' => 3,
+            'team_size' => 5,
+            'services_offered' => 'Residential cleaning',
+            'status' => CleanerApplication::STATUS_APPROVED,
+            'admin_notes' => 'Verified by phone.',
+            'reviewed_at' => now(),
+        ]);
+
+        $rendered = (new CleanerApplicationDecision($application, 'sample-activation-token'))->render();
+
+        $this->assertStringContainsString('Application Approved', $rendered);
+        $this->assertStringContainsString('Bright Team Cleaners', $rendered);
+        $this->assertStringContainsString('Approved', $rendered);
+        $this->assertStringContainsString('Create Provider Account', $rendered);
+        $this->assertStringContainsString('providers/activate/sample-activation-token', $rendered);
+        $this->assertStringNotContainsString('Ã°', $rendered);
+        $this->assertStringNotContainsString('Ã¢', $rendered);
+    }
+
+    public function test_marketplace_provider_assignment_email_template_renders(): void
+    {
+        [$booking] = $this->createBookingContext();
+        $provider = CleanerApplication::create([
+            'applicant_type' => CleanerApplication::TYPE_TEAM,
+            'business_name' => 'Bright Team Cleaners',
+            'contact_person' => 'Maria Santos',
+            'email' => 'bright-assigned@example.com',
+            'phone' => '09171234567',
+            'service_area' => 'Valencia City',
+            'years_experience' => 3,
+            'team_size' => 5,
+            'services_offered' => 'Residential cleaning',
+            'status' => CleanerApplication::STATUS_APPROVED,
+        ]);
+
+        $rendered = (new MarketplaceProviderAssigned($booking, $provider))->render();
+
+        $this->assertStringContainsString('Booking Assignment', $rendered);
+        $this->assertStringContainsString('Bright Team Cleaners', $rendered);
+        $this->assertStringContainsString('CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT), $rendered);
+        $this->assertStringNotContainsString('Ã°', $rendered);
+        $this->assertStringNotContainsString('Ã¢', $rendered);
+    }
+
+    public function test_provider_payout_paid_email_template_renders(): void
+    {
+        [$booking] = $this->createBookingContext();
+        $provider = CleanerApplication::create([
+            'applicant_type' => CleanerApplication::TYPE_TEAM,
+            'business_name' => 'Bright Team Cleaners',
+            'contact_person' => 'Maria Santos',
+            'email' => 'bright-payout-paid@example.com',
+            'phone' => '09171234567',
+            'service_area' => 'Valencia City',
+            'years_experience' => 3,
+            'team_size' => 5,
+            'services_offered' => 'Residential cleaning',
+            'status' => CleanerApplication::STATUS_APPROVED,
+        ]);
+        $booking->forceFill([
+            'cleaner_application_id' => $provider->id,
+            'provider_payout_amount' => 1003,
+            'provider_payout_status' => 'paid',
+            'provider_payout_reference' => 'GCASH-TEMPLATE-001',
+            'provider_payout_paid_at' => '2026-06-08 15:30:00',
+        ])->save();
+
+        $rendered = (new ProviderPayoutPaid($booking->fresh(['service']), $provider))->render();
+
+        $this->assertStringContainsString('Provider Payout Paid', $rendered);
+        $this->assertStringContainsString('Bright Team Cleaners', $rendered);
+        $this->assertStringContainsString('GCASH-TEMPLATE-001', $rendered);
+        $this->assertStringContainsString('PHP 1,003.00', $rendered);
+        $this->assertStringNotContainsString('ÃƒÂ°', $rendered);
+        $this->assertStringNotContainsString('ÃƒÂ¢', $rendered);
+    }
+
     /**
      * @return array{0: Booking, 1: User, 2: User}
      */
     private function createBookingContext(): array
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',

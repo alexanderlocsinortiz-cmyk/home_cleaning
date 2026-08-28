@@ -18,6 +18,8 @@ class ClientMiddleware
                 return redirect()->route('admin.dashboard');
             } elseif (auth()->user()->role === 'staff') {
                 return redirect()->route('staff.dashboard');
+            } elseif (auth()->user()->role === 'provider') {
+                return redirect()->route('provider.dashboard');
             }
             abort(403, 'Unauthorized.');
         }

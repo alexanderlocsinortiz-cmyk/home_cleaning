@@ -187,19 +187,19 @@
             @if($beforeProofs->count() || $afterProofs->count() || $completionVideos->count())
               <div class="proof-preview-list">
                 @foreach($beforeProofs->take(2) as $proof)
-                  <a href="{{ asset('storage/' . $proof->file_path) }}" target="_blank" class="proof-preview proof-preview--before">
-                    <img src="{{ asset('storage/' . $proof->file_path) }}" alt="Before-service proof">
+                  <a href="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" target="_blank" class="proof-preview proof-preview--before">
+                    <img src="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" alt="Before-service proof">
                     <span>Before {{ $loop->iteration }}</span>
                   </a>
                 @endforeach
                 @foreach($afterProofs->take(2) as $proof)
-                  <a href="{{ asset('storage/' . $proof->file_path) }}" target="_blank" class="proof-preview proof-preview--after">
-                    <img src="{{ asset('storage/' . $proof->file_path) }}" alt="After-service proof">
+                  <a href="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" target="_blank" class="proof-preview proof-preview--after">
+                    <img src="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" alt="After-service proof">
                     <span>After {{ $loop->iteration }}</span>
                   </a>
                 @endforeach
                 @foreach($completionVideos->take(1) as $proof)
-                  <a href="{{ asset('storage/' . $proof->file_path) }}" target="_blank" class="proof-preview proof-preview--video">
+                  <a href="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" target="_blank" class="proof-preview proof-preview--video">
                     <i class="fas fa-video"></i>
                     <span>{{ $proof->original_name ?: 'Video proof' }}</span>
                   </a>

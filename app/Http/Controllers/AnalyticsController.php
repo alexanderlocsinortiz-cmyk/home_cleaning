@@ -7,6 +7,7 @@ use App\Models\Service;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class AnalyticsController extends Controller
 {
@@ -20,31 +21,111 @@ class AnalyticsController extends Controller
         $dateRange = $this->resolveDateRange();
         $startDate = Carbon::now()->subDays($dateRange - 1)->startOfDay();
 
-        $bookings = Booking::query()
-            ->with([
-                'rating:id,booking_id,stars',
-                'service:id,slug,name',
-                'staff:id,first_name,last_name,barangay',
-            ])
-            ->where('created_at', '>=', $startDate)
-            ->orderBy('created_at')
-            ->get();
-
-        $staffMembers = User::query()
-            ->where('role', 'staff')
-            ->orderBy('first_name')
-            ->orderBy('last_name')
-            ->get(['id', 'first_name', 'last_name', 'barangay']);
+        $bookings = Booking::query()->where('bookings.created_at', '>=', $startDate);
 
         return view('analytics.dashboard', [
-            'bookingMetrics' => $this->getBookingMetrics($bookings),
-            'revenueMetrics' => $this->getRevenueMetrics($bookings),
-            'staffPerformance' => $this->getStaffPerformance($bookings, $staffMembers),
-            'customerSatisfaction' => $this->getCustomerSatisfaction($bookings),
-            'servicePopularity' => $this->getServicePopularity($bookings),
-            'dailyTrends' => $this->getDailyTrends($startDate, $bookings),
+            'bookingMetrics' => $this->getBookingMetricsFromDatabase($bookings),
+            'revenueMetrics' => $this->getRevenueMetricsFromDatabase($bookings),
+            'staffPerformance' => $this->getStaffPerformanceFromDatabase($bookings),
+            'customerSatisfaction' => $this->getCustomerSatisfactionFromDatabase($bookings, $startDate),
+            'servicePopularity' => $this->getServicePopularityFromDatabase($bookings),
+            'dailyTrends' => $this->getDailyTrendsFromDatabase($bookings, $startDate),
             'dateRange' => $dateRange,
         ]);
+    }
+
+    private function bookingTotalSql(string $table = 'bookings'): string
+    {
+        return "COALESCE(NULLIF({$table}.price, 0), COALESCE({$table}.base_price, 0) + COALESCE({$table}.property_fee, 0) + COALESCE({$table}.rooms_fee, 0) + COALESCE({$table}.bathrooms_fee, 0) + COALESCE({$table}.floor_area_fee, 0) + COALESCE({$table}.add_ons_fee, 0))";
+    }
+
+    private function getBookingMetricsFromDatabase($bookings): array
+    {
+        $row = (clone $bookings)->selectRaw("COUNT(*) as total, SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending, SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed, SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress, SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed, SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled")->first();
+        $total = (int) ($row->total ?? 0);
+        $completed = (int) ($row->completed ?? 0);
+
+        return [
+            'total' => $total,
+            'pending' => (int) ($row->pending ?? 0),
+            'confirmed' => (int) ($row->confirmed ?? 0),
+            'in_progress' => (int) ($row->in_progress ?? 0),
+            'completed' => $completed,
+            'cancelled' => (int) ($row->cancelled ?? 0),
+            'completion_rate' => $total > 0 ? round(($completed / $total) * 100, 1) : 0.0,
+        ];
+    }
+
+    private function getRevenueMetricsFromDatabase($bookings): array
+    {
+        $totalSql = $this->bookingTotalSql();
+        $row = (clone $bookings)->where('status', 'completed')->selectRaw("COUNT(*) as completed, SUM($totalSql) as total_revenue, SUM(CASE WHEN payment_status = 'paid' THEN 1 ELSE 0 END) as paid_bookings, SUM(CASE WHEN payment_status != 'paid' OR payment_status IS NULL THEN 1 ELSE 0 END) as pending_payments, SUM(CASE WHEN payment_status != 'paid' OR payment_status IS NULL THEN $totalSql ELSE 0 END) as outstanding_revenue")->first();
+        $completed = (int) ($row->completed ?? 0);
+        $totalRevenue = (float) ($row->total_revenue ?? 0);
+        $paid = (int) ($row->paid_bookings ?? 0);
+
+        return [
+            'total_revenue' => round($totalRevenue, 2),
+            'average_booking_value' => $completed > 0 ? round($totalRevenue / $completed, 2) : 0.0,
+            'paid_bookings' => $paid,
+            'pending_payments' => (int) ($row->pending_payments ?? 0),
+            'outstanding_revenue' => round((float) ($row->outstanding_revenue ?? 0), 2),
+            'payment_collection_rate' => $completed > 0 ? round(($paid / $completed) * 100, 1) : 0.0,
+        ];
+    }
+
+    private function getStaffPerformanceFromDatabase($bookings): Collection
+    {
+        $rows = (clone $bookings)->leftJoin('ratings', 'ratings.booking_id', '=', 'bookings.id')
+            ->whereNotNull('bookings.staff_id')
+            ->select('bookings.staff_id')
+            ->selectRaw('COUNT(bookings.id) as assigned, SUM(CASE WHEN bookings.status = \'completed\' THEN 1 ELSE 0 END) as completed, AVG(ratings.stars) as average_rating, COUNT(ratings.id) as reviews')
+            ->groupBy('bookings.staff_id')->get()->keyBy('staff_id');
+        $staff = User::whereIn('id', $rows->keys())->get(['id', 'first_name', 'last_name', 'barangay'])->keyBy('id');
+
+        return $rows->map(function ($row) use ($staff) {
+            $member = $staff->get($row->staff_id);
+            $assigned = (int) $row->assigned;
+            return [
+                'name' => $member?->full_name ?? 'Unknown staff member',
+                'barangay' => $member?->barangay_name,
+                'assigned' => $assigned,
+                'completed' => (int) $row->completed,
+                'completion_rate' => $assigned > 0 ? round(((int) $row->completed / $assigned) * 100, 1) : 0.0,
+                'average_rating' => $row->average_rating !== null ? round((float) $row->average_rating, 1) : null,
+                'reviews' => (int) $row->reviews,
+            ];
+        })->sortByDesc(fn (array $member) => ($member['completed'] * 1000) + (int) round(($member['average_rating'] ?? 0) * 100))->values();
+    }
+
+    private function getCustomerSatisfactionFromDatabase($bookings, Carbon $startDate): array
+    {
+        $ratings = DB::table('ratings')->join('bookings', 'bookings.id', '=', 'ratings.booking_id')->where('bookings.created_at', '>=', $startDate)->select('ratings.stars')->get();
+        $total = $ratings->count();
+        return [
+            'average_rating' => $total > 0 ? round((float) $ratings->avg('stars'), 1) : null,
+            'total_ratings' => $total,
+            'satisfaction_percentage' => $total > 0 ? round(($ratings->where('stars', '>=', 4)->count() / $total) * 100, 1) : 0.0,
+            'distribution' => collect(range(5, 1))->map(fn (int $stars) => ['stars' => $stars, 'count' => $ratings->where('stars', $stars)->count(), 'percentage' => $total > 0 ? round(($ratings->where('stars', $stars)->count() / $total) * 100, 1) : 0.0]),
+        ];
+    }
+
+    private function getServicePopularityFromDatabase($bookings): Collection
+    {
+        $totalSql = $this->bookingTotalSql();
+        return (clone $bookings)->leftJoin('services', 'services.id', '=', 'bookings.service_id')->select(['bookings.service_type', 'services.name as service_name'])->selectRaw("COUNT(bookings.id) as bookings, SUM(CASE WHEN bookings.status = 'completed' THEN 1 ELSE 0 END) as completed, AVG($totalSql) as average_price, SUM(CASE WHEN bookings.status = 'completed' THEN $totalSql ELSE 0 END) as revenue")->groupBy('bookings.service_type', 'services.name')->orderByDesc('bookings')->get()->map(fn ($row) => ['name' => $row->service_name ?? Service::displayNameForSlug($row->service_type), 'bookings' => (int) $row->bookings, 'completed' => (int) $row->completed, 'completion_rate' => $row->bookings > 0 ? round(((int) $row->completed / $row->bookings) * 100, 1) : 0.0, 'average_price' => round((float) ($row->average_price ?? 0), 2), 'revenue' => round((float) ($row->revenue ?? 0), 2)])->values();
+    }
+
+    private function getDailyTrendsFromDatabase($bookings, Carbon $startDate): Collection
+    {
+        $totalSql = $this->bookingTotalSql();
+        $rows = (clone $bookings)->selectRaw("DATE(created_at) as trend_date, COUNT(*) as bookings, SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed, SUM(CASE WHEN status = 'completed' THEN $totalSql ELSE 0 END) as revenue")->groupByRaw('DATE(created_at)')->get()->keyBy('trend_date');
+        $trends = collect();
+        for ($cursor = $startDate->copy(); $cursor->lte(Carbon::now()->startOfDay()); $cursor->addDay()) {
+            $row = $rows->get($cursor->toDateString());
+            $trends->push(['date' => $cursor->toDateString(), 'label' => $cursor->format('M d'), 'bookings' => (int) ($row->bookings ?? 0), 'completed' => (int) ($row->completed ?? 0), 'revenue' => round((float) ($row->revenue ?? 0), 2)]);
+        }
+        return $trends;
     }
 
     /**
@@ -254,14 +335,10 @@ class AnalyticsController extends Controller
 
         $computedTotal = collect([
             'base_price',
-            'property_adjustment',
             'property_fee',
-            'room_bathroom_fees',
             'rooms_fee',
             'bathrooms_fee',
-            'floor_area_fees',
             'floor_area_fee',
-            'add_on_fees',
             'add_ons_fee',
         ])->sum(fn (string $field) => (float) ($booking->{$field} ?? 0));
 

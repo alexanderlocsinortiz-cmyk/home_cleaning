@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CalculatePriceRequest;
 use App\Http\Requests\StoreBookingRequest;
-use App\Mail\BookingSubmitted;
+use App\Jobs\SendBookingSubmittedEmail;
 use App\Models\AttendanceLog;
 use App\Models\Booking;
 use App\Models\Service;
@@ -16,7 +16,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -174,6 +173,10 @@ class BookingController extends Controller
             $request->scheduled_time
         );
 
+        if ($service?->requiresScopeManualReview((int) $request->floor_area)) {
+            $riskReasons[] = 'Requested floor area exceeds the provisional measurable limit for this service.';
+        }
+
         $manualReviewStatus = empty($riskReasons) ? 'not_required' : 'pending';
 
         $subscriptionGroupId = $servicePlan === 'subscription' ? (string) Str::uuid() : null;
@@ -302,11 +305,7 @@ class BookingController extends Controller
             $this->createSubscriptionPlanNotification($booking, $createdBookings->count());
         }
 
-        try {
-            Mail::to($booking->user->email)->send(new BookingSubmitted($booking));
-        } catch (\Exception $e) {
-            // silently ignore mail failures
-        }
+        SendBookingSubmittedEmail::dispatch($booking->id);
 
         $successMessage = $manualReviewStatus === 'pending'
             ? 'Your booking request has been submitted and is pending manual review before confirmation.'
@@ -527,7 +526,7 @@ class BookingController extends Controller
 
         $photoPath = null;
         if ($request->hasFile('photo')) {
-            $photoPath = $request->file('photo')->store('ratings', 'public');
+            $photoPath = $request->file('photo')->store('ratings', config('filesystems.public_uploads_disk'));
         }
 
         \App\Models\Rating::create([
@@ -540,6 +539,42 @@ class BookingController extends Controller
         ]);
 
         return back()->with('success', 'Thanks for sharing your feedback. Your rating has been saved.');
+    }
+
+    public function openDispute(Request $request, $id)
+    {
+        $user = $this->requireVerifiedClient();
+        $booking = Booking::where('id', $id)->where('user_id', $user->id)->firstOrFail();
+
+        if (! $booking->canClientOpenDispute($user)) {
+            return back()->withErrors([
+                'dispute' => 'This booking cannot be disputed. Only completed unpaid-provider bookings without an existing dispute can be disputed.',
+            ]);
+        }
+
+        $validated = $request->validate([
+            'dispute_reason' => ['required', 'string', 'in:'.implode(',', array_keys(Booking::disputeReasons()))],
+            'dispute_description' => ['required', 'string', 'min:20', 'max:2000'],
+        ]);
+
+        $booking->forceFill([
+            'dispute_status' => 'open',
+            'dispute_reason' => $validated['dispute_reason'],
+            'dispute_description' => $validated['dispute_description'],
+            'disputed_at' => now(),
+            'dispute_resolution' => null,
+            'dispute_admin_notes' => null,
+            'dispute_reviewed_by' => null,
+            'dispute_resolved_at' => null,
+            'provider_payout_status' => $booking->provider_gross_amount !== null ? 'held' : $booking->provider_payout_status,
+        ])->save();
+
+        $booking->logActivity($user, 'dispute_opened', 'Client opened a booking dispute.', [
+            'dispute_reason' => $validated['dispute_reason'],
+            'provider_payout_status' => $booking->provider_payout_status,
+        ]);
+
+        return back()->with('success', 'Your dispute has been submitted. Provider payout is held while admin reviews it.');
     }
 
     public function cancel($id)

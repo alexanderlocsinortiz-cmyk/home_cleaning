@@ -90,17 +90,32 @@ class BookingLocationController extends Controller
             'longitude' => 'required|numeric|between:-180,180',
         ]);
 
+        // Browser geolocation can emit multiple updates per second. Keep the
+        // current position responsive, but avoid filling the history table
+        // with near-identical points.
+        $latitude = (float) $request->latitude;
+        $longitude = (float) $request->longitude;
+        $lastUpdatedAt = $booking->location_updated_at;
+        $sameArea = $booking->current_latitude !== null
+            && $booking->current_longitude !== null
+            && abs((float) $booking->current_latitude - $latitude) < 0.0003
+            && abs((float) $booking->current_longitude - $longitude) < 0.0003;
+
+        if ($lastUpdatedAt && $lastUpdatedAt->gt(now()->subSeconds(10)) && $sameArea) {
+            return response()->json(['success' => true, 'recorded' => false]);
+        }
+
         $booking->update([
-            'current_latitude' => $request->latitude,
-            'current_longitude' => $request->longitude,
+            'current_latitude' => $latitude,
+            'current_longitude' => $longitude,
             'location_updated_at' => now(),
         ]);
 
         BookingLocation::create([
             'booking_id' => $id,
             'staff_id' => $user->id,
-            'latitude' => $request->latitude,
-            'longitude' => $request->longitude,
+            'latitude' => $latitude,
+            'longitude' => $longitude,
             'captured_at' => now(),
         ]);
 

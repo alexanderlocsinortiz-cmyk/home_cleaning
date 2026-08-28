@@ -12,7 +12,91 @@ class Service extends Model
 
     public const DEFAULT_DURATION_MINUTES = 60;
 
-    protected $fillable = ['name', 'slug', 'description', 'price', 'duration_minutes', 'is_active'];
+    protected $fillable = [
+        'name',
+        'slug',
+        'description',
+        'price',
+        'duration_minutes',
+        'scope_max_floor_area',
+        'scope_cleaner_count',
+        'scope_status',
+        'scope_manual_review_above_limit',
+        'scope_included_areas',
+        'scope_included_tasks',
+        'scope_excluded_tasks',
+        'scope_condition_limits',
+        'scope_equipment_policy',
+        'scope_access_limits',
+        'scope_extra_work_policy',
+        'scope_acceptance_criteria',
+        'is_active',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'price' => 'float',
+            'duration_minutes' => 'integer',
+            'scope_max_floor_area' => 'integer',
+            'scope_cleaner_count' => 'integer',
+            'scope_manual_review_above_limit' => 'boolean',
+            'is_active' => 'boolean',
+        ];
+    }
+
+    public const SCOPE_STATUSES = [
+        'provisional',
+        'approved',
+    ];
+
+    public function scopeIsApproved(): bool
+    {
+        return $this->scope_status === 'approved';
+    }
+
+    public function scopeSummary(): array
+    {
+        return [
+            'max_floor_area' => $this->scope_max_floor_area,
+            'cleaner_count' => (int) ($this->scope_cleaner_count ?: 1),
+            'status' => $this->scope_status ?: 'provisional',
+            'manual_review_above_limit' => (bool) $this->scope_manual_review_above_limit,
+        ];
+    }
+
+    public function scopeDefinition(): array
+    {
+        return [
+            'included_areas' => $this->scope_included_areas,
+            'included_tasks' => $this->scope_included_tasks,
+            'excluded_tasks' => $this->scope_excluded_tasks,
+            'condition_limits' => $this->scope_condition_limits,
+            'equipment_policy' => $this->scope_equipment_policy,
+            'access_limits' => $this->scope_access_limits,
+            'extra_work_policy' => $this->scope_extra_work_policy,
+            'acceptance_criteria' => $this->scope_acceptance_criteria,
+        ];
+    }
+
+    public function scopeDefinitionIsComplete(): bool
+    {
+        return collect($this->scopeDefinition())->every(fn ($value) => filled($value));
+    }
+
+    public function exceedsScopeLimit(?int $floorArea): bool
+    {
+        return $this->scope_max_floor_area !== null
+            && $floorArea !== null
+            && $floorArea > (int) $this->scope_max_floor_area;
+    }
+
+    public function requiresScopeManualReview(?int $floorArea): bool
+    {
+        return ! $this->scopeIsApproved()
+            && (bool) $this->scope_manual_review_above_limit
+            && $this->exceedsScopeLimit($floorArea);
+    }
 
     public const PACKAGE_CATALOG = [
         'basic' => [
@@ -81,18 +165,52 @@ class Service extends Model
             ],
         ],
         'commercial' => [
-            'name' => 'Office and Commercial Cleaning',
+            'name' => 'Office Cleaning (Standard)',
             'badge' => 'Business Package',
             'icon' => 'fa-building',
             'summary' => 'Structured cleaning for offices, storefronts, and other business-ready workspaces.',
             'highlight' => 'Ideal for customer-facing spaces and team operations.',
             'default_description' => 'Commercial cleaning package for offices and business spaces, including reception areas, work zones, and common facilities.',
-            'recommended_price' => 1600.0,
+            'recommended_price' => 35.0,
+            'pricing_unit' => 'sqm',
             'recommended_duration_minutes' => 180,
             'features' => [
                 'Reception and workstation cleaning routines',
                 'Restroom and pantry area sanitation',
                 'Business-hours friendly cleaning workflow',
+            ],
+        ],
+        'office-basic' => [
+            'name' => 'Office Cleaning (Basic)',
+            'badge' => 'Office Package',
+            'icon' => 'fa-building',
+            'summary' => 'Light office cleaning for routine workspace upkeep.',
+            'highlight' => 'Best for small offices with regular maintenance.',
+            'default_description' => 'Basic office cleaning for floors, visible surfaces, work areas, and common office touchpoints.',
+            'recommended_price' => 30.0,
+            'pricing_unit' => 'sqm',
+            'recommended_duration_minutes' => 120,
+            'features' => [
+                'Visible surface wiping',
+                'Floor sweeping and mopping',
+                'Trash collection and light restroom refresh',
+            ],
+        ],
+        'office-deep' => [
+            'name' => 'Office Cleaning (Deep)',
+            'badge' => 'Office Deep Clean',
+            'icon' => 'fa-building-shield',
+            'summary' => 'Detailed office cleaning for heavier buildup and high-touch zones.',
+            'highlight' => 'Recommended for periodic resets and more demanding office cleaning.',
+            'default_description' => 'Deep office cleaning for workstations, floors, restrooms, pantry areas, fixtures, and high-touch surfaces.',
+            'recommended_price' => 60.0,
+            'pricing_unit' => 'sqm',
+            'pricing_note' => 'Default catalog rate: PHP 60 per sqm. Condition-based re-quoting is not currently configured.',
+            'recommended_duration_minutes' => 240,
+            'features' => [
+                'Detailed workstation and high-touch cleaning',
+                'Restroom and pantry deep sanitation',
+                'Heavier floor and surface detailing',
             ],
         ],
         'weeklymaintenance' => [
@@ -132,7 +250,13 @@ class Service extends Model
             'post construction cleaning',
             'post-construction cleaning',
             'post construction clean' => 'postconstruction',
+            'office cleaning basic',
+            'office cleaning (basic)' => 'office-basic',
+            'office cleaning deep',
+            'office cleaning (deep)' => 'office-deep',
             'office and commercial cleaning',
+            'office cleaning standard',
+            'office cleaning (standard)',
             'commercial cleaning',
             'office cleaning' => 'commercial',
             'general/regular cleaning',
@@ -153,7 +277,9 @@ class Service extends Model
             'deep' => 'Deep Clean',
             'moveinout' => 'Move-in/Move-out Clean',
             'postconstruction' => 'Post Construction Cleaning',
-            'commercial' => 'Office and Commercial Cleaning',
+            'commercial' => 'Office Cleaning (Standard)',
+            'office-basic' => 'Office Cleaning (Basic)',
+            'office-deep' => 'Office Cleaning (Deep)',
             'weeklymaintenance' => 'General/Regular Cleaning',
             null, '' => 'Unknown Service',
             default => Str::of($slug)->replace(['-', '_'], ' ')->title()->value(),
@@ -192,6 +318,33 @@ class Service extends Model
     public static function usesFlatRateRangePricing(?string $slug): bool
     {
         return (self::PACKAGE_CATALOG[self::catalogSlug($slug)]['pricing_unit'] ?? null) === 'flat_range';
+    }
+
+    public static function catalogRateForSlug(?string $slug): float
+    {
+        return (float) (self::PACKAGE_CATALOG[self::catalogSlug($slug)]['recommended_price'] ?? 0.0);
+    }
+
+    public static function effectiveRateForSlug(?string $slug): float
+    {
+        if (! $slug) {
+            return 0.0;
+        }
+
+        $storedRate = self::where('slug', $slug)->value('price');
+
+        if ($storedRate !== null) {
+            return (float) $storedRate;
+        }
+
+        $catalogSlug = self::catalogSlug($slug);
+        $canonicalStoredRate = $catalogSlug && $catalogSlug !== $slug
+            ? self::where('slug', $catalogSlug)->value('price')
+            : null;
+
+        return $canonicalStoredRate !== null
+            ? (float) $canonicalStoredRate
+            : self::catalogRateForSlug($slug);
     }
 
     public static function priceRangeForSlug(?string $slug): ?array

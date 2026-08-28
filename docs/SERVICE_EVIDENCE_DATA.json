@@ -1,0 +1,92 @@
+{
+  "generated_at": "2026-08-27",
+  "evidence_scope": "application_catalog_only",
+  "real_world_verified": false,
+  "source_files": [
+    "app/Models/Service.php",
+    "app/Models/Booking.php",
+    "app/Http/Controllers/Api/MobileServiceController.php"
+  ],
+  "services": [
+    {
+      "slug": "basic",
+      "name": "Basic Clean",
+      "pricing_unit": "sqm",
+      "rate": 35,
+      "duration_minutes": 60,
+      "features": ["General dusting and surface wipe-down", "Floor sweeping and mopping", "Bathroom and kitchen touch-up cleaning"],
+      "physical_completion_evidence": "missing"
+    },
+    {
+      "slug": "deep",
+      "name": "Deep Clean",
+      "pricing_unit": "sqm",
+      "rate": 95,
+      "duration_minutes": 180,
+      "features": ["Detailed bathroom and kitchen scrubbing", "Focused grime and buildup removal", "Expanded surface and corner detailing"],
+      "physical_completion_evidence": "missing"
+    },
+    {
+      "slug": "moveinout",
+      "name": "Move-in/Move-out Clean",
+      "pricing_unit": "sqm",
+      "rate": 80,
+      "duration_minutes": 240,
+      "features": ["Whole-property cleaning for turnover", "Cabinet, fixture, and wall-surface attention", "Move-ready or handover-ready presentation"],
+      "physical_completion_evidence": "missing"
+    },
+    {
+      "slug": "postconstruction",
+      "name": "Post Construction Cleaning",
+      "pricing_unit": "sqm",
+      "rate": 105,
+      "duration_minutes": 240,
+      "features": ["Removal of fine construction dust and debris traces", "Detailed wipe-down of fixtures, ledges, and surfaces", "Focused cleanup for recently renovated rooms"],
+      "physical_completion_evidence": "missing"
+    },
+    {
+      "slug": "commercial",
+      "name": "Office Cleaning (Standard)",
+      "pricing_unit": "sqm",
+      "rate": 35,
+      "duration_minutes": 180,
+      "features": ["Reception and workstation cleaning routines", "Restroom and pantry area sanitation", "Business-hours friendly cleaning workflow"],
+      "physical_completion_evidence": "missing"
+    },
+    {
+      "slug": "office-basic",
+      "name": "Office Cleaning (Basic)",
+      "pricing_unit": "sqm",
+      "rate": 30,
+      "duration_minutes": 120,
+      "features": ["Visible surface wiping", "Floor sweeping and mopping", "Trash collection and light restroom refresh"],
+      "physical_completion_evidence": "missing"
+    },
+    {
+      "slug": "office-deep",
+      "name": "Office Cleaning (Deep)",
+      "pricing_unit": "sqm",
+      "rate": 60,
+      "duration_minutes": 240,
+      "features": ["Detailed workstation and high-touch cleaning", "Restroom and pantry deep sanitation", "Heavier floor and surface detailing"],
+      "physical_completion_evidence": "missing"
+    },
+    {
+      "slug": "weeklymaintenance",
+      "name": "General/Regular Cleaning",
+      "pricing_unit": "flat_range",
+      "price_range": {"min": 500, "max": 800},
+      "duration_minutes": 240,
+      "features": ["General dusting, sweeping, and mopping", "Routine kitchen and bathroom refresh", "Up to 4 hours per standard session"],
+      "physical_completion_evidence": "missing"
+    }
+  ],
+  "add_ons": [
+    {"key": "window_glass", "name": "Window Glass Cleaning", "price": 200},
+    {"key": "refrigerator", "name": "Refrigerator Cleaning", "price": 350},
+    {"key": "inside_cabinets", "name": "Inside Cabinet Cleaning", "price": 300},
+    {"key": "sofa_vacuum", "name": "Sofa Vacuuming", "price": 400},
+    {"key": "pet_hair_removal", "name": "Pet Hair Removal", "price": 300},
+    {"key": "yard_sweeping", "name": "Yard Sweeping", "price": 250}
+  ]
+}

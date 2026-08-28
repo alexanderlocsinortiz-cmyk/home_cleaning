@@ -59,16 +59,23 @@ class AdminController extends Controller
         $cancelledCount = Booking::where('status', 'cancelled')->count();
 
         // Service popularity is all-time to match the total bookings shown in the card.
+        // Aggregate in SQL so the dashboard does not hydrate every historical booking.
         $servicePopularity = Booking::query()
-            ->with('service:id,slug,name')
-            ->get()
-            ->groupBy('service_type')
-            ->map(fn ($group, $type) => [
-                'name' => $group->first()?->service?->name ?? ucfirst(str_replace('_', ' ', $type ?? 'Other')),
-                'bookings' => $group->count(),
+            ->leftJoin('services', 'services.id', '=', 'bookings.service_id')
+            ->select([
+                'bookings.service_type',
+                'services.name as service_name',
             ])
-            ->sortByDesc('bookings')
-            ->take(5)
+            ->selectRaw('COUNT(bookings.id) as bookings')
+            ->groupBy('bookings.service_type', 'services.name')
+            ->orderByDesc('bookings')
+            ->limit(5)
+            ->get()
+            ->map(fn ($row) => [
+                'name' => $row->service_name
+                    ?? ucfirst(str_replace('_', ' ', $row->service_type ?? 'Other')),
+                'bookings' => (int) $row->bookings,
+            ])
             ->values();
 
         // Staff performance with ratings (30-day, top 5)
@@ -95,11 +102,15 @@ class AdminController extends Controller
 
         // Booking trend data uses scheduled service dates, so restored historical bookings still appear.
         $trendBookings = Booking::query()
-            ->select(['id', 'scheduled_date', 'status'])
+            ->select('scheduled_date')
+            ->selectRaw('COUNT(*) as booking_count')
             ->whereNotNull('scheduled_date')
+            ->groupBy('scheduled_date')
             ->orderBy('scheduled_date')
             ->get();
-        $bookingsByDate = $trendBookings->groupBy(fn (Booking $b) => Carbon::parse($b->scheduled_date)->toDateString());
+        $bookingsByDate = $trendBookings->keyBy(
+            fn ($row) => Carbon::parse($row->scheduled_date)->toDateString()
+        );
         $chartLabels = $chartDateLabels = $chartBookingsData = [];
         $firstTrendDate = $trendBookings->isNotEmpty()
             ? Carbon::parse($trendBookings->first()->scheduled_date)->startOfDay()
@@ -110,10 +121,10 @@ class AdminController extends Controller
         $chartCursor = $firstTrendDate->copy();
         while ($chartCursor->lte($lastTrendDate)) {
             $dateStr = $chartCursor->toDateString();
-            $day = $bookingsByDate->get($dateStr, collect());
+            $day = $bookingsByDate->get($dateStr);
             $chartDateLabels[] = $dateStr;
             $chartLabels[] = $chartCursor->format('M d');
-            $chartBookingsData[] = $day->count();
+            $chartBookingsData[] = $day ? (int) $day->booking_count : 0;
             $chartCursor->addDay();
         }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
+use App\Models\CleanerApplication;
 use App\Models\Rating;
 use App\Models\Service;
 use App\Models\User;
@@ -107,6 +108,239 @@ class AdminReportController extends Controller
         return response($this->excelTable($title, $rows), 200)
             ->header('Content-Type', 'application/vnd.ms-excel; charset=UTF-8')
             ->header('Content-Disposition', 'attachment; filename="reports_'.$timestamp.'.xls"');
+    }
+
+    public function providerPayouts(Request $request)
+    {
+        [$filters, $baseQuery] = $this->providerPayoutQuery($request);
+
+        $summaryRows = (clone $baseQuery)->get([
+            'provider_gross_amount',
+            'platform_commission_amount',
+            'provider_payout_amount',
+            'provider_payout_status',
+            'payment_method',
+            'cash_collected_amount',
+            'provider_commission_due',
+            'provider_commission_status',
+        ]);
+
+        $payoutSummary = [
+            'gross' => round((float) $summaryRows->sum('provider_gross_amount'), 2),
+            'commission' => round((float) $summaryRows->sum('platform_commission_amount'), 2),
+            'payout' => round((float) $summaryRows->sum('provider_payout_amount'), 2),
+            'cash_collected' => round((float) $summaryRows->where('payment_method', 'on_site_cash')->sum('cash_collected_amount'), 2),
+            'commission_due' => round((float) $summaryRows->where('provider_commission_status', 'unpaid')->sum('provider_commission_due'), 2),
+            'commission_paid' => round((float) $summaryRows->where('provider_commission_status', 'paid')->sum('provider_commission_due'), 2),
+            'count' => $summaryRows->count(),
+            'status_counts' => collect(Booking::providerPayoutStatuses())
+                ->mapWithKeys(fn (string $status) => [$status => $summaryRows->where('provider_payout_status', $status)->count()])
+                ->all(),
+            'commission_status_counts' => collect(Booking::providerCommissionStatuses())
+                ->mapWithKeys(fn (string $status) => [$status => $summaryRows->where('provider_commission_status', $status)->count()])
+                ->all(),
+        ];
+
+        $payoutRows = (clone $baseQuery)
+            ->orderByDesc('scheduled_date')
+            ->orderByDesc('id')
+            ->paginate(15)
+            ->withQueryString();
+
+        $providers = CleanerApplication::query()
+            ->where('status', CleanerApplication::STATUS_APPROVED)
+            ->orderBy('business_name')
+            ->get(['id', 'business_name']);
+
+        return view('admin.provider-payouts', compact('filters', 'payoutRows', 'payoutSummary', 'providers'));
+    }
+
+    public function exportProviderPayouts(Request $request)
+    {
+        [$filters, $baseQuery] = $this->providerPayoutQuery($request);
+        $filename = 'provider_payouts_'.now()->format('Ymd_His').'.csv';
+
+        return response()->streamDownload(function () use ($baseQuery) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, [
+                'Booking',
+                'Provider',
+                'Customer',
+                'Service',
+                'Service Date',
+                'Status',
+                'Gross',
+                'Commission',
+                'Provider Payout',
+                'Payout Reference',
+                'Payout Paid At',
+                'Payment Flow',
+                'Cash Collected',
+                'Commission Collection Status',
+                'Commission Reference',
+                'Commission Paid At',
+                'Latest Audit Status',
+                'Latest Audit By',
+                'Latest Audit At',
+                'Has Current Proof',
+            ]);
+
+            (clone $baseQuery)
+                ->orderByDesc('scheduled_date')
+                ->orderByDesc('id')
+                ->chunk(200, function ($bookings) use ($handle) {
+                    foreach ($bookings as $booking) {
+                        $latestTransaction = $booking->providerPayoutTransactions->first();
+
+                        fputcsv($handle, [
+                            'CF-'.str_pad((string) $booking->id, 5, '0', STR_PAD_LEFT),
+                            $booking->cleanerApplication?->business_name ?? 'Unknown provider',
+                            $booking->user?->display_name ?? 'Unknown customer',
+                            $booking->service_label,
+                            $booking->scheduled_date?->format('Y-m-d'),
+                            Booking::providerPayoutStatusLabel($booking->provider_payout_status),
+                            number_format((float) $booking->provider_gross_amount, 2, '.', ''),
+                            number_format((float) $booking->platform_commission_amount, 2, '.', ''),
+                            number_format((float) $booking->provider_payout_amount, 2, '.', ''),
+                            $booking->provider_payout_reference,
+                            $booking->provider_payout_paid_at?->format('Y-m-d H:i:s'),
+                            $booking->payment_method === 'on_site_cash' ? 'Cash commission collection' : 'Provider payout',
+                            number_format((float) $booking->cash_collected_amount, 2, '.', ''),
+                            Booking::providerCommissionStatusLabel($booking->provider_commission_status),
+                            $booking->provider_commission_reference,
+                            $booking->provider_commission_paid_at?->format('Y-m-d H:i:s'),
+                            $latestTransaction
+                                ? Booking::providerPayoutStatusLabel($latestTransaction->from_status).' -> '.Booking::providerPayoutStatusLabel($latestTransaction->to_status)
+                                : '',
+                            $latestTransaction?->processor?->full_name ?? '',
+                            $latestTransaction?->created_at?->format('Y-m-d H:i:s'),
+                            filled($booking->provider_payout_proof_path) ? 'Yes' : 'No',
+                        ]);
+                    }
+                });
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    public function providerPerformance(Request $request)
+    {
+        $filters = [
+            'provider_id' => (int) $request->get('provider_id', 0),
+            'date_from' => (string) $request->get('date_from', ''),
+            'date_to' => (string) $request->get('date_to', ''),
+        ];
+
+        $dateFrom = $this->parseReportDate($filters['date_from'])?->startOfDay();
+        $dateTo = $this->parseReportDate($filters['date_to'])?->endOfDay();
+
+        if ($dateFrom && $dateTo && $dateFrom->gt($dateTo)) {
+            [$dateFrom, $dateTo] = [$dateTo->copy()->startOfDay(), $dateFrom->copy()->endOfDay()];
+            $filters['date_from'] = $dateFrom->toDateString();
+            $filters['date_to'] = $dateTo->toDateString();
+        }
+
+        $providersQuery = CleanerApplication::query()
+            ->with(['documents', 'bookings' => function ($query) use ($dateFrom, $dateTo) {
+                $query
+                    ->with(['rating'])
+                    ->when($dateFrom, fn ($query) => $query->whereDate('scheduled_date', '>=', $dateFrom->toDateString()))
+                    ->when($dateTo, fn ($query) => $query->whereDate('scheduled_date', '<=', $dateTo->toDateString()));
+            }])
+            ->where('status', CleanerApplication::STATUS_APPROVED)
+            ->when($filters['provider_id'] > 0, fn ($query) => $query->where('id', $filters['provider_id']))
+            ->orderBy('business_name');
+
+        $providerRows = $providersQuery->get()->map(function (CleanerApplication $provider) {
+            $bookings = $provider->bookings;
+            $ratings = $bookings->pluck('rating')->filter();
+            $assignedCount = $bookings->count();
+            $completedCount = $bookings->where('status', 'completed')->count();
+            $acceptedCount = $bookings->where('provider_assignment_status', 'accepted')->count();
+            $declinedCount = $bookings->where('provider_assignment_status', 'declined')->count();
+            $openDisputeCount = $bookings->where('dispute_status', 'open')->count();
+            $lateCount = $bookings
+                ->whereIn('on_time_status', ['started_late', 'completed_late', 'late'])
+                ->count();
+
+            $provider->performance = [
+                'assigned' => $assignedCount,
+                'accepted' => $acceptedCount,
+                'declined' => $declinedCount,
+                'pending_response' => $bookings->where('provider_assignment_status', 'pending')->count(),
+                'active' => $bookings->whereIn('status', Booking::ACTIVE_SCHEDULE_STATUSES)->count(),
+                'completed' => $completedCount,
+                'cancelled' => $bookings->where('status', 'cancelled')->count(),
+                'open_disputes' => $openDisputeCount,
+                'disputed' => $bookings->whereNotNull('dispute_status')->count(),
+                'avg_rating' => $ratings->count() > 0 ? round((float) $ratings->avg('stars'), 1) : null,
+                'rating_count' => $ratings->count(),
+                'on_time' => $bookings->where('on_time_status', 'on_time')->count(),
+                'late' => $lateCount,
+                'gross' => round((float) $bookings->sum('provider_gross_amount'), 2),
+                'commission' => round((float) $bookings->sum('platform_commission_amount'), 2),
+                'payout' => round((float) $bookings->sum('provider_payout_amount'), 2),
+                'acceptance_rate' => $assignedCount > 0 ? round(($acceptedCount / $assignedCount) * 100, 1) : 0.0,
+                'completion_rate' => $assignedCount > 0 ? round(($completedCount / $assignedCount) * 100, 1) : 0.0,
+                'dispute_rate' => $assignedCount > 0 ? round(($openDisputeCount / $assignedCount) * 100, 1) : 0.0,
+                'late_rate' => $completedCount > 0 ? round(($lateCount / $completedCount) * 100, 1) : 0.0,
+                'payout_status_counts' => collect(Booking::providerPayoutStatuses())
+                    ->mapWithKeys(fn (string $status) => [$status => $bookings->where('provider_payout_status', $status)->count()])
+                    ->all(),
+            ];
+
+            return $provider;
+        })->values();
+
+        $providers = CleanerApplication::query()
+            ->where('status', CleanerApplication::STATUS_APPROVED)
+            ->orderBy('business_name')
+            ->get(['id', 'business_name']);
+
+        $summary = [
+            'providers' => $providerRows->count(),
+            'assigned' => $providerRows->sum(fn (CleanerApplication $provider) => $provider->performance['assigned']),
+            'completed' => $providerRows->sum(fn (CleanerApplication $provider) => $provider->performance['completed']),
+            'open_disputes' => $providerRows->sum(fn (CleanerApplication $provider) => $provider->performance['open_disputes']),
+            'commission' => round((float) $providerRows->sum(fn (CleanerApplication $provider) => $provider->performance['commission']), 2),
+        ];
+
+        return view('admin.provider-performance', compact('filters', 'providerRows', 'providers', 'summary'));
+    }
+
+    private function providerPayoutQuery(Request $request): array
+    {
+        $filters = [
+            'provider_id' => (int) $request->get('provider_id', 0),
+            'payout_status' => in_array($request->get('payout_status'), Booking::providerPayoutStatuses(), true)
+                ? $request->get('payout_status')
+                : '',
+            'date_from' => (string) $request->get('date_from', ''),
+            'date_to' => (string) $request->get('date_to', ''),
+        ];
+
+        $dateFrom = $this->parseReportDate($filters['date_from'])?->startOfDay();
+        $dateTo = $this->parseReportDate($filters['date_to'])?->endOfDay();
+
+        if ($dateFrom && $dateTo && $dateFrom->gt($dateTo)) {
+            [$dateFrom, $dateTo] = [$dateTo->copy()->startOfDay(), $dateFrom->copy()->endOfDay()];
+            $filters['date_from'] = $dateFrom->toDateString();
+            $filters['date_to'] = $dateTo->toDateString();
+        }
+
+        $query = Booking::query()
+            ->with(['user', 'cleanerApplication', 'service', 'providerPayoutTransactions.processor'])
+            ->whereNotNull('cleaner_application_id')
+            ->whereNotNull('provider_gross_amount')
+            ->when($filters['provider_id'] > 0, fn (Builder $query) => $query->where('cleaner_application_id', $filters['provider_id']))
+            ->when($filters['payout_status'] !== '', fn (Builder $query) => $query->where('provider_payout_status', $filters['payout_status']))
+            ->when($dateFrom, fn (Builder $query) => $query->whereDate('scheduled_date', '>=', $dateFrom->toDateString()))
+            ->when($dateTo, fn (Builder $query) => $query->whereDate('scheduled_date', '<=', $dateTo->toDateString()));
+
+        return [$filters, $query];
     }
 
     private function resolveReportFilters(Request $request): array

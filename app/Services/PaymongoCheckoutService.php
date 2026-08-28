@@ -46,7 +46,13 @@ class PaymongoCheckoutService
         }
 
         $request = Http::withBasicAuth($secretKey, '')
-            ->acceptJson();
+            ->acceptJson()
+            ->connectTimeout((int) config('services.paymongo.connect_timeout_seconds', 5))
+            ->timeout((int) config('services.paymongo.timeout_seconds', 10))
+            ->retry(
+                (int) config('services.paymongo.retry_times', 2),
+                (int) config('services.paymongo.retry_sleep_ms', 250)
+            );
 
         $caBundle = config('services.paymongo.ca_bundle');
 
@@ -118,7 +124,13 @@ class PaymongoCheckoutService
         }
 
         $request = Http::withBasicAuth($secretKey, '')
-            ->acceptJson();
+            ->acceptJson()
+            ->connectTimeout((int) config('services.paymongo.connect_timeout_seconds', 5))
+            ->timeout((int) config('services.paymongo.timeout_seconds', 10))
+            ->retry(
+                (int) config('services.paymongo.retry_times', 2),
+                (int) config('services.paymongo.retry_sleep_ms', 250)
+            );
 
         $caBundle = config('services.paymongo.ca_bundle');
 

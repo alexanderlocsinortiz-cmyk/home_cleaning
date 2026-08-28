@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -85,16 +84,6 @@ class StaffSeeder extends Seeder
                 ]
             );
 
-            Staff::updateOrCreate(
-                ['user_id' => $user->id],
-                [
-                    'employee_id' => 'EMP-'.str_pad((string) $user->id, 4, '0', STR_PAD_LEFT),
-                    'hourly_rate' => $member['position'] === 'Supervisor' ? 150 : 120,
-                    'bio' => $member['position'].' assigned to '.$member['barangay'].'.',
-                    'years_of_experience' => 1,
-                    'is_active' => $member['status'] === 'active',
-                ]
-            );
         }
     }
 }

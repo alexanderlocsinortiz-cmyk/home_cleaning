@@ -3,8 +3,10 @@
 namespace App\Http\Requests;
 
 use App\Models\Service;
+use App\Models\Booking;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class CalculatePriceRequest extends FormRequest
 {
@@ -24,16 +26,37 @@ class CalculatePriceRequest extends FormRequest
     public function rules(): array
     {
         $validSlugs = Service::where('is_active', true)->pluck('slug')->toArray();
-        $validAddOns = array_keys(\App\Models\Booking::addOnCatalog());
+        $validAddOns = array_keys(Booking::addOnCatalog());
+        $propertyTypes = array_keys(Booking::propertyTypeLabels());
 
         return [
             'service_type' => ['required', Rule::in($validSlugs)],
-            'property_type' => 'required|in:house,apartment,boarding_house',
+            'property_type' => ['required', Rule::in($propertyTypes)],
             'rooms' => 'nullable|integer|min:1|max:20',
             'bathrooms' => 'nullable|integer|min:1|max:10',
             'floor_area' => 'required|integer|min:10|max:1000',
             'add_ons' => 'nullable|array',
             'add_ons.*' => ['string', Rule::in($validAddOns)],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $service = Service::where('slug', $this->input('service_type'))
+                ->where('is_active', true)
+                ->first();
+
+            if (
+                $service?->scopeIsApproved()
+                && $service->scope_max_floor_area
+                && (int) $this->input('floor_area', 0) > (int) $service->scope_max_floor_area
+            ) {
+                $validator->errors()->add(
+                    'floor_area',
+                    "This service is approved for up to {$service->scope_max_floor_area} sqm."
+                );
+            }
+        });
     }
 }

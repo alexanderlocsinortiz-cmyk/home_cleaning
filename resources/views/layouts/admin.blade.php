@@ -42,6 +42,9 @@
             <a href="{{ route('admin.customers') }}" class="mx-3 flex items-center gap-3 rounded-lg border-l-4 border-transparent px-3 py-3 text-slate-300 transition-all hover:bg-slate-700/50 hover:text-white hover:border-blue-500 {{ request()->routeIs('admin.customers*') ? 'border-blue-500 bg-blue-500/15 text-blue-200' : '' }}">
                 <i class="fas fa-users w-5 text-center"></i> Customers
             </a>
+            <a href="{{ route('admin.cleaner-applications.index') }}" class="mx-3 flex items-center gap-3 rounded-lg border-l-4 border-transparent px-3 py-3 text-slate-300 transition-all hover:bg-slate-700/50 hover:text-white hover:border-blue-500 {{ request()->routeIs('admin.cleaner-applications.*') ? 'border-blue-500 bg-blue-500/15 text-blue-200' : '' }}">
+                <i class="fas fa-clipboard-check w-5 text-center"></i> Cleaner Applications
+            </a>
             <a href="{{ route('admin.bookings') }}" class="mx-3 flex items-center gap-3 rounded-lg border-l-4 border-transparent px-3 py-3 text-slate-300 transition-all hover:bg-slate-700/50 hover:text-white hover:border-blue-500 {{ request()->routeIs('admin.bookings') ? 'border-blue-500 bg-blue-500/15 text-blue-200' : '' }}">
                 <i class="fas fa-calendar-check w-5 text-center"></i>
                 <span class="flex-1">Bookings</span>

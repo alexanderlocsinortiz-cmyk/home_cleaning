@@ -339,6 +339,7 @@ class AuthController extends Controller
         return redirect()->route(match ($user->role) {
             'admin' => 'admin.dashboard',
             'staff' => 'staff.dashboard',
+            'provider' => 'provider.dashboard',
             default => 'client.dashboard',
         });
     }

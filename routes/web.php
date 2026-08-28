@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminAttendanceController;
 use App\Http\Controllers\AdminBookingController;
+use App\Http\Controllers\AdminCleanerApplicationController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminCustomerController;
 use App\Http\Controllers\AdminLogController;
@@ -13,10 +14,13 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\BookingLiveVideoController;
 use App\Http\Controllers\BookingLocationController;
 use App\Http\Controllers\BookingMessageController;
+use App\Http\Controllers\CleanerApplicationController;
 use App\Http\Controllers\ClientPortalController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MapController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProviderActivationController;
+use App\Http\Controllers\ProviderPortalController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\StaffPortalController;
@@ -35,6 +39,15 @@ Route::view('/privacy', 'legal.privacy')->name('legal.privacy');
 
 // Service Area Map
 Route::get('/map', [MapController::class, 'index'])->name('map');
+Route::get('/cleaners/apply', [CleanerApplicationController::class, 'create'])->name('cleaner-applications.create');
+Route::post('/cleaners/apply', [CleanerApplicationController::class, 'store'])
+    ->middleware('throttle:6,1')
+    ->name('cleaner-applications.store');
+Route::get('/providers/activate/invalid', [ProviderActivationController::class, 'invalid'])->name('provider.activate.invalid');
+Route::get('/providers/activate/{token}', [ProviderActivationController::class, 'show'])->name('provider.activate.show');
+Route::post('/providers/activate/{token}', [ProviderActivationController::class, 'store'])
+    ->middleware('throttle:6,1')
+    ->name('provider.activate.store');
 
 // Authentication Routes
 Route::middleware('guest')->group(function () {
@@ -75,6 +88,7 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::post('/bookings/calculate-price', [BookingController::class, 'calculatePrice'])->name('bookings.calculate-price');
         Route::get('/bookings/{id}/payment/return', [BookingController::class, 'paymentReturn'])->name('bookings.payment.return');
         Route::post('/bookings/{id}/rate', [BookingController::class, 'rate'])->middleware('throttle:10,1')->name('bookings.rate');
+        Route::post('/bookings/{id}/dispute', [BookingController::class, 'openDispute'])->middleware('throttle:5,1')->name('bookings.dispute');
         Route::patch('/bookings/{id}/cancel', [BookingController::class, 'cancel'])->middleware('throttle:10,1')->name('bookings.cancel');
         Route::patch('/bookings/{id}/reschedule', [BookingController::class, 'reschedule'])->middleware('throttle:10,1')->name('bookings.reschedule');
     });
@@ -88,8 +102,10 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         ->middleware('throttle:20,1')
         ->name('bookings.live-video.end');
     Route::post('/bookings/{booking}/messages', [BookingMessageController::class, 'store'])->middleware('throttle:20,1')->name('bookings.messages.store');
-    Route::get('/bookings/{id}/location/current', [BookingLocationController::class, 'current']);
-    Route::get('/bookings/{id}/location/history', [BookingLocationController::class, 'history']);
+    Route::get('/bookings/{id}/location/current', [BookingLocationController::class, 'current'])
+        ->middleware('throttle:60,1');
+    Route::get('/bookings/{id}/location/history', [BookingLocationController::class, 'history'])
+        ->middleware('throttle:60,1');
     Route::post('/bookings/{id}/location/update', [BookingLocationController::class, 'update'])->middleware('throttle:30,1')->name('booking.location.update');
 
     // Admin routes
@@ -97,12 +113,32 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::get('/', fn () => redirect()->route('admin.dashboard'));
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
         Route::get('/customers', [AdminCustomerController::class, 'index'])->name('customers');
+        Route::get('/cleaner-applications', [AdminCleanerApplicationController::class, 'index'])->name('cleaner-applications.index');
+        Route::patch('/cleaner-applications/{cleanerApplication}', [AdminCleanerApplicationController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('cleaner-applications.update');
+        Route::patch('/cleaner-applications/{cleanerApplication}/payout-verification', [AdminCleanerApplicationController::class, 'updatePayoutVerification'])
+            ->middleware('throttle:30,1')
+            ->name('cleaner-applications.payout-verification');
+        Route::get('/cleaner-applications/{cleanerApplication}/documents/{document}', [AdminCleanerApplicationController::class, 'downloadPayoutDocument'])
+            ->middleware('throttle:30,1')
+            ->name('cleaner-applications.documents.download');
+        Route::get('/cleaner-applications/{cleanerApplication}/application-files/{type}', [AdminCleanerApplicationController::class, 'downloadApplicationFile'])
+            ->middleware('throttle:30,1')
+            ->name('cleaner-applications.application-files.download');
         Route::get('/customers/{customer}/verification', [AdminCustomerController::class, 'editCustomerVerification'])->name('customers.verification.edit');
         Route::put('/customers/{customer}/verification', [AdminCustomerController::class, 'updateCustomerVerification'])->name('customers.verification.update');
         Route::delete('/customers/{customer}', [AdminCustomerController::class, 'destroy'])->name('customers.destroy');
         Route::get('/bookings', [AdminBookingController::class, 'bookings'])->name('bookings');
         Route::patch('/bookings/{id}/status', [AdminBookingController::class, 'updateBookingStatus'])->middleware('throttle:30,1')->name('bookings.status');
+        Route::patch('/bookings/{id}/provider', [AdminBookingController::class, 'updateBookingProvider'])->middleware('throttle:30,1')->name('bookings.provider');
         Route::patch('/bookings/{id}/payment', [AdminBookingController::class, 'updateBookingPayment'])->middleware('throttle:30,1')->name('bookings.payment');
+        Route::patch('/bookings/{id}/payout', [AdminBookingController::class, 'updateBookingPayout'])->middleware('throttle:30,1')->name('bookings.payout');
+        Route::patch('/bookings/{id}/provider-commission', [AdminBookingController::class, 'updateBookingProviderCommission'])->middleware('throttle:30,1')->name('bookings.provider-commission');
+        Route::get('/bookings/{id}/payout-proof', [AdminBookingController::class, 'downloadProviderPayoutProof'])->middleware('throttle:30,1')->name('bookings.payout-proof');
+        Route::get('/bookings/{id}/provider-commission-proof', [AdminBookingController::class, 'downloadProviderCommissionProof'])->middleware('throttle:30,1')->name('bookings.provider-commission-proof');
+        Route::get('/provider-payout-transactions/{transaction}/proof', [AdminBookingController::class, 'downloadProviderPayoutTransactionProof'])->middleware('throttle:30,1')->name('provider-payout-transactions.proof');
+        Route::patch('/bookings/{id}/dispute', [AdminBookingController::class, 'updateBookingDispute'])->middleware('throttle:30,1')->name('bookings.dispute');
         Route::patch('/bookings/{id}/review', [AdminBookingController::class, 'updateBookingReview'])->middleware('throttle:30,1')->name('bookings.review');
         Route::get('/attendance', [AdminAttendanceController::class, 'attendance'])->name('attendance');
         Route::post('/attendance/devices', [AdminAttendanceController::class, 'storeAttendanceDevice'])->name('attendance.devices.store');
@@ -111,11 +147,18 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::post('/attendance/devices/{device}/rotate-token', [AdminAttendanceController::class, 'rotateAttendanceDeviceToken'])->name('attendance.devices.rotate-token');
         Route::get('/attendance/history', [AdminAttendanceController::class, 'attendanceHistory'])->name('attendance.history');
         Route::get('/reports', [AdminReportController::class, 'reports'])->name('reports');
+        Route::get('/provider-performance', [AdminReportController::class, 'providerPerformance'])->name('provider-performance');
+        Route::get('/provider-payouts', [AdminReportController::class, 'providerPayouts'])->name('provider-payouts');
+        Route::get('/provider-payouts/export', [AdminReportController::class, 'exportProviderPayouts'])
+            ->middleware('throttle:5,1')
+            ->name('provider-payouts.export');
         Route::get('/reports/export/{format}', [AdminReportController::class, 'export'])
+            ->middleware('throttle:5,1')
             ->whereIn('format', ['pdf', 'excel'])
             ->name('reports.export');
         Route::get('/logs', [AdminLogController::class, 'index'])->name('logs');
         Route::get('/logs/export/{source}/{format}', [AdminLogController::class, 'export'])
+            ->middleware('throttle:5,1')
             ->whereIn('source', ['bookings', 'attendance', 'admin'])
             ->whereIn('format', ['pdf', 'excel'])
             ->name('logs.export');
@@ -123,13 +166,16 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::get('/settings', [AdminSettingsController::class, 'index'])->name('settings');
         Route::patch('/settings/general', [AdminSettingsController::class, 'updateGeneral'])->middleware('throttle:20,1')->name('settings.general');
         Route::post('/settings/database-backup', [AdminSettingsController::class, 'downloadDatabaseBackup'])->middleware('throttle:5,1')->name('settings.database-backup');
+        Route::post('/settings/database-backup/cloud', [AdminSettingsController::class, 'uploadDatabaseBackup'])->middleware('throttle:5,1')->name('settings.database-backup.cloud');
         Route::patch('/settings/database-backup/password', [AdminSettingsController::class, 'updateDatabaseBackupPassword'])->middleware('throttle:10,1')->name('settings.database-backup.password');
         Route::patch('/settings/users/{user}/access', [AdminSettingsController::class, 'updateUserAccess'])->middleware('throttle:30,1')->name('settings.users.access');
         Route::patch('/settings/staff/{user}/pages', [AdminSettingsController::class, 'updateStaffPages'])->middleware('throttle:30,1')->name('settings.staff.pages');
 
         // Analytics Dashboard Routes
         Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
-        Route::get('/analytics/export', [AnalyticsController::class, 'export'])->name('analytics.export');
+        Route::get('/analytics/export', [AnalyticsController::class, 'export'])
+            ->middleware('throttle:5,1')
+            ->name('analytics.export');
 
         Route::post('/services/add-ons', [ServiceController::class, 'storeAddOn'])->name('services.add-ons.store');
         Route::put('/services/add-ons/{addOn}', [ServiceController::class, 'updateAddOn'])->name('services.add-ons.update');
@@ -165,5 +211,24 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::put('/profile', [ClientPortalController::class, 'updateProfile'])->name('profile.update');
         Route::get('/bookings/create', [BookingController::class, 'create'])->name('bookings.create');
         Route::get('/service-areas', [ClientPortalController::class, 'serviceAreas'])->name('service-areas');
+    });
+
+    Route::prefix('provider')->name('provider.')->middleware('provider')->group(function () {
+        Route::get('/dashboard', [ProviderPortalController::class, 'dashboard'])->name('dashboard');
+        Route::patch('/availability', [ProviderPortalController::class, 'updateAvailability'])
+            ->middleware('throttle:20,1')
+            ->name('availability.update');
+        Route::patch('/payout-setup', [ProviderPortalController::class, 'updatePayoutSetup'])
+            ->middleware('throttle:20,1')
+            ->name('payout-setup.update');
+        Route::get('/bookings', [ProviderPortalController::class, 'bookings'])->name('bookings');
+        Route::get('/payouts', [ProviderPortalController::class, 'payouts'])->name('payouts');
+        Route::patch('/bookings/{booking}/response', [ProviderPortalController::class, 'respondToBooking'])
+            ->middleware('throttle:30,1')
+            ->name('bookings.response');
+        Route::patch('/bookings/{booking}/status', [ProviderPortalController::class, 'updateStatus'])
+            ->middleware('throttle:30,1')
+            ->name('bookings.status');
+        Route::get('/bookings/{booking}', [ProviderPortalController::class, 'showBooking'])->name('bookings.show');
     });
 });

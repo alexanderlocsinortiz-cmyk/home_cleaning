@@ -10,6 +10,9 @@
         $descriptionValue = old('description', '');
         $priceValue = old('price', '');
         $durationValue = old('duration_minutes', \App\Models\Service::DEFAULT_DURATION_MINUTES);
+        $scopeMaxAreaValue = old('scope_max_floor_area', 30);
+        $scopeCleanerCountValue = old('scope_cleaner_count', 1);
+        $scopeStatusValue = old('scope_status', 'provisional');
         $isActiveChecked = old('is_active', '1');
     @endphp
 
@@ -72,6 +75,35 @@
                     <p class="mt-1 text-xs text-slate-500">Staff availability blocks this duration plus 60 minutes rest.</p>
                     @error('duration_minutes')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
+                <div class="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+                    <div class="text-sm font-extrabold text-slate-900">Measurable Scope Controls</div>
+                    <p class="mt-1 text-xs leading-5 text-slate-600">Set only limits the system can measure: area, cleaner count, and approval status. Keep the scope provisional until the service has real operating evidence.</p>
+                    <div class="mt-4 grid gap-4 md:grid-cols-2">
+                        <div>
+                            <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Maximum Floor Area (sqm)</label>
+                            <input type="number" name="scope_max_floor_area" value="{{ $scopeMaxAreaValue }}" min="10" max="1000" step="1" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
+                            @error('scope_max_floor_area')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Standard Cleaner Count <span class="text-red-500">*</span></label>
+                            <input type="number" name="scope_cleaner_count" value="{{ $scopeCleanerCountValue }}" required min="1" max="20" step="1" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
+                            @error('scope_cleaner_count')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Scope Status <span class="text-red-500">*</span></label>
+                            <select name="scope_status" required class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
+                                <option value="provisional" {{ $scopeStatusValue === 'provisional' ? 'selected' : '' }}>Provisional — warn above limit</option>
+                                <option value="approved" {{ $scopeStatusValue === 'approved' ? 'selected' : '' }}>Approved — block above limit</option>
+                            </select>
+                            @error('scope_status')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <label class="flex items-center gap-3 self-end rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                            <input type="checkbox" name="scope_manual_review_above_limit" value="1" {{ old('scope_manual_review_above_limit', true) ? 'checked' : '' }} class="h-4 w-4 rounded text-emerald-600">
+                            <span class="text-sm font-semibold text-slate-700">Flag over-limit requests for manual review</span>
+                        </label>
+                    </div>
+                </div>
+                @include('admin.services._scope_definition_fields', ['scopeService' => null])
                 <label class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                     <input type="checkbox" name="is_active" id="is_active" value="1" {{ $isActiveChecked ? 'checked' : '' }} class="h-4 w-4 rounded text-emerald-600">
                     <span class="text-sm font-semibold text-slate-700">Active and visible to clients</span>

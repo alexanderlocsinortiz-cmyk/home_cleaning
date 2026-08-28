@@ -42,7 +42,7 @@ class AdminCustomerManagementTest extends TestCase
         $admin = $this->createUser('admin', 'admin-customer-list@example.com', 'admincustomerlist');
         $client = $this->createUser('client', 'client-booking-list@example.com', 'clientbookinglist');
 
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',

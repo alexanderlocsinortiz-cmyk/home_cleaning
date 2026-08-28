@@ -32,7 +32,7 @@ class PaymongoCheckoutServiceTest extends TestCase
             'role' => 'client',
             'phone' => '09171234567',
         ]);
-        $service = Service::factory()->create([
+        $service = $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'price' => 570,

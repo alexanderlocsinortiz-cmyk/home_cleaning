@@ -46,7 +46,7 @@ class SiteSetting extends Model
     public function getLogoUrlAttribute(): string
     {
         if ($this->logo_path) {
-            return Storage::disk('public')->url($this->logo_path);
+            return Storage::disk(config('filesystems.public_uploads_disk'))->url($this->logo_path);
         }
 
         return asset('images/logo.png').'?v=20260510-logo4';

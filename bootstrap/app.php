@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\AuthenticateMobileApiToken;
 use App\Http\Middleware\CheckAccountAccess;
 use App\Http\Middleware\CheckStaffPageAccess;
 use App\Http\Middleware\ClientMiddleware;
+use App\Http\Middleware\ProviderMiddleware;
 use App\Http\Middleware\RateLimitPerDevice;
 use App\Http\Middleware\RejectOversizedProofUpload;
 use App\Http\Middleware\StaffMiddleware;
@@ -24,9 +26,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => AdminMiddleware::class,
             'account.active' => CheckAccountAccess::class,
+            'auth.mobile' => AuthenticateMobileApiToken::class,
             'staff' => StaffMiddleware::class,
             'staff.page.access' => CheckStaffPageAccess::class,
             'client' => ClientMiddleware::class,
+            'provider' => ProviderMiddleware::class,
             'rate_limit_per_device' => RateLimitPerDevice::class,
         ]);
     })

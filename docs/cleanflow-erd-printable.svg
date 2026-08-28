@@ -1,0 +1,225 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1050" viewBox="0 0 1600 1050" role="img" aria-labelledby="title desc">
+  <title id="title">CleanFlow Entity Relationship Diagram</title>
+  <desc id="desc">Readable printable ERD overview for CleanFlow. Tables are kept separate and relationships are summarized without crowded line labels.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M2 2 L10 6 L2 10 Z" fill="#475569"/>
+    </marker>
+    <style>
+      .bg { fill: #ffffff; }
+      .title { font: 700 30px Arial, sans-serif; fill: #0f172a; letter-spacing: 0; }
+      .subtitle { font: 400 17px Arial, sans-serif; fill: #334155; letter-spacing: 0; }
+      .entity { fill: #ffffff; stroke-width: 2; rx: 8; }
+      .identity { stroke: #1d4ed8; }
+      .booking { stroke: #0f766e; stroke-width: 2.5; }
+      .service { stroke: #d97706; }
+      .support { stroke: #be123c; }
+      .attendance { stroke: #15803d; }
+      .audit { stroke: #7c3aed; }
+      .standalone { stroke: #64748b; }
+      .head { rx: 5; }
+      .head-identity { fill: #1d4ed8; }
+      .head-booking { fill: #0f766e; }
+      .head-service { fill: #d97706; }
+      .head-support { fill: #be123c; }
+      .head-attendance { fill: #15803d; }
+      .head-audit { fill: #7c3aed; }
+      .head-standalone { fill: #64748b; }
+      .head-text { font: 700 15px Arial, sans-serif; fill: #ffffff; letter-spacing: 0; }
+      .row { font: 400 13.5px Arial, sans-serif; fill: #111827; letter-spacing: 0; }
+      .key { font: 700 13.5px Arial, sans-serif; fill: #111827; letter-spacing: 0; }
+      .note { font: 400 14px Arial, sans-serif; fill: #334155; letter-spacing: 0; }
+      .note-strong { font: 700 14px Arial, sans-serif; fill: #111827; letter-spacing: 0; }
+      .line { stroke: #475569; stroke-width: 1.8; fill: none; marker-end: url(#arrow); }
+      .weak { stroke: #64748b; stroke-width: 1.8; fill: none; stroke-dasharray: 7 6; marker-end: url(#arrow); }
+      .legend { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.5; rx: 8; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1600" height="1050"/>
+  <text x="800" y="42" text-anchor="middle" class="title">HOME CLEANING SERVICES</text>
+  <text x="800" y="70" text-anchor="middle" class="subtitle">Entity Relationship Diagram - Printable Overview</text>
+
+  <!-- Row 1: Identity, catalog, central transaction, primary children -->
+  <rect x="40" y="115" width="220" height="168" class="entity identity"/>
+  <rect x="55" y="130" width="190" height="28" class="head head-identity"/>
+  <text x="150" y="149" text-anchor="middle" class="head-text">users</text>
+  <text x="62" y="181" class="key">PK id</text>
+  <text x="62" y="205" class="row">email, password</text>
+  <text x="62" y="229" class="row">name, phone</text>
+  <text x="62" y="253" class="row">role, status</text>
+  <text x="62" y="277" class="row">access controls</text>
+
+  <rect x="40" y="330" width="220" height="118" class="entity identity"/>
+  <rect x="55" y="345" width="190" height="28" class="head head-identity"/>
+  <text x="150" y="364" text-anchor="middle" class="head-text">staff</text>
+  <text x="62" y="397" class="key">PK id</text>
+  <text x="62" y="421" class="key">FK user_id nullable</text>
+
+  <rect x="310" y="115" width="220" height="138" class="entity service"/>
+  <rect x="325" y="130" width="190" height="28" class="head head-service"/>
+  <text x="420" y="149" text-anchor="middle" class="head-text">services</text>
+  <text x="332" y="181" class="key">PK id</text>
+  <text x="332" y="205" class="row">name, base_price</text>
+  <text x="332" y="229" class="row">duration, status</text>
+
+  <rect x="310" y="300" width="220" height="118" class="entity service"/>
+  <rect x="325" y="315" width="190" height="28" class="head head-service"/>
+  <text x="420" y="334" text-anchor="middle" class="head-text">service_add_ons</text>
+  <text x="332" y="367" class="key">PK id</text>
+  <text x="332" y="391" class="key">FK service_id nullable</text>
+
+  <rect x="610" y="115" width="300" height="360" class="entity booking"/>
+  <rect x="630" y="135" width="260" height="32" class="head head-booking"/>
+  <text x="760" y="156" text-anchor="middle" class="head-text">bookings</text>
+  <text x="640" y="193" class="key">PK id</text>
+  <text x="640" y="217" class="key">FK user_id</text>
+  <text x="640" y="241" class="key">FK staff_id nullable</text>
+  <text x="640" y="265" class="key">FK preferred_staff_id nullable</text>
+  <text x="640" y="289" class="key">FK service_id nullable</text>
+  <text x="640" y="313" class="key">FK cleaner_application_id nullable</text>
+  <text x="640" y="337" class="key">FK reviewed_by nullable</text>
+  <text x="640" y="361" class="row">address, schedule, lat/lng</text>
+  <text x="640" y="385" class="row">price and payment fields</text>
+  <text x="640" y="409" class="row">status, dispute, payout fields</text>
+  <text x="640" y="433" class="row">service_type legacy text</text>
+  <text x="640" y="457" class="row">add_ons JSON</text>
+
+  <rect x="990" y="115" width="225" height="118" class="entity support"/>
+  <rect x="1005" y="130" width="195" height="28" class="head head-support"/>
+  <text x="1102" y="149" text-anchor="middle" class="head-text">ratings</text>
+  <text x="1012" y="181" class="key">PK id</text>
+  <text x="1012" y="205" class="key">FK booking_id</text>
+  <text x="1012" y="229" class="key">FK client_id, staff_id</text>
+
+  <rect x="990" y="270" width="225" height="118" class="entity support"/>
+  <rect x="1005" y="285" width="195" height="28" class="head head-support"/>
+  <text x="1102" y="304" text-anchor="middle" class="head-text">notifications</text>
+  <text x="1012" y="336" class="key">PK id</text>
+  <text x="1012" y="360" class="key">FK user_id</text>
+  <text x="1012" y="384" class="key">FK booking_id nullable</text>
+
+  <rect x="1275" y="115" width="250" height="118" class="entity support"/>
+  <rect x="1290" y="130" width="220" height="28" class="head head-support"/>
+  <text x="1400" y="149" text-anchor="middle" class="head-text">booking_service_proofs</text>
+  <text x="1297" y="181" class="key">PK id</text>
+  <text x="1297" y="205" class="key">FK booking_id</text>
+  <text x="1297" y="229" class="key">FK uploaded_by nullable</text>
+
+  <rect x="1275" y="270" width="250" height="118" class="entity support"/>
+  <rect x="1290" y="285" width="220" height="28" class="head head-support"/>
+  <text x="1400" y="304" text-anchor="middle" class="head-text">booking_activity_logs</text>
+  <text x="1297" y="336" class="key">PK id</text>
+  <text x="1297" y="360" class="key">FK booking_id</text>
+  <text x="1297" y="384" class="key">FK actor_id nullable</text>
+
+  <!-- Row 2: provider/application and more booking children -->
+  <rect x="40" y="540" width="260" height="166" class="entity identity"/>
+  <rect x="55" y="555" width="230" height="28" class="head head-identity"/>
+  <text x="170" y="574" text-anchor="middle" class="head-text">cleaner_applications</text>
+  <text x="62" y="606" class="key">PK id</text>
+  <text x="62" y="630" class="key">FK user_id nullable</text>
+  <text x="62" y="654" class="key">FK reviewed_by nullable</text>
+  <text x="62" y="678" class="key">FK payout_verified_by nullable</text>
+  <text x="62" y="702" class="row">status, coverage, payout setup</text>
+
+  <rect x="40" y="755" width="260" height="118" class="entity support"/>
+  <rect x="55" y="770" width="230" height="28" class="head head-support"/>
+  <text x="170" y="789" text-anchor="middle" class="head-text">cleaner_application_documents</text>
+  <text x="62" y="821" class="key">PK id</text>
+  <text x="62" y="845" class="key">FK cleaner_application_id</text>
+  <text x="62" y="869" class="key">FK uploaded_by nullable</text>
+
+  <rect x="380" y="540" width="235" height="118" class="entity support"/>
+  <rect x="395" y="555" width="205" height="28" class="head head-support"/>
+  <text x="497" y="574" text-anchor="middle" class="head-text">booking_messages</text>
+  <text x="402" y="606" class="key">PK id</text>
+  <text x="402" y="630" class="key">FK booking_id</text>
+  <text x="402" y="654" class="key">FK sender_id</text>
+
+  <rect x="380" y="705" width="235" height="118" class="entity support"/>
+  <rect x="395" y="720" width="205" height="28" class="head head-support"/>
+  <text x="497" y="739" text-anchor="middle" class="head-text">booking_locations</text>
+  <text x="402" y="771" class="key">PK id</text>
+  <text x="402" y="795" class="key">FK booking_id</text>
+  <text x="402" y="819" class="key">FK staff_id</text>
+
+  <rect x="990" y="540" width="285" height="142" class="entity audit"/>
+  <rect x="1005" y="555" width="255" height="28" class="head head-audit"/>
+  <text x="1132" y="574" text-anchor="middle" class="head-text">provider_payout_transactions</text>
+  <text x="1012" y="606" class="key">PK id</text>
+  <text x="1012" y="630" class="key">FK booking_id</text>
+  <text x="1012" y="654" class="key">FK cleaner_application_id nullable</text>
+  <text x="1012" y="678" class="key">FK processed_by nullable</text>
+
+  <!-- Row 3: attendance and audit/settings -->
+  <rect x="380" y="880" width="220" height="118" class="entity attendance"/>
+  <rect x="395" y="895" width="190" height="28" class="head head-attendance"/>
+  <text x="490" y="914" text-anchor="middle" class="head-text">devices</text>
+  <text x="402" y="946" class="key">PK id</text>
+  <text x="402" y="970" class="row">device_code, token</text>
+  <text x="402" y="994" class="row">status, last_seen_at</text>
+
+  <rect x="665" y="880" width="230" height="118" class="entity attendance"/>
+  <rect x="680" y="895" width="200" height="28" class="head head-attendance"/>
+  <text x="780" y="914" text-anchor="middle" class="head-text">attendance_logs</text>
+  <text x="687" y="946" class="key">PK id</text>
+  <text x="687" y="970" class="key">FK device_id nullable</text>
+  <text x="687" y="994" class="key">FK user_id / staff_id nullable</text>
+
+  <rect x="960" y="880" width="280" height="118" class="entity attendance"/>
+  <rect x="975" y="895" width="250" height="28" class="head head-attendance"/>
+  <text x="1100" y="914" text-anchor="middle" class="head-text">device_enrollment_requests</text>
+  <text x="982" y="946" class="key">PK id</text>
+  <text x="982" y="970" class="key">FK device_id, user_id</text>
+  <text x="982" y="994" class="key">FK requested_by nullable</text>
+
+  <rect x="1275" y="720" width="250" height="118" class="entity audit"/>
+  <rect x="1290" y="735" width="220" height="28" class="head head-audit"/>
+  <text x="1400" y="754" text-anchor="middle" class="head-text">access_restriction_histories</text>
+  <text x="1297" y="786" class="key">PK id</text>
+  <text x="1297" y="810" class="key">FK target_user_id nullable</text>
+  <text x="1297" y="834" class="key">FK actor_user_id nullable</text>
+
+  <rect x="1275" y="880" width="250" height="118" class="entity standalone"/>
+  <rect x="1290" y="895" width="220" height="28" class="head head-standalone"/>
+  <text x="1400" y="914" text-anchor="middle" class="head-text">site_settings</text>
+  <text x="1297" y="946" class="key">PK id</text>
+  <text x="1297" y="970" class="row">key, value, type</text>
+  <text x="1297" y="994" class="row">standalone table</text>
+
+  <!-- Clean relationship lines: no text labels over tables -->
+  <path class="line" d="M260 198 H610"/>
+  <path class="line" d="M260 390 C430 390 470 241 610 241"/>
+  <path class="line" d="M530 184 C565 184 575 289 610 289"/>
+  <path class="line" d="M530 360 C575 360 570 457 610 457" stroke-dasharray="7 6"/>
+  <path class="line" d="M300 623 H610"/>
+  <path class="line" d="M170 706 V755"/>
+  <path class="line" d="M910 174 H990"/>
+  <path class="line" d="M910 329 H990"/>
+  <path class="line" d="M910 190 C1030 190 1150 174 1275 174"/>
+  <path class="line" d="M910 350 C1040 350 1145 329 1275 329"/>
+  <path class="line" d="M610 595 H615 C650 595 650 432 610 432" opacity="0"/>
+  <path class="line" d="M610 595 H380"/>
+  <path class="line" d="M610 760 H615 C648 760 648 420 610 420" opacity="0"/>
+  <path class="line" d="M610 760 H615 M610 760 H615" opacity="0"/>
+  <path class="line" d="M610 420 C665 520 680 735 615 764"/>
+  <path class="line" d="M910 610 H990"/>
+  <path class="line" d="M300 623 C540 660 760 630 990 630"/>
+  <path class="line" d="M490 880 V823"/>
+  <path class="line" d="M600 939 H665"/>
+  <path class="line" d="M895 939 H960"/>
+  <path class="line" d="M260 198 C305 198 315 939 665 970"/>
+  <path class="line" d="M260 198 C1150 205 1200 770 1275 790"/>
+  <path class="weak" d="M530 360 C585 380 585 445 610 457"/>
+
+  <!-- Relationship summary instead of crowded inline line labels -->
+  <rect x="40" y="900" width="280" height="98" class="legend"/>
+  <text x="58" y="926" class="note-strong">Relationship Summary</text>
+  <text x="58" y="950" class="note">users -> bookings, staff, notifications, logs</text>
+  <text x="58" y="974" class="note">bookings -> ratings, messages, locations,</text>
+  <text x="58" y="996" class="note">proofs, activity logs, provider payouts</text>
+
+  <rect x="40" y="1012" width="1485" height="28" class="legend"/>
+  <text x="58" y="1031" class="note">Legend: solid lines = foreign-key relationships. Dashed lines = weak JSON/legacy relationship. This printable ERD shows key fields only; use a data dictionary for full columns.</text>
+</svg>

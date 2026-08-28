@@ -13,6 +13,9 @@
     $serviceLabels = $services->mapWithKeys(function ($service) {
         return [$service->slug => $service->name];
     });
+    $serviceScope = $services->mapWithKeys(function ($service) {
+        return [$service->slug => $service->scopeSummary()];
+    });
     $propertyTypeLabels = $pricingConfig['property_type_labels'];
     $propertyFees = $pricingConfig['property_fees'];
     $includedFloorArea = $pricingConfig['included_floor_area'];
@@ -29,6 +32,11 @@
     $selectedServicePlan = old('service_plan', 'one_time');
     $selectedSubscriptionFrequency = old('subscription_frequency', 'weekly');
     $selectedSubscriptionOccurrences = old('subscription_occurrences', 4);
+    $officeRateSlugs = ['office-basic', 'commercial', 'office-deep'];
+    $officeRateServices = $services
+        ->filter(fn ($service) => in_array($service->slug, $officeRateSlugs, true))
+        ->sortBy(fn ($service) => array_search($service->slug, $officeRateSlugs, true))
+        ->values();
     $googleMapsApiKey = config('services.google.maps_api_key');
     $bookingNow = $bookingNow ?? now(config('cleanflow.attendance_timezone', 'Asia/Manila'));
     $timeSlots = $timeSlots ?? ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
@@ -126,7 +134,7 @@
                     <span class="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Required</span>
                 </div>
 
-                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <label class="block cursor-pointer">
                         <input type="radio" name="property_type" value="house" class="hidden" {{ old('property_type') == 'house' ? 'checked' : '' }}>
                         <div class="property-card selection-card {{ old('property_type') == 'house' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="house">
@@ -145,7 +153,7 @@
                         </div>
                     </label>
 
-                    <label class="block cursor-pointer sm:col-span-2 lg:col-span-1">
+                    <label class="block cursor-pointer">
                         <input type="radio" name="property_type" value="boarding_house" class="hidden" {{ old('property_type') == 'boarding_house' ? 'checked' : '' }}>
                         <div class="property-card selection-card {{ old('property_type') == 'boarding_house' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="boarding_house">
                             <div class="text-3xl text-blue-600"><i class="fas fa-bed"></i></div>
@@ -153,10 +161,44 @@
                             <div class="mt-1 text-xs text-slate-500">Included base rate</div>
                         </div>
                     </label>
+
+                    <label class="block cursor-pointer">
+                        <input type="radio" name="property_type" value="office" class="hidden" {{ old('property_type') == 'office' ? 'checked' : '' }}>
+                        <div class="property-card selection-card {{ old('property_type') == 'office' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="office">
+                            <div class="text-3xl text-blue-600"><i class="fas fa-briefcase"></i></div>
+                            <div class="mt-3 text-base font-semibold text-slate-900">Office</div>
+                            <div class="mt-1 text-xs text-slate-500">Office cleaning rates</div>
+                        </div>
+                    </label>
                 </div>
                 @error('property_type')
                 <p class="mt-3 text-sm text-red-500">{{ $message }}</p>
                 @enderror
+
+                <div data-office-rates-panel class="mt-5 hidden overflow-hidden rounded-2xl border border-blue-100 bg-blue-50/70">
+                    <div class="border-b border-blue-100 bg-white/70 px-4 py-3">
+                        <div class="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">Office cleaning rates</div>
+                        <div class="mt-1 text-sm text-slate-600">Choose an office cleaning package in the next step. Rates are billed by total floor area.</div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-[420px] text-sm">
+                            <thead class="bg-white/70 text-left text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                                <tr>
+                                    <th class="px-4 py-3">Service</th>
+                                    <th class="px-4 py-3 text-right">Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-blue-100 bg-white/40 font-semibold text-slate-700">
+                                @foreach($officeRateServices as $officeRateService)
+                                <tr>
+                                    <td class="px-4 py-3">{{ $officeRateService->name }}</td>
+                                    <td class="px-4 py-3 text-right text-blue-700">&#8369;{{ number_format($officeRateService->price, 0) }}/sqm</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </section>
 
             <section class="cleanflow-panel p-6 md:p-7">
@@ -175,7 +217,8 @@
                     @foreach($services as $service)
                     @php
                         $package = $servicePackages[$service->slug] ?? null;
-                        $serviceFeatures = array_slice($package['features'] ?? [], 0, 2);
+                        $serviceFeatures = $package['features'] ?? [];
+                        $scopeDefinition = $service->scopeDefinition();
                     @endphp
                     <label class="block cursor-pointer">
                         <input type="radio" name="service_type" value="{{ $service->slug }}" class="hidden" {{ old('service_type') == $service->slug ? 'checked' : '' }}>
@@ -211,9 +254,31 @@
                                     Starting at &#8369;{{ number_format($service->price, 0) }}
                                 @endif
                             </div>
+                            <div class="mt-3 text-xs font-semibold text-slate-500">
+                                Up to {{ $service->scope_max_floor_area ? number_format($service->scope_max_floor_area) . ' sqm' : 'manual quote' }}
+                                · {{ $service->scope_cleaner_count ?: 1 }} cleaner{{ ($service->scope_cleaner_count ?: 1) === 1 ? '' : 's' }}
+                                · {{ $service->duration_minutes ?: \App\Models\Service::durationForSlug($service->slug) }} minutes
+                            </div>
+                            <div class="mt-1 text-[11px] {{ $service->scopeIsApproved() ? 'text-emerald-700' : 'text-amber-700' }}">
+                                {{ $service->scopeIsApproved() ? 'Approved measurable limit' : 'Provisional planning limit; larger requests may need review' }}
+                            </div>
+                            @if($service->scopeDefinitionIsComplete())
+                            <details class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left">
+                                <summary class="cursor-pointer text-xs font-extrabold text-slate-700">View what is included and excluded</summary>
+                                <div class="mt-3 space-y-3 text-xs leading-5 text-slate-600">
+                                    <div><div class="font-bold text-slate-800">Included areas</div><div>{{ $scopeDefinition['included_areas'] }}</div></div>
+                                    <div><div class="font-bold text-slate-800">Included tasks</div><div>{{ $scopeDefinition['included_tasks'] }}</div></div>
+                                    <div><div class="font-bold text-slate-800">Not included</div><div>{{ $scopeDefinition['excluded_tasks'] }}</div></div>
+                                    <div><div class="font-bold text-slate-800">Limits and extra work</div><div>{{ $scopeDefinition['condition_limits'] }} {{ $scopeDefinition['extra_work_policy'] }}</div></div>
+                                </div>
+                            </details>
+                            @endif
                         </div>
                     </label>
                     @endforeach
+                </div>
+                <div class="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-800" id="service-scope-disclaimer">
+                    Package features are a summary, not a promise that every possible task is included. Final scope depends on property condition, access, equipment, and booked time; specialty work or extra workload may require an add-on, inspection, re-quote, or another visit.
                 </div>
                 @error('service_type')
                 <p class="mt-3 text-sm text-red-500">{{ $message }}</p>
@@ -239,7 +304,8 @@
                     <div>
                         <label class="mb-2 block text-sm font-semibold text-slate-700">Floor Area (sqm)</label>
                         <input type="number" name="floor_area" value="{{ old('floor_area', $includedFloorArea) }}" min="10" max="1000" step="1" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                        <div class="mt-2 text-xs text-slate-500">Enter the total size of the house to be cleaned.</div>
+                        <div class="mt-2 text-xs text-slate-500">Enter the total size of the property to be cleaned.</div>
+                        <div class="mt-1 text-xs font-semibold text-amber-700" id="scope-limit-note">Select a service to see its measurable scope limit.</div>
                         @error('floor_area')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
@@ -497,9 +563,9 @@
                     <section class="cleanflow-panel border border-slate-200 bg-white p-6 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:overscroll-contain">
                         <div class="flex items-start justify-between gap-4">
                             <div>
-                                <div class="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-700">Live Quote</div>
-                                <div class="mt-2 text-xl font-bold text-slate-900">Price Summary</div>
-                                <p class="mt-1 text-sm text-slate-500">Keep an eye on the total while you build the booking.</p>
+                            <div class="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-700">Live Estimate</div>
+                            <div class="mt-2 text-xl font-bold text-slate-900">Budget Summary</div>
+                            <p class="mt-1 text-sm text-slate-500">Review every charge before you submit the booking.</p>
                             </div>
                             <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/80 text-lg text-blue-600 shadow-sm">
                                 <i class="fas fa-receipt"></i>
@@ -534,38 +600,41 @@
 
                         <div class="mt-5 space-y-3 text-sm text-slate-600" id="price-breakdown">
                             <div id="pb-base-row" class="flex items-center justify-between">
-                                <span>Base service price</span>
+                                <span>Base service amount</span>
                                 <span id="pb-base">&#8369;0</span>
                             </div>
                             <div class="flex items-start justify-between gap-4" id="pb-property-row">
                                 <div>
-                                    <span>Property type adjustment</span>
+                                    <span>Property charge</span>
                                     <div id="pb-property-meta" class="text-xs text-slate-400">No extra charge applied.</div>
                                 </div>
                                 <span id="pb-property">&#8369;0</span>
                             </div>
                             <div class="flex items-start justify-between gap-4" id="pb-floor-area-row">
                                 <div>
-                                    <span>Floor area adjustment</span>
+                                    <span>Floor area charge</span>
                                     <div id="pb-floor-area-meta" class="text-xs text-slate-400">No billable excess sqm yet.</div>
                                 </div>
                                 <span id="pb-floor-area">&#8369;0</span>
                             </div>
                             <div class="flex items-start justify-between gap-4" id="pb-add-ons-row">
                                 <div>
-                                    <span>Add-ons</span>
+                                    <span>Add-on charges</span>
                                     <div id="pb-add-ons-meta" class="text-xs text-slate-400">No add-ons selected.</div>
                                 </div>
                                 <span id="pb-add-ons">&#8369;0</span>
                             </div>
                             <div class="flex items-center justify-between border-t border-blue-200 pt-3">
-                                <span class="text-base font-semibold text-slate-900">Total Price</span>
+                                <span class="text-base font-semibold text-slate-900">Estimated total</span>
                                 <span id="pb-total" class="text-3xl font-bold tracking-tight text-blue-600">&#8369;0</span>
                             </div>
                         </div>
 
                         <div class="mt-4 rounded-xl bg-blue-100/70 px-4 py-3 text-xs font-medium text-blue-700" id="payment-summary-note">
                             The total is based on the service type, property type, floor area, and any selected add-ons. Cash payments stay pending until the service is completed.
+                        </div>
+                        <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800" id="estimate-disclaimer">
+                            Estimate only: the current calculator adds no travel, tax, discount, or manual-adjustment charges. Any re-quote or scope change must be confirmed before payment.
                         </div>
                         <div class="mt-3 rounded-xl border border-blue-200 bg-white/80 px-4 py-3 text-xs text-slate-600" id="service-plan-summary-note">
                             This is currently set as a one-time booking.
@@ -592,6 +661,7 @@
 <script>
 const basePrices = @json($serviceBasePrices);
 const serviceLabels = @json($serviceLabels);
+const serviceScope = @json($serviceScope);
 const propertyFees = @json($propertyFees);
 const propertyTypeLabels = @json($propertyTypeLabels);
 const floorAreaRates = @json($floorAreaRates);
@@ -1547,12 +1617,36 @@ function updatePrice() {
         : 'No add-ons selected.';
 
     const floorAreaRule = document.getElementById('floor-area-rule');
+    const scopeLimitNote = document.getElementById('scope-limit-note');
+    const floorAreaInput = document.querySelector('input[name="floor_area"]');
+    const scope = serviceScope[serviceType] || null;
+    const scopeLimit = Number(scope?.max_floor_area || 0);
+    const scopeApproved = scope?.status === 'approved';
+
+    if (floorAreaInput) {
+        floorAreaInput.max = scopeApproved && scopeLimit > 0 ? String(scopeLimit) : '1000';
+    }
+
+    if (scopeLimitNote) {
+        scopeLimitNote.textContent = scope
+            ? scopeLimit > 0
+                ? (scopeApproved ? 'Approved limit: up to ' : 'Provisional planning limit: up to ')
+                    + scopeLimit
+                    + ' sqm with '
+                    + (scope.cleaner_count || 1)
+                    + ' cleaner'
+                    + (Number(scope.cleaner_count || 1) === 1 ? '' : 's')
+                    + (scopeApproved ? '. Larger requests are blocked for manual quoting.' : (scope.manual_review_above_limit ? '. Larger requests are sent for manual review.' : '. Larger requests require staff confirmation.'))
+                : 'No measurable area limit is configured; confirm the workload before accepting the booking.'
+            : 'Select a service to see its measurable scope limit.';
+    }
+
     if (floorAreaRule) {
         floorAreaRule.textContent = serviceType
             ? isFlatRateRange
                 ? `${serviceLabels[serviceType]} is quoted as a ${formatCurrency(flatRateRange.min)}-${formatCurrency(flatRateRange.max)} flat rate for a standard 2-3 bedroom home.`
                 : isPerSquareMeter
-                ? `${serviceLabels[serviceType]} is billed at ${formatCurrency(floorAreaRate)}/sqm.`
+                ? `${serviceLabels[serviceType]} is billed at ${formatCurrency(floorAreaRate)}/sqm. This charge uses the full submitted floor area.`
                 : `The first ${includedFloorArea} sqm are included in ${serviceLabels[serviceType]}. Excess floor area is billed at ${formatCurrency(floorAreaRate)}/sqm.`
             : `Floor area is billed per sqm based on the selected service.`;
     }
@@ -1560,8 +1654,8 @@ function updatePrice() {
     const paymentSummaryNote = document.getElementById('payment-summary-note');
     if (paymentSummaryNote) {
         paymentSummaryNote.textContent = paymentMethod === 'on_site_cash'
-            ? 'The total is based on the service type, property type, floor area, and any selected add-ons. Cash payments stay pending until the service is completed.'
-            : `The total is based on the service type, property type, floor area, and any selected add-ons. ${paymentMethodLabels[paymentMethod] || 'Digital payment'} is recorded immediately with a payment reference.`;
+            ? 'This estimate includes the selected service, floor area, and add-ons. Cash payments stay pending until the service is completed.'
+            : `This estimate includes the selected service, floor area, and add-ons. ${paymentMethodLabels[paymentMethod] || 'Digital payment'} is recorded immediately with a payment reference.`;
     }
 
     const servicePlanSummaryNote = document.getElementById('service-plan-summary-note');
@@ -1595,9 +1689,19 @@ function toggleSubscriptionFields() {
     }
 }
 
+function toggleOfficeRatePanel() {
+    const propertyType = document.querySelector('input[name="property_type"]:checked')?.value;
+    const officeRatesPanel = document.querySelector('[data-office-rates-panel]');
+
+    if (officeRatesPanel) {
+        officeRatesPanel.classList.toggle('hidden', propertyType !== 'office');
+    }
+}
+
 document.querySelectorAll('input[name="property_type"]').forEach((input) => {
     input.addEventListener('change', function () {
         syncSelectedCards('property_type', '.property-card');
+        toggleOfficeRatePanel();
         updatePrice();
     });
 });
@@ -1682,6 +1786,7 @@ syncSelectedCards('payment_method', '.payment-card');
 syncSelectedCards('service_plan', '.service-plan-card');
 syncAddOnCards();
 toggleSubscriptionFields();
+toggleOfficeRatePanel();
 refreshScheduleDependentFields();
 window.setInterval(refreshScheduleDependentFields, 60000);
 updatePrice();

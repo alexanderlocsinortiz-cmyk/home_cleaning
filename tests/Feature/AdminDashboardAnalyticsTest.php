@@ -16,7 +16,7 @@ class AdminDashboardAnalyticsTest extends TestCase
 
     public function test_admin_dashboard_shows_focused_operational_sections(): void
     {
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -111,7 +111,7 @@ class AdminDashboardAnalyticsTest extends TestCase
     {
         $this->travelTo('2026-05-15 09:00:00');
 
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',

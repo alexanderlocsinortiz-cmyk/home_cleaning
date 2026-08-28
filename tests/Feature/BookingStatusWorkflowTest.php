@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Booking;
+use App\Models\CleanerApplication;
 use App\Models\Notification;
 use App\Models\User;
 use Carbon\Carbon;
@@ -31,6 +32,32 @@ class BookingStatusWorkflowTest extends TestCase
         $response->assertRedirect(route('admin.bookings'));
         $response->assertSessionHasErrors('staff_id');
         $this->assertSame('pending', $booking->fresh()->status);
+    }
+
+    public function test_admin_can_confirm_booking_without_staff_when_marketplace_provider_accepted(): void
+    {
+        $admin = $this->createUser('admin', 'admin-provider-status@example.com', 'adminproviderstatus');
+        $client = $this->createUser('client', 'client-provider-status@example.com', 'clientproviderstatus');
+        $provider = $this->createProvider('Accepted Status Provider');
+        $booking = $this->createBooking($client, null, 'pending');
+        $booking->forceFill([
+            'cleaner_application_id' => $provider->id,
+            'provider_assignment_status' => 'accepted',
+        ])->save();
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.status', $booking->id), [
+                'status' => 'confirmed',
+            ]);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHas('success', 'Booking status has been updated.');
+
+        $updatedBooking = $booking->fresh();
+
+        $this->assertSame('confirmed', $updatedBooking->status);
+        $this->assertNull($updatedBooking->staff_id);
     }
 
     public function test_admin_cannot_assign_a_client_as_staff(): void
@@ -751,6 +778,29 @@ class BookingStatusWorkflowTest extends TestCase
         $this->assertNotNull($notification);
     }
 
+    public function test_admin_can_update_payment_from_combined_booking_confirmation_form(): void
+    {
+        $admin = $this->createUser('admin', 'admin-combined-payment@example.com', 'admincombinedpayment');
+        $client = $this->createUser('client', 'client-combined-payment@example.com', 'clientcombinedpayment');
+        $booking = $this->createBooking($client, null, 'pending');
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.status', $booking->id), [
+                'status' => 'pending',
+                'payment_status' => 'paid',
+            ]);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHas('success', 'Payment status has been updated.');
+
+        $updatedBooking = $booking->fresh();
+
+        $this->assertSame('paid', $updatedBooking->payment_status);
+        $this->assertNotNull($updatedBooking->payment_reference);
+        $this->assertNotNull($updatedBooking->paid_at);
+    }
+
     public function test_completing_an_on_site_cash_booking_marks_it_paid_automatically(): void
     {
         $admin = $this->createUser('admin', 'admin-cash-complete@example.com', 'admincashcomplete');
@@ -774,6 +824,103 @@ class BookingStatusWorkflowTest extends TestCase
         $this->assertSame('paid', $completedBooking->payment_status);
         $this->assertNotNull($completedBooking->payment_reference);
         $this->assertNotNull($completedBooking->paid_at);
+    }
+
+    public function test_client_can_open_dispute_and_hold_provider_payout(): void
+    {
+        $client = $this->createUser('client', 'client-dispute@example.com', 'clientdispute');
+        $staff = $this->createUser('staff', 'staff-dispute@example.com', 'staffdispute');
+        $provider = $this->createProvider('Dispute Provider');
+        $booking = $this->createBooking($client, $staff, 'completed', now()->subDay()->toDateString());
+        $booking->forceFill(array_merge([
+            'cleaner_application_id' => $provider->id,
+            'provider_payout_status' => 'ready',
+        ], $booking->calculateMarketplaceCommission()))->save();
+
+        $response = $this->actingAs($client)->from(route('bookings.show', $booking->id))->post(route('bookings.dispute', $booking->id), [
+            'dispute_reason' => 'poor_quality',
+            'dispute_description' => 'The cleaning was incomplete and several requested areas were not handled properly.',
+        ]);
+
+        $response->assertRedirect(route('bookings.show', $booking->id));
+        $response->assertSessionHas('success', 'Your dispute has been submitted. Provider payout is held while admin reviews it.');
+
+        $booking->refresh();
+
+        $this->assertSame('open', $booking->dispute_status);
+        $this->assertSame('poor_quality', $booking->dispute_reason);
+        $this->assertSame('held', $booking->provider_payout_status);
+        $this->assertNotNull($booking->disputed_at);
+        $this->assertDatabaseHas('booking_activity_logs', [
+            'booking_id' => $booking->id,
+            'actor_id' => $client->id,
+            'action' => 'dispute_opened',
+        ]);
+    }
+
+    public function test_admin_cannot_release_payout_while_dispute_is_open(): void
+    {
+        $admin = $this->createUser('admin', 'admin-dispute-payout@example.com', 'admindisputepayout');
+        $client = $this->createUser('client', 'client-dispute-payout@example.com', 'clientdisputepayout');
+        $staff = $this->createUser('staff', 'staff-dispute-payout@example.com', 'staffdisputepayout');
+        $provider = $this->createProvider('Open Dispute Provider');
+        $booking = $this->createBooking($client, $staff, 'completed', now()->subDay()->toDateString());
+        $this->verifyProviderPayoutSetup($provider, $admin);
+        $booking->forceFill(array_merge([
+            'cleaner_application_id' => $provider->id,
+            'payment_method' => 'gcash',
+            'provider_payout_status' => 'held',
+            'dispute_status' => 'open',
+            'dispute_reason' => 'incomplete_service',
+            'dispute_description' => 'Service was incomplete.',
+            'disputed_at' => now(),
+        ], $booking->calculateMarketplaceCommission()))->save();
+        $booking->forceFill(['provider_payout_status' => 'held'])->save();
+
+        $response = $this->actingAs($admin)->from(route('admin.bookings'))->patch(route('admin.bookings.payout', $booking->id), [
+            'provider_payout_status' => 'ready',
+        ]);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHasErrors([
+            'provider_payout_status' => 'Provider payout is held while the booking dispute is open.',
+        ]);
+        $this->assertSame('held', $booking->fresh()->provider_payout_status);
+    }
+
+    public function test_admin_can_resolve_dispute_and_release_verified_provider_payout(): void
+    {
+        $admin = $this->createUser('admin', 'admin-dispute-release@example.com', 'admindisputerelease');
+        $client = $this->createUser('client', 'client-dispute-release@example.com', 'clientdisputerelease');
+        $staff = $this->createUser('staff', 'staff-dispute-release@example.com', 'staffdisputerelease');
+        $provider = $this->createProvider('Release Provider');
+        $this->verifyProviderPayoutSetup($provider, $admin);
+        $booking = $this->createBooking($client, $staff, 'completed', now()->subDay()->toDateString());
+        $booking->forceFill(array_merge([
+            'cleaner_application_id' => $provider->id,
+            'provider_payout_status' => 'held',
+            'dispute_status' => 'open',
+            'dispute_reason' => 'other',
+            'dispute_description' => 'Client reported an issue for review.',
+            'disputed_at' => now(),
+        ], $booking->calculateMarketplaceCommission()))->save();
+        $booking->forceFill(['provider_payout_status' => 'held'])->save();
+
+        $response = $this->actingAs($admin)->patch(route('admin.bookings.dispute', $booking->id), [
+            'dispute_resolution' => 'release_payout',
+            'dispute_admin_notes' => 'Proof reviewed. Provider payout can proceed.',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success', 'Booking dispute has been updated.');
+
+        $booking->refresh();
+
+        $this->assertSame('resolved', $booking->dispute_status);
+        $this->assertSame('release_payout', $booking->dispute_resolution);
+        $this->assertSame('ready', $booking->provider_payout_status);
+        $this->assertSame($admin->id, $booking->dispute_reviewed_by);
+        $this->assertNotNull($booking->dispute_resolved_at);
     }
 
     private function createUser(string $role, string $email, string $username): User
@@ -819,6 +966,48 @@ class BookingStatusWorkflowTest extends TestCase
             'status' => $status,
             'staff_id' => $staff?->id,
         ]);
+    }
+
+    private function createProvider(string $businessName): CleanerApplication
+    {
+        return CleanerApplication::create([
+            'applicant_type' => CleanerApplication::TYPE_TEAM,
+            'business_name' => $businessName,
+            'contact_person' => 'Provider Contact',
+            'email' => str($businessName)->slug().'-provider@example.com',
+            'phone' => '09171234567',
+            'service_area' => 'Valencia City',
+            'years_experience' => 3,
+            'team_size' => 5,
+            'services_offered' => 'Residential cleaning',
+            'status' => CleanerApplication::STATUS_APPROVED,
+        ]);
+    }
+
+    private function verifyProviderPayoutSetup(CleanerApplication $provider, User $admin): void
+    {
+        foreach ($provider->requiredPayoutDocumentTypes() as $documentType) {
+            $provider->documents()->create([
+                'document_type' => $documentType,
+                'original_filename' => $documentType.'.pdf',
+                'file_path' => 'provider-documents/'.$provider->id.'/'.$documentType.'.pdf',
+                'mime_type' => 'application/pdf',
+                'file_size' => 100,
+                'uploaded_by' => $admin->id,
+            ]);
+        }
+
+        $provider->forceFill([
+            'payout_method' => CleanerApplication::PAYOUT_METHOD_GCASH,
+            'payout_account_name' => $provider->business_name,
+            'payout_account_number' => '09171234567',
+            'valid_id_submitted' => true,
+            'business_permit_submitted' => true,
+            'payout_account_proof_submitted' => true,
+            'payout_verification_status' => CleanerApplication::PAYOUT_VERIFICATION_VERIFIED,
+            'payout_verified_at' => now(),
+            'payout_verified_by' => $admin->id,
+        ])->save();
     }
 
     private function fakeImageUpload(string $name): UploadedFile

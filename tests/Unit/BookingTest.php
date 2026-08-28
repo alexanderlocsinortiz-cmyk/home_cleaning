@@ -4,7 +4,6 @@ namespace Tests\Unit;
 
 use App\Models\Booking;
 use App\Models\Service;
-use App\Models\Staff;
 use App\Models\User;
 use Tests\TestCase;
 
@@ -14,14 +13,14 @@ class BookingTest extends TestCase
 
     private Service $service;
 
-    private Staff $staff;
+    private User $staff;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->client = User::factory()->create(['role' => 'client']);
         $this->service = Service::factory()->create();
-        $this->staff = Staff::factory()->create();
+        $this->staff = User::factory()->create(['role' => 'staff']);
     }
 
     public function test_booking_can_be_created()
@@ -77,10 +76,10 @@ class BookingTest extends TestCase
     {
         $booking = Booking::factory()->create([
             'status' => 'confirmed',
-            'staff_id' => $this->staff->user_id,
+            'staff_id' => $this->staff->id,
         ]);
 
-        $this->assertTrue($booking->staff->is($this->staff->user));
+        $this->assertTrue($booking->staff->is($this->staff));
     }
 
     public function test_booking_suspicious_review_statuses()
@@ -105,30 +104,33 @@ class BookingTest extends TestCase
     {
         $booking = Booking::factory()->create([
             'base_price' => 570.00,
-            'property_adjustment' => 50.00,
-            'room_bathroom_fees' => 100.00,
-            'floor_area_fees' => 75.00,
-            'add_on_fees' => 30.00,
+            'property_fee' => 50.00,
+            'rooms_fee' => 60.00,
+            'bathrooms_fee' => 40.00,
+            'floor_area_fee' => 75.00,
+            'add_ons_fee' => 30.00,
         ]);
 
         $this->assertEquals(570.00, $booking->base_price);
-        $this->assertEquals(50.00, $booking->property_adjustment);
-        $this->assertEquals(100.00, $booking->room_bathroom_fees);
+        $this->assertEquals(50.00, $booking->property_fee);
+        $this->assertEquals(60.00, $booking->rooms_fee);
+        $this->assertEquals(40.00, $booking->bathrooms_fee);
     }
 
     public function test_booking_total_price_calculation()
     {
         $booking = Booking::factory()->create([
             'base_price' => 570.00,
-            'property_adjustment' => 50.00,
-            'room_bathroom_fees' => 100.00,
-            'floor_area_fees' => 75.00,
-            'add_on_fees' => 30.00,
+            'property_fee' => 50.00,
+            'rooms_fee' => 60.00,
+            'bathrooms_fee' => 40.00,
+            'floor_area_fee' => 75.00,
+            'add_ons_fee' => 30.00,
         ]);
 
-        $expectedTotal = 570.00 + 50.00 + 100.00 + 75.00 + 30.00;
-        $actualTotal = $booking->base_price + $booking->property_adjustment +
-                      $booking->room_bathroom_fees + $booking->floor_area_fees + $booking->add_on_fees;
+        $expectedTotal = 570.00 + 50.00 + 60.00 + 40.00 + 75.00 + 30.00;
+        $actualTotal = $booking->base_price + $booking->property_fee +
+                      $booking->rooms_fee + $booking->bathrooms_fee + $booking->floor_area_fee + $booking->add_ons_fee;
 
         $this->assertEquals($expectedTotal, $actualTotal);
     }

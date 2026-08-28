@@ -9,7 +9,7 @@ class RejectOversizedProofUpload
 {
     public function handle(Request $request, Closure $next)
     {
-        if ($request->is('staff/bookings/*/status')) {
+        if ($request->is('staff/bookings/*/status') || $request->is('provider/bookings/*/status')) {
             $contentLength = (int) $request->server('CONTENT_LENGTH', 0);
             $maxRequestBytes = (int) config('cleanflow.proof_uploads.max_request_kb', 32768) * 1024;
 

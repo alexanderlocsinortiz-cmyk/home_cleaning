@@ -29,6 +29,7 @@ class AdminServiceCatalogTest extends TestCase
     public function test_admin_can_store_a_standard_package_without_writing_the_default_description_manually(): void
     {
         $admin = $this->createAdmin();
+        Service::where('slug', 'deep')->delete();
 
         $response = $this->actingAs($admin)->post(route('admin.services.store'), [
             'name' => 'Deep Clean',
@@ -48,11 +49,54 @@ class AdminServiceCatalogTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_manually_edit_measurable_scope_controls(): void
+    {
+        $admin = $this->createAdmin();
+        $service = $this->canonicalService([
+            'name' => 'Deep Clean',
+            'slug' => 'deep',
+            'scope_max_floor_area' => 45,
+            'scope_cleaner_count' => 2,
+            'scope_status' => 'provisional',
+            'scope_manual_review_above_limit' => true,
+        ]);
+
+        $response = $this->actingAs($admin)->put(route('admin.services.update', $service), [
+            'name' => $service->name,
+            'description' => $service->description,
+            'price' => $service->price,
+            'duration_minutes' => $service->duration_minutes,
+            'scope_max_floor_area' => 60,
+            'scope_cleaner_count' => 2,
+            'scope_status' => 'approved',
+            'scope_manual_review_above_limit' => '1',
+            'is_active' => '1',
+            'scope_included_areas' => 'Living areas and kitchen.',
+            'scope_included_tasks' => 'Dusting, sweeping, and mopping.',
+            'scope_excluded_tasks' => 'Mold remediation and repairs.',
+            'scope_condition_limits' => 'Routine condition only.',
+            'scope_equipment_policy' => 'Company brings standard tools; customer provides water and power.',
+            'scope_access_limits' => 'Safe and accessible areas only.',
+            'scope_extra_work_policy' => 'Extra work requires a re-quote.',
+            'scope_acceptance_criteria' => 'Customer reviews the completion checklist.',
+        ]);
+
+        $response->assertRedirect(route('admin.services.index'));
+        $this->assertDatabaseHas('services', [
+            'id' => $service->id,
+            'scope_max_floor_area' => 60,
+            'scope_cleaner_count' => 2,
+            'scope_status' => 'approved',
+            'scope_manual_review_above_limit' => true,
+            'scope_included_tasks' => 'Dusting, sweeping, and mopping.',
+        ]);
+    }
+
     public function test_admin_service_index_shows_package_badges_without_quick_add_templates(): void
     {
         $admin = $this->createAdmin();
 
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
@@ -132,7 +176,7 @@ class AdminServiceCatalogTest extends TestCase
     public function test_admin_archives_service_instead_of_deleting_it(): void
     {
         $admin = $this->createAdmin();
-        $service = Service::create([
+        $service = $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',

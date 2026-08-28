@@ -15,6 +15,16 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
+    'private_uploads_disk' => env('FILESYSTEM_PRIVATE_DISK', env('FILESYSTEM_DISK', 'local')),
+
+    'public_uploads_disk' => env('FILESYSTEM_PUBLIC_DISK', 'public'),
+
+    'database_backup_disk' => env('DATABASE_BACKUP_DISK', env('FILESYSTEM_PRIVATE_DISK', 'local')),
+
+    'database_backup_prefix' => trim((string) env('DATABASE_BACKUP_PREFIX', 'database-backups'), '/'),
+
+    'database_backup_retention_count' => max(1, (int) env('DATABASE_BACKUP_RETENTION_COUNT', 30)),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
@@ -49,13 +59,29 @@ return [
 
         's3' => [
             'driver' => 's3',
+            'prefix' => env('FILESYSTEM_PRIVATE_PREFIX', ''),
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
             'region' => env('AWS_DEFAULT_REGION'),
-            'bucket' => env('AWS_BUCKET'),
-            'url' => env('AWS_URL'),
+            'bucket' => env('AWS_PRIVATE_BUCKET', env('AWS_BUCKET')),
+            'url' => env('AWS_PRIVATE_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => false,
+            'report' => false,
+        ],
+
+        's3_public' => [
+            'driver' => 's3',
+            'prefix' => env('FILESYSTEM_PUBLIC_PREFIX', ''),
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('AWS_PUBLIC_BUCKET', env('AWS_BUCKET')),
+            'url' => env('AWS_PUBLIC_URL', env('AWS_URL')),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'visibility' => 'public',
             'throw' => false,
             'report' => false,
         ],

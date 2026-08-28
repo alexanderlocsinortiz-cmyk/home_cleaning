@@ -87,10 +87,10 @@ class AdminSettingsController extends Controller
 
         if ($request->hasFile('logo')) {
             if ($settings->logo_path) {
-                Storage::disk('public')->delete($settings->logo_path);
+                Storage::disk(config('filesystems.public_uploads_disk'))->delete($settings->logo_path);
             }
 
-            $validated['logo_path'] = $request->file('logo')->store('site', 'public');
+            $validated['logo_path'] = $request->file('logo')->store('site', config('filesystems.public_uploads_disk'));
         }
 
         unset(
@@ -150,6 +150,56 @@ class AdminSettingsController extends Controller
         return response()
             ->download($backupPath, basename($backupPath))
             ->deleteFileAfterSend(true);
+    }
+
+    public function uploadDatabaseBackup(Request $request)
+    {
+        $settings = SiteSetting::current();
+
+        if (! $settings->database_backup_password_hash) {
+            return redirect()
+                ->to(route('admin.settings').'#database-backup')
+                ->withErrors(['database_backup_password' => 'Set a database backup password before uploading backups.']);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'database_backup_password' => ['required', 'string'],
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()
+                ->to(route('admin.settings').'#database-backup')
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        if (! Hash::check($validator->validated()['database_backup_password'], $settings->database_backup_password_hash)) {
+            return redirect()
+                ->to(route('admin.settings').'#database-backup')
+                ->withErrors(['database_backup_password' => 'Database backup password is incorrect.']);
+        }
+
+        try {
+            $backupPath = $this->createDatabaseBackup();
+            $remotePath = $this->storeDatabaseBackupRemotely($backupPath);
+
+            return redirect()
+                ->to(route('admin.settings').'#database-backup')
+                ->with('success', 'Database backup uploaded to private cloud storage: '.$remotePath);
+        } catch (Throwable $exception) {
+            Log::error('Cloud database backup failed.', [
+                'admin_id' => $request->user()?->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return redirect()
+                ->to(route('admin.settings').'#database-backup')
+                ->withErrors(['database_backup' => $exception->getMessage() ?: 'Cloud database backup failed.']);
+        } finally {
+            if (isset($backupPath) && is_file($backupPath)) {
+                @unlink($backupPath);
+            }
+        }
     }
 
     public function updateDatabaseBackupPassword(Request $request)
@@ -273,7 +323,7 @@ class AdminSettingsController extends Controller
         ]);
     }
 
-    private function createDatabaseBackup(): string
+    public function createDatabaseBackup(): string
     {
         $connectionName = DB::getDefaultConnection();
         $connection = config("database.connections.{$connectionName}");
@@ -293,6 +343,60 @@ class AdminSettingsController extends Controller
             'mysql', 'mariadb' => $this->backupMysqlDatabase($connection, $backupDirectory, $baseName),
             default => throw new RuntimeException("Database backups are not configured for the {$driver} driver."),
         };
+    }
+
+    public function storeDatabaseBackupRemotely(string $backupPath): string
+    {
+        $diskName = (string) config('filesystems.database_backup_disk');
+        $diskConfig = (array) config('filesystems.disks.'.$diskName, []);
+        $driver = $diskConfig['driver'] ?? null;
+
+        if ($driver === 'local' && ! app()->environment('testing')) {
+            throw new RuntimeException('Cloud backup storage is not configured. Set DATABASE_BACKUP_DISK to a private S3-compatible disk.');
+        }
+
+        if (! is_file($backupPath) || filesize($backupPath) === 0) {
+            throw new RuntimeException('The generated database backup is empty or missing.');
+        }
+
+        $prefix = trim((string) config('filesystems.database_backup_prefix', 'database-backups'), '/');
+        $remotePath = ($prefix !== '' ? $prefix.'/' : '').basename($backupPath);
+        $storage = Storage::disk($diskName);
+        $stream = fopen($backupPath, 'rb');
+
+        if (! is_resource($stream)) {
+            throw new RuntimeException('The generated database backup could not be opened for upload.');
+        }
+
+        try {
+            if (! $storage->put($remotePath, $stream)) {
+                throw new RuntimeException('The cloud storage upload returned a failure.');
+            }
+        } finally {
+            fclose($stream);
+        }
+
+        if (! $storage->exists($remotePath)) {
+            throw new RuntimeException('Cloud storage did not confirm the uploaded backup.');
+        }
+
+        $retentionCount = (int) config('filesystems.database_backup_retention_count', 30);
+        $backupFiles = collect($storage->files($prefix))
+            ->filter(fn (string $path) => str_ends_with($path, '.dump') || str_ends_with($path, '.sql') || str_ends_with($path, '.sqlite'))
+            ->sortByDesc(function (string $path) use ($storage): int {
+                try {
+                    return (int) $storage->lastModified($path);
+                } catch (Throwable) {
+                    return 0;
+                }
+            })
+            ->values();
+
+        foreach ($backupFiles->slice($retentionCount) as $oldBackup) {
+            $storage->delete($oldBackup);
+        }
+
+        return $remotePath;
     }
 
     private function backupSqliteDatabase(array $connection, string $backupDirectory, string $baseName): string

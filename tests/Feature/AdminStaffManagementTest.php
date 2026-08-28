@@ -19,7 +19,7 @@ class AdminStaffManagementTest extends TestCase
         $client = $this->createUser('client', 'client-staff-protect@example.com', 'clientstaffprotect');
         $staff = $this->createUser('staff', 'staff-protect@example.com', 'staffprotect');
 
-        Service::create([
+        $this->canonicalService([
             'name' => 'Basic Clean',
             'slug' => 'basic',
             'description' => 'Routine cleaning',
