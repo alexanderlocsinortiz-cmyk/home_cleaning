@@ -3,7 +3,7 @@
 The Render blueprint now defines a separate `cleanflow-worker` service running:
 
 ```bash
-php artisan queue:work --tries=3 --timeout=120
+php artisan queue:work --queue=emails,default --tries=3 --timeout=120
 ```
 
 Before deploying the worker, configure the same runtime secrets and database connection values used by `cleanflow-app`. The worker manifest declares the required values as dashboard-supplied inputs:
@@ -30,6 +30,6 @@ php artisan queue:failed
 Acceptance checks:
 
 1. The worker status is `Live` in Render.
-2. Its start command is `php artisan queue:work --tries=3 --timeout=120`.
+2. Its start command is `php artisan queue:work --queue=emails,default --tries=3 --timeout=120`.
 3. `APP_KEY` and the database connection values match `cleanflow-app` exactly.
 4. A test booking notification is processed and no unexpected row remains in `failed_jobs`.

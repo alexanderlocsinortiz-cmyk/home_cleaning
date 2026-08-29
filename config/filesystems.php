@@ -67,6 +67,9 @@ return [
             'url' => env('AWS_PRIVATE_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'http' => [
+                'verify' => env('AWS_CA_BUNDLE', true),
+            ],
             'throw' => false,
             'report' => false,
         ],
@@ -81,6 +84,9 @@ return [
             'url' => env('AWS_PUBLIC_URL', env('AWS_URL')),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'http' => [
+                'verify' => env('AWS_CA_BUNDLE', true),
+            ],
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Booking;
+use App\Models\BookingServiceProof;
 use App\Models\CleanerApplication;
 use App\Models\Notification;
 use App\Models\User;
@@ -95,6 +96,25 @@ class BookingStatusWorkflowTest extends TestCase
         $response->assertRedirect(route('admin.bookings'));
         $response->assertSessionHasErrors('status');
         $this->assertSame('pending', $booking->fresh()->status);
+    }
+
+    public function test_admin_cannot_complete_an_in_progress_booking_without_before_and_after_proof(): void
+    {
+        $admin = $this->createUser('admin', 'admin-proof-required@example.com', 'adminproofrequired');
+        $client = $this->createUser('client', 'client-proof-required@example.com', 'clientproofrequired');
+        $staff = $this->createUser('staff', 'staff-proof-required@example.com', 'staffproofrequired');
+        $booking = $this->createBooking($client, $staff, 'in_progress');
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.status', $booking->id), [
+                'status' => 'completed',
+                'staff_id' => $staff->id,
+            ]);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHasErrors('status');
+        $this->assertSame('in_progress', $booking->fresh()->status);
     }
 
     public function test_staff_can_move_confirmed_booking_to_in_progress(): void
@@ -807,6 +827,22 @@ class BookingStatusWorkflowTest extends TestCase
         $client = $this->createUser('client', 'client-cash-complete@example.com', 'clientcashcomplete');
         $staff = $this->createUser('staff', 'staff-cash-complete@example.com', 'staffcashcomplete');
         $booking = $this->createBooking($client, $staff, 'in_progress');
+        BookingServiceProof::create([
+            'booking_id' => $booking->id,
+            'uploaded_by' => $staff->id,
+            'stage' => 'before',
+            'media_type' => 'image',
+            'file_path' => 'booking-proofs/before/cash-complete.jpg',
+            'original_name' => 'cash-complete-before.jpg',
+        ]);
+        BookingServiceProof::create([
+            'booking_id' => $booking->id,
+            'uploaded_by' => $staff->id,
+            'stage' => 'after',
+            'media_type' => 'image',
+            'file_path' => 'booking-proofs/after/cash-complete.jpg',
+            'original_name' => 'cash-complete-after.jpg',
+        ]);
 
         $response = $this->actingAs($admin)
             ->from(route('admin.bookings'))

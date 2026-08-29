@@ -352,6 +352,7 @@
                         @php
                             $allowedStatuses = $booking->allowedTransitions();
                             $scheduledDate = \Carbon\Carbon::parse($booking->scheduled_date);
+                            $bookingIsToday = $scheduledDate->isToday();
                             $reviewLocked = in_array($booking->manual_review_status, ['pending', 'blocked'], true);
                             $requestedCleaner = $booking->preferredStaff;
                             $scheduleMeta = match (true) {
@@ -635,12 +636,14 @@
                                             @foreach($staffList as $staff)
                                                 @php
                                                     $staffBusyForSlot = in_array($staff->id, $booking->busy_staff_ids ?? [], true);
+                                                    $staffAvailableForAssignment = ! $staffBusyForSlot
+                                                        && (! $bookingIsToday || $staff->is_present);
                                                 @endphp
-                                                @if($staff->is_present && ! $staffBusyForSlot)
+                                                @if($staffAvailableForAssignment)
                                                     <option value="{{ $staff->id }}" {{ $booking->staff_id === $staff->id ? 'selected' : '' }}>
                                                         {{ $staff->display_name }}{{ $booking->preferred_staff_id === $staff->id ? ' (Requested)' : '' }}
                                                     </option>
-                                                @elseif($staff->is_present && $staffBusyForSlot)
+                                                @elseif($staffBusyForSlot)
                                                     <option value="{{ $staff->id }}" disabled>
                                                         {{ $staff->display_name }}{{ $booking->preferred_staff_id === $staff->id ? ' (Requested, Busy)' : ' (Busy)' }}
                                                     </option>
@@ -676,10 +679,27 @@
                                         <div class="text-xs text-amber-700">Approve or block the manual review before changing status or staff.</div>
                                     @elseif($booking->manual_review_status === 'blocked')
                                         <div class="text-xs text-red-700">Blocked bookings stay out of the staffing queue.</div>
-                                    @elseif($presentStaffCount === 0)
+                                    @elseif($bookingIsToday && $presentStaffCount === 0)
                                         <div class="text-xs text-red-700">No cleaners are marked present for today's operations.</div>
-                                    @elseif(($booking->available_present_staff_count ?? 0) === 0 && ! $booking->staff_id)
+                                    @elseif($bookingIsToday && ($booking->available_present_staff_count ?? 0) === 0 && ! $booking->staff_id)
                                         <div class="text-xs text-amber-700">All available cleaners are already booked or inside the 1-hour rest buffer for this schedule.</div>
+                                    @elseif(! $bookingIsToday && ($booking->available_staff_count ?? 0) === 0 && ! $booking->staff_id)
+                                        <div class="text-xs text-amber-700">All cleaners are already booked or inside the 1-hour rest buffer for this schedule.</div>
+                                    @endif
+                                    @if($booking->status === 'in_progress')
+                                        <div class="rounded-lg border border-blue-100 bg-blue-50 px-2.5 py-2 text-[11px] text-blue-800">
+                                            <div class="font-bold">Completion proof</div>
+                                            <div class="mt-1">
+                                                Before photos: {{ $booking->before_service_proofs_count > 0 ? 'Uploaded' : 'Missing' }}
+                                                &bull;
+                                                After photos: {{ $booking->after_service_proofs_count > 0 ? 'Uploaded' : 'Missing' }}
+                                            </div>
+                                            <div class="mt-1">The assigned staff member must upload both before and after photos before completion.</div>
+                                            <a href="{{ route('bookings.show', $booking->id) }}#proof-of-service" class="mt-2 inline-flex items-center gap-1 font-bold text-blue-700 underline hover:text-blue-900">
+                                                <i class="fas fa-arrow-up-right-from-square"></i>
+                                                View proof files
+                                            </a>
+                                        </div>
                                     @endif
                                     <button type="submit" {{ $reviewLocked ? 'disabled' : '' }} class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-700 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300">
                                         <i class="fas fa-check"></i>

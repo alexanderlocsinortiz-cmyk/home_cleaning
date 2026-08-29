@@ -91,7 +91,7 @@ services:
     plan: starter
     dockerContext: .
     dockerfilePath: ./Dockerfile
-    dockerCommand: php artisan queue:work --tries=3 --timeout=120
+    dockerCommand: php artisan queue:work --queue=emails,default --tries=3 --timeout=120
     envVars:
       - key: APP_ENV
         value: production

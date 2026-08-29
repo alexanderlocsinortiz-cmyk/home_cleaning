@@ -29,6 +29,6 @@ The backup disk must point to the private bucket. With the R2 setup, `s3` uses `
 7. Verify users, bookings, services, payments, messages, and migrations in the restored database.
 8. Record the restore duration and define the acceptable recovery point (RPO) and recovery time (RTO).
 
-For automatic protection, schedule `php artisan database:backup-cloud` at least daily. A scheduler is not created automatically by this repository because it must be configured with the production database and private-storage secrets by the deployment operator.
+The application now defines `php artisan database:backup-cloud` to run daily at 02:00 and prevents overlapping runs for 30 minutes. Laravel still needs a scheduler process to execute it. For local testing, run `php artisan schedule:work`; in production, use the platform's cron/scheduler or a continuously running `php artisan schedule:work` process. The task only works when the production database and private-storage secrets are configured.
 
 The application tests prove that the upload path writes to the configured disk, confirms the object, and cleans up the temporary local file. They cannot prove production credentials, provider access policy, scheduled execution, or a successful restore of your production database.

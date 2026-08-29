@@ -42,6 +42,20 @@ class AdminBookingManagementPageTest extends TestCase
         $response->assertDontSee('CF-'.str_pad($completed->id, 5, '0', STR_PAD_LEFT));
     }
 
+    public function test_admin_can_assign_staff_to_a_future_booking_before_they_punch_in(): void
+    {
+        $admin = $this->createUser('admin', 'admin-future-assignment@example.com', 'adminfutureassignment');
+        $client = $this->createUser('client', 'client-future-assignment@example.com', 'clientfutureassignment');
+        $staff = $this->createUser('staff', 'staff-future-assignment@example.com', 'stafffutureassignment');
+        $booking = $this->createBooking($client, null, 'pending', now()->addDay()->toDateString(), '09:00');
+
+        $response = $this->actingAs($admin)->get(route('admin.bookings'));
+
+        $response->assertOk();
+        $response->assertSee('value="'.$staff->id.'"', false);
+        $response->assertSee($staff->display_name);
+    }
+
     public function test_admin_bookings_page_can_filter_unassigned_active_queue(): void
     {
         $admin = $this->createUser('admin', 'admin-unassigned-filter@example.com', 'adminunassignedfilter');
@@ -78,6 +92,20 @@ class AdminBookingManagementPageTest extends TestCase
         $response->assertSee('No rating yet');
         $response->assertDontSee('Current staff:');
         $response->assertDontSee('Active Booking Queue');
+    }
+
+    public function test_admin_in_progress_booking_links_to_proof_files(): void
+    {
+        $admin = $this->createUser('admin', 'admin-proof-link@example.com', 'adminprooflink');
+        $client = $this->createUser('client', 'client-proof-link@example.com', 'clientprooflink');
+        $staff = $this->createUser('staff', 'staff-proof-link@example.com', 'staffprooflink');
+        $booking = $this->createBooking($client, $staff, 'in_progress', now()->toDateString(), '09:00');
+
+        $response = $this->actingAs($admin)->get(route('admin.bookings'));
+
+        $response->assertOk();
+        $response->assertSee('View proof files');
+        $response->assertSee(route('bookings.show', $booking->id).'#proof-of-service', false);
     }
 
     public function test_admin_bookings_page_shows_requested_cleaner_details_when_present(): void

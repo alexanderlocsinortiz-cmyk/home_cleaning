@@ -18,7 +18,7 @@ The repository contains the expected `cleanflow-worker` definition, but producti
 | Check | Result | Evidence |
 | --- | --- | --- |
 | Dedicated worker exists | Pass | `render.yaml` defines `cleanflow-worker` |
-| Queue command | Pass | `php artisan queue:work --tries=3 --timeout=120` |
+| Queue command | Pass | `php artisan queue:work --queue=emails,default --tries=3 --timeout=120` |
 | Database queue | Pass | Web and worker declare `QUEUE_CONNECTION=database` |
 | Shared application key | Not verified | Worker uses `sync: false`; equality with the web secret must be checked in Render |
 | Shared database connection | Not verified | Web and worker now declare the same dashboard-supplied PostgreSQL connection inputs; values must still match exactly in Render |

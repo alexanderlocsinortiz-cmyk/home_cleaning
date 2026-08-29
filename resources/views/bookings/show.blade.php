@@ -386,7 +386,7 @@
                     </div>
                 </div>
 
-                <div class="detail-card cleanflow-panel p-6">
+                <div id="proof-of-service" class="detail-card cleanflow-panel p-6">
                     <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h2 class="text-lg font-semibold text-slate-900">Staff Assignment</h2>

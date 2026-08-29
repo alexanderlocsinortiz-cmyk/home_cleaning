@@ -33,6 +33,7 @@ class AdminBookingController extends Controller
             : '';
 
         $activeBookingsQuery = Booking::with(['user', 'staff', 'cleanerApplication', 'service', 'reviewedBy', 'preferredStaff'])
+            ->withCount(['beforeServiceProofs', 'afterServiceProofs'])
             ->whereIn('status', ['pending', 'confirmed', 'in_progress']);
 
         $completedBookingsQuery = Booking::with(['user', 'staff', 'cleanerApplication', 'service', 'rating', 'reviewedBy', 'preferredStaff'])
@@ -76,11 +77,12 @@ class AdminBookingController extends Controller
 
             return $s;
         });
+        $allStaffIds = $staffList->pluck('id')->all();
         $approvedCleanerApplications = CleanerApplication::where('status', CleanerApplication::STATUS_APPROVED)
             ->orderBy('business_name')
             ->get();
 
-        $activeBookings->getCollection()->transform(function (Booking $booking) use ($presentStaffIds) {
+        $activeBookings->getCollection()->transform(function (Booking $booking) use ($presentStaffIds, $allStaffIds) {
             $busyStaffIds = Booking::busyStaffIdsForAssignment(
                 $booking->scheduled_date,
                 $booking->scheduled_time,
@@ -90,6 +92,7 @@ class AdminBookingController extends Controller
 
             $booking->busy_staff_ids = $busyStaffIds;
             $booking->available_present_staff_count = count(array_diff($presentStaffIds, $busyStaffIds));
+            $booking->available_staff_count = count(array_diff($allStaffIds, $busyStaffIds));
             $booking->pending_escalation = $this->pendingEscalationFor($booking);
 
             return $booking;
@@ -234,6 +237,12 @@ class AdminBookingController extends Controller
         if (Booking::requiresAssignedStaffForStatus($newStatus) && ! $newStaffId && ! $booking->hasAcceptedProviderAssignment()) {
             return back()->withErrors([
                 'staff_id' => 'Please assign a staff member or use an accepted marketplace provider before updating to this status.',
+            ]);
+        }
+
+        if ($newStatus === 'completed' && (! $booking->hasBeforeServiceProof() || ! $booking->hasAfterServiceProof())) {
+            return back()->withErrors([
+                'status' => 'Before-service and after-service photos are required before an admin can mark this booking as completed. Ask the assigned staff member to upload both proofs first.',
             ]);
         }
 
