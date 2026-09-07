@@ -74,6 +74,7 @@ class Service extends Model
             'max_floor_area' => $this->scope_max_floor_area,
             'cleaner_count' => (int) ($this->scope_cleaner_count ?: 1),
             'capacity_sqm_per_cleaner' => self::cleanerCapacityForSlug($this->slug),
+            'base_duration_minutes' => (int) ($this->duration_minutes ?: self::durationForSlug($this->slug)),
             'status' => $this->scopeIsApproved() ? 'approved' : 'provisional',
             'manual_review_above_limit' => (bool) $this->scope_manual_review_above_limit,
         ];
@@ -446,6 +447,19 @@ class Service extends Model
         }
 
         return (int) (self::PACKAGE_CATALOG[self::catalogSlug($slug)]['recommended_duration_minutes'] ?? self::DEFAULT_DURATION_MINUTES);
+    }
+
+    public static function durationForArea(?string $slug, ?int $floorArea, ?int $baseDurationMinutes = null): int
+    {
+        $baseDurationMinutes = max(1, (int) ($baseDurationMinutes ?: self::durationForSlug($slug)));
+
+        if (! self::usesPerSquareMeterPricing($slug)) {
+            return $baseDurationMinutes;
+        }
+
+        $requiredCleaners = self::requiredCleanerCountForSlug($slug, $floorArea);
+
+        return $baseDurationMinutes * max(1, $requiredCleaners);
     }
 
     public static function catalogSlug(?string $slug): ?string

@@ -267,7 +267,7 @@
                             <div class="mt-3 text-xs font-semibold text-slate-500">
                                 Up to {{ $service->scope_max_floor_area ? number_format($service->scope_max_floor_area) . ' sqm' : 'manual quote' }}
                                 · {{ $service->scope_cleaner_count ?: 1 }} cleaner{{ ($service->scope_cleaner_count ?: 1) === 1 ? '' : 's' }}
-                                · {{ $service->duration_minutes ?: \App\Models\Service::durationForSlug($service->slug) }} minutes
+                                · {{ $service->duration_minutes ?: \App\Models\Service::durationForSlug($service->slug) }} min base duration
                             </div>
                             <div class="mt-1 text-[11px] {{ $service->scopeIsApproved() ? 'text-emerald-700' : 'text-amber-700' }}">
                                 {{ $service->scopeIsApproved() ? 'Approved measurable limit' : 'Provisional planning limit; larger requests may need review' }}
@@ -759,8 +759,15 @@ function formatTimeLabel(timeValue) {
 
 function selectedServiceDuration() {
     const serviceType = document.querySelector('input[name="service_type"]:checked')?.value;
+    const floorArea = Number.parseInt(document.querySelector('input[name="floor_area"]')?.value || 0, 10);
+    const scope = serviceScope[serviceType] || {};
+    const baseDuration = Number(scheduleAvailability.serviceDurations?.[serviceType] || scope.base_duration_minutes || 120);
+    const cleanerCapacity = Number(scope.capacity_sqm_per_cleaner || 0);
+    const requiredCleaners = cleanerCapacity > 0 && floorArea > 0
+        ? Math.ceil(floorArea / cleanerCapacity)
+        : 1;
 
-    return Number(scheduleAvailability.serviceDurations?.[serviceType] || 120);
+    return baseDuration * Math.max(1, requiredCleaners);
 }
 
 function slotIsFutureForSelectedDate(dateValue, timeValue) {
@@ -1691,6 +1698,7 @@ function updatePrice() {
 
         cleanerCountNote.textContent = scope && requiredCleaners > 0
             ? `${requiredCleaners} cleaner${requiredCleaners === 1 ? '' : 's'} recommended for ${floorArea} sqm (${cleanerCapacity} sqm per cleaner).`
+                + ` Estimated service time: ${Number(scope.base_duration_minutes || scheduleAvailability.serviceDurations?.[serviceType] || 120) * requiredCleaners} minutes.`
                 + (requiredCleaners > maxCleaners ? ` More than ${maxCleaners} cleaners requires manual review.` : '')
             : 'Select a service and floor area to estimate the required cleaners.';
     }

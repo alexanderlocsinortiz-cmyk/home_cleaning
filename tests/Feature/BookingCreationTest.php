@@ -180,6 +180,41 @@ class BookingCreationTest extends TestCase
         $this->assertSame(['window_glass', 'refrigerator'], $booking->add_ons);
     }
 
+    public function test_per_square_meter_booking_duration_scales_with_floor_area(): void
+    {
+        $this->canonicalService([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 35,
+            'duration_minutes' => 60,
+            'is_active' => true,
+        ]);
+
+        $client = $this->createVerifiedUser([
+            'email' => 'area-duration@example.com',
+            'username' => 'areaduration',
+        ]);
+
+        $response = $this->actingAs($client)->post(route('bookings.store'), [
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 3,
+            'bathrooms' => 2,
+            'floor_area' => 80,
+            'barangay' => 'Poblacion',
+            'street_address' => '80 Area Street',
+            'scheduled_date' => now()->addDays(4)->toDateString(),
+            'scheduled_time' => '10:00',
+        ]);
+
+        $response->assertRedirect(route('bookings.index'));
+
+        $booking = Booking::where('user_id', $client->id)->latest('id')->firstOrFail();
+
+        $this->assertSame(120, (int) $booking->duration_minutes);
+    }
+
     public function test_inactive_service_cannot_be_booked(): void
     {
         $service = $this->canonicalService([

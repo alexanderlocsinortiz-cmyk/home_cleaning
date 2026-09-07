@@ -57,7 +57,11 @@ class MobileBookingController extends Controller
         $service = Service::where('slug', $validated['service_type'])
             ->where('is_active', true)
             ->firstOrFail();
-        $serviceDurationMinutes = (int) ($service->duration_minutes ?: Service::durationForSlug($service->slug));
+        $serviceDurationMinutes = Service::durationForArea(
+            $service->slug,
+            (int) $validated['floor_area'],
+            (int) ($service->duration_minutes ?: Service::durationForSlug($service->slug)),
+        );
 
         $pricing = Booking::calculatePrice(
             $validated['service_type'],

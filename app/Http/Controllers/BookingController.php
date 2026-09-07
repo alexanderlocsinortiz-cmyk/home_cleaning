@@ -157,7 +157,11 @@ class BookingController extends Controller
             ])->withInput();
         }
 
-        $serviceDurationMinutes = (int) ($service?->duration_minutes ?: Service::durationForSlug($request->service_type));
+        $serviceDurationMinutes = Service::durationForArea(
+            $request->service_type,
+            (int) $request->floor_area,
+            (int) ($service?->duration_minutes ?: Service::durationForSlug($request->service_type)),
+        );
 
         if ($request->filled('preferred_staff_id')) {
             $preferredStaff = User::where('role', 'staff')->find($request->preferred_staff_id);
