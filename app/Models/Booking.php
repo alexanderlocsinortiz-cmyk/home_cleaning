@@ -1856,10 +1856,16 @@ class Booking extends Model
         $riskReasons = [];
         $normalizedStreetAddress = self::normalizeStreetAddress($streetAddress);
 
-        $sameAddressSameScheduleExists = self::scheduleConflictQuery($scheduledDate, $scheduledTime)
+        $sameScheduleBookings = self::scheduleConflictQuery($scheduledDate, $scheduledTime)
             ->where('user_id', '!=', $userId)
+            ->get(['barangay', 'street_address']);
+
+        if ($sameScheduleBookings->isNotEmpty()) {
+            $riskReasons[] = 'Another client already has an active booking at this date and time.';
+        }
+
+        $sameAddressSameScheduleExists = $sameScheduleBookings
             ->where('barangay', $barangay)
-            ->get(['street_address'])
             ->contains(fn (Booking $booking) => self::normalizeStreetAddress($booking->street_address) === $normalizedStreetAddress);
 
         if ($sameAddressSameScheduleExists) {

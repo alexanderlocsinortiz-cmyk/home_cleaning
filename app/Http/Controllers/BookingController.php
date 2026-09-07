@@ -1060,7 +1060,12 @@ class BookingController extends Controller
                 return 'You already have an active booking on '.$formattedDate.' at '.$formattedTime.'. Please choose a different schedule plan.';
             }
 
-            if (! Booking::slotHasCapacity($schedule['scheduled_date'], $schedule['scheduled_time'])) {
+            $hasExistingBooking = Booking::scheduleConflictQuery(
+                $schedule['scheduled_date'],
+                $schedule['scheduled_time'],
+            )->exists();
+
+            if (! Booking::slotHasCapacity($schedule['scheduled_date'], $schedule['scheduled_time']) && ! $hasExistingBooking) {
                 return 'The selected schedule plan cannot be created because '.$formattedDate.' at '.$formattedTime.' is already fully booked.';
             }
         }

@@ -842,7 +842,7 @@ class AdminBookingController extends Controller
 
         $message = $reviewStatus === 'approved'
             ? 'Booking cleared for normal scheduling and confirmation.'
-            : 'Booking blocked during manual review and removed from the active queue.';
+            : 'Booking declined during manual review and removed from the active queue.';
 
         return back()->with('success', $message);
     }

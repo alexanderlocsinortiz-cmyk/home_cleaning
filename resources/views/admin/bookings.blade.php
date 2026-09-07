@@ -139,7 +139,7 @@
     $reviewLabels = [
         'pending' => 'Manual Review',
         'approved' => 'Review Approved',
-        'blocked' => 'Review Blocked',
+        'blocked' => 'Review Declined',
     ];
     $reviewClasses = [
         'pending' => 'bg-amber-100 text-amber-700',
@@ -621,7 +621,7 @@
                                                 <input type="hidden" name="review_status" value="blocked">
                                                 <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-2 py-2 text-[11px] font-bold text-white">
                                                     <i class="fas fa-ban"></i>
-                                                    Block
+                                                    Decline
                                                 </button>
                                             </form>
                                         </div>
@@ -696,7 +696,7 @@
                                     @if($booking->manual_review_status === 'pending')
                                         <div class="text-xs text-amber-700">Approve or block the manual review before changing status or staff.</div>
                                     @elseif($booking->manual_review_status === 'blocked')
-                                        <div class="text-xs text-red-700">Blocked bookings stay out of the staffing queue.</div>
+                                        <div class="text-xs text-red-700">Declined bookings stay out of the staffing queue.</div>
                                     @elseif($bookingIsToday && $presentStaffCount === 0)
                                         <div class="text-xs text-red-700">No cleaners are marked present for today's operations.</div>
                                     @elseif($bookingIsToday && ($booking->available_present_staff_count ?? 0) === 0 && ! $booking->staff_id)

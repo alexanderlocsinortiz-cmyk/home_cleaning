@@ -105,7 +105,12 @@ class MobileBookingController extends Controller
                     ]);
                 }
 
-                if (! Booking::slotHasCapacity($validated['scheduled_date'], $validated['scheduled_time'])) {
+                $hasExistingBooking = Booking::scheduleConflictQuery(
+                    $validated['scheduled_date'],
+                    $validated['scheduled_time'],
+                )->exists();
+
+                if (! Booking::slotHasCapacity($validated['scheduled_date'], $validated['scheduled_time']) && ! $hasExistingBooking) {
                     throw ValidationException::withMessages([
                         'scheduled_time' => ['This schedule is already full. Please choose another time.'],
                     ]);

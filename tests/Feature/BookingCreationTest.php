@@ -1093,6 +1093,68 @@ class BookingCreationTest extends TestCase
         $this->assertContains('Another client already requested this exact address and schedule.', $flaggedBooking->risk_reasons ?? []);
     }
 
+    public function test_same_time_booking_is_created_for_manual_review_when_the_slot_is_full(): void
+    {
+        $this->canonicalService([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $existingClient = $this->createVerifiedUser([
+            'email' => 'existing-slot@example.com',
+            'username' => 'existingslot',
+        ]);
+        $newClient = $this->createVerifiedUser([
+            'email' => 'new-slot@example.com',
+            'username' => 'newslot',
+        ]);
+        $this->createVerifiedUser([
+            'email' => 'slot-staff@example.com',
+            'username' => 'slotstaff',
+            'role' => 'staff',
+        ]);
+
+        $scheduledDate = now()->addDays(7)->toDateString();
+
+        Booking::create([
+            'user_id' => $existingClient->id,
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 2,
+            'bathrooms' => 1,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Rizal Street',
+            'scheduled_date' => $scheduledDate,
+            'scheduled_time' => '14:00',
+            'price' => 620,
+            'status' => 'pending',
+        ]);
+
+        $response = $this->actingAs($newClient)->post(route('bookings.store'), [
+            'service_type' => 'basic',
+            'property_type' => 'apartment',
+            'rooms' => 3,
+            'bathrooms' => 2,
+            'floor_area' => 30,
+            'barangay' => 'Poblacion',
+            'street_address' => '789 Bonifacio Street',
+            'scheduled_date' => $scheduledDate,
+            'scheduled_time' => '14:00',
+        ]);
+
+        $response->assertRedirect(route('bookings.index'));
+        $response->assertSessionHas('success', 'Your booking request has been submitted and is pending manual review before confirmation.');
+
+        $newBooking = Booking::where('user_id', $newClient->id)->latest('id')->firstOrFail();
+
+        $this->assertSame('pending', $newBooking->status);
+        $this->assertSame('pending', $newBooking->manual_review_status);
+        $this->assertContains('Another client already has an active booking at this date and time.', $newBooking->risk_reasons ?? []);
+    }
+
     public function test_booking_is_flagged_for_manual_review_when_client_creates_multiple_recent_requests(): void
     {
         $this->canonicalService([
