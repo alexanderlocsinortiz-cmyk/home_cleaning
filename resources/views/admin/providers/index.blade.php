@@ -4,6 +4,10 @@
 @section('page-title', 'Providers')
 @section('page-subtitle', 'Manage approved individual cleaners and business teams')
 
+@push('styles')
+<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}">
+@endpush
+
 @section('content')
 <div class="admin-page-content cleanflow-page-shell space-y-6 p-6">
     @php
@@ -137,6 +141,22 @@
             </a>
         </div>
 
+        <div class="border-b border-slate-100 bg-slate-50/60 p-5 sm:p-6">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-black text-slate-950"><i class="fas fa-map-location-dot mr-2 text-blue-600"></i>Provider location map</h2>
+                    <p class="mt-1 text-sm leading-6 text-slate-500">Exact provider pins are visible only inside the admin area. Showing {{ count($providerMapPoints) }} pinned provider{{ count($providerMapPoints) === 1 ? '' : 's' }} for the current filters.</p>
+                </div>
+                @if($providerMapPoints === [])
+                    <span class="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700 ring-1 ring-amber-100">No exact pins yet</span>
+                @endif
+            </div>
+            <div id="provider-directory-map" class="mt-4 h-96 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100"></div>
+            @if($providerMapPoints === [])
+                <p class="mt-3 text-xs font-semibold text-slate-500">Providers must select a city/municipality and save an exact pin from their provider dashboard before they appear here.</p>
+            @endif
+        </div>
+
         <div class="overflow-x-auto">
             <table class="min-w-[1150px] w-full text-sm">
                 <thead class="border-y border-slate-200 bg-slate-50">
@@ -174,6 +194,7 @@
                             </td>
                             <td class="px-5 py-5">
                                 <div class="max-w-[240px] font-semibold leading-5 text-slate-700">{{ $provider->coverageLabel() }}</div>
+                                <div class="mt-2 text-xs font-bold text-blue-700"><i class="fas fa-map-pin mr-1"></i>{{ $provider->location_area ?: 'Base location not pinned' }}</div>
                                 <div class="mt-2 text-xs text-slate-500">{{ $provider->years_experience ?: 0 }} year{{ $provider->years_experience == 1 ? '' : 's' }} experience</div>
                                 <div class="mt-1 text-xs text-slate-500">{{ $provider->services_offered ?: 'Services not listed' }}</div>
                             </td>
@@ -235,3 +256,64 @@
     </section>
 </div>
 @endsection
+
+@push('scripts')
+<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
+<script>
+    (() => {
+        const element = document.getElementById('provider-directory-map');
+
+        if (!element || !window.L) {
+            return;
+        }
+
+        const config = @json(config('cleanflow.provider_map'));
+        const points = @json($providerMapPoints);
+        const map = L.map(element, {
+            minZoom: config.minZoom,
+            maxZoom: config.maxZoom,
+            maxBounds: config.maxBounds,
+            maxBoundsViscosity: 0.85,
+        }).setView([config.center.lat, config.center.lng], config.zoom);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: config.maxZoom,
+        }).addTo(map);
+        L.control.scale({ imperial: false }).addTo(map);
+
+        const escapeHtml = (value) => String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+        const bounds = [];
+
+        points.forEach((point) => {
+            const latLng = [point.lat, point.lng];
+            bounds.push(latLng);
+            L.circleMarker(latLng, {
+                radius: 9,
+                color: '#1d4ed8',
+                weight: 3,
+                fillColor: '#60a5fa',
+                fillOpacity: 0.9,
+            }).addTo(map).bindPopup(`
+                <div class="cleanflow-map-popup">
+                    <strong>${escapeHtml(point.name)}</strong>
+                    <div>${escapeHtml(point.contact)}</div>
+                    <div>${escapeHtml(point.area || 'Area not set')}</div>
+                    <div>${escapeHtml(point.availability)} · ${escapeHtml(point.status)}</div>
+                </div>
+            `);
+        });
+
+        if (bounds.length > 0) {
+            map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 });
+        }
+
+        window.setTimeout(() => map.invalidateSize(), 100);
+    })();
+</script>
+@endpush

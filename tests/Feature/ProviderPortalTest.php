@@ -189,6 +189,27 @@ class ProviderPortalTest extends TestCase
         ]);
     }
 
+    public function test_provider_can_update_private_base_location(): void
+    {
+        [$providerUser, $application] = $this->createProvider('provider-location@example.com', 'providerlocation', 'Provider Location Cleaners');
+
+        $response = $this->actingAs($providerUser)->patch(route('provider.location.update'), [
+            'location_area' => 'Malaybalay City',
+            'location_latitude' => 8.1571234,
+            'location_longitude' => 125.1285678,
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success', 'Provider location updated. Only CleanFlow admins can see the exact pin.');
+
+        $this->assertDatabaseHas('cleaner_applications', [
+            'id' => $application->id,
+            'location_area' => 'Malaybalay City',
+            'location_latitude' => '8.1571234',
+            'location_longitude' => '125.1285678',
+        ]);
+    }
+
     public function test_provider_cannot_set_admin_only_unavailable_status(): void
     {
         [$providerUser, $application] = $this->createProvider('provider-unavailable-block@example.com', 'providerunavailableblock', 'Provider Unavailable Block Cleaners');

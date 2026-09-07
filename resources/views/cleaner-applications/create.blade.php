@@ -3,6 +3,7 @@
 @section('title', 'Apply as Cleaner')
 
 @push('styles')
+<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}">
 <style>
     .cleaner-apply-choice:has(input:checked) {
         border-color: #2563eb;
@@ -254,6 +255,31 @@
                     <div>
                         <div class="text-xs font-black uppercase tracking-[0.16em] text-blue-700">Step 2</div>
                         <h2 class="mt-1 text-xl font-black text-slate-950">Services &amp; Coverage</h2>
+                    </div>
+                    <div data-provider-location-shell class="rounded-lg border border-blue-100 bg-blue-50/40 p-4">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <label for="location_area" class="block text-sm font-bold text-slate-800">Provider base location *</label>
+                                <p class="mt-1 text-xs leading-5 text-slate-600">Choose the city/municipality and click your operating base on the map. This exact pin is private to you and CleanFlow admins.</p>
+                            </div>
+                            <span class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[11px] font-black text-blue-700 ring-1 ring-blue-100"><i class="fas fa-lock"></i> Admin-only pin</span>
+                        </div>
+                        <select id="location_area" name="location_area" required class="cleaner-apply-input mt-3 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                            <option value="">Select your city/municipality</option>
+                            @foreach($coverageAreas as $areaValue => $areaLabel)
+                                <option value="{{ $areaValue }}" {{ old('location_area') === $areaValue ? 'selected' : '' }}>{{ $areaLabel }}</option>
+                            @endforeach
+                        </select>
+                        @error('location_area')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
+                        <div id="provider-location-map" data-provider-location-map data-area-input="location_area" data-latitude-input="location_latitude" data-longitude-input="location_longitude" class="mt-3 h-80 overflow-hidden rounded-lg border border-slate-200 bg-slate-100"></div>
+                        <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+                            <p data-provider-location-status class="text-xs font-bold text-slate-500">Click the map to place your exact location.</p>
+                            <button type="button" data-provider-location-current class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-black text-blue-700 transition hover:bg-blue-50"><i class="fas fa-location-crosshairs"></i> Use current location</button>
+                        </div>
+                        <input type="hidden" id="location_latitude" name="location_latitude" value="{{ old('location_latitude') }}">
+                        <input type="hidden" id="location_longitude" name="location_longitude" value="{{ old('location_longitude') }}">
+                        @error('location_latitude')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
+                        @error('location_longitude')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label for="years_experience" class="block text-sm font-bold text-slate-800">Years of Cleaning Experience *</label>
@@ -517,6 +543,12 @@
 </section>
 
 @push('scripts')
+<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
+<script>
+    window.cleanflowProviderMapConfig = @json(config('cleanflow.provider_map'));
+    window.cleanflowProviderLocationCenters = @json($locationCenters);
+</script>
+<script src="{{ asset('js/provider-location-map.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('[data-multi-step-form]');
@@ -544,6 +576,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const coveragePickerSelectAll = document.querySelector('[data-coverage-select-all]');
     const coveragePickerLabel = document.querySelector('[data-coverage-picker-label]');
     const coverageSelectionCount = document.querySelector('[data-coverage-selection-count]');
+    const providerLocationMap = document.querySelector('[data-provider-location-map]');
+    const providerLocationArea = document.getElementById('location_area');
+    const providerLocationLatitude = document.getElementById('location_latitude');
+    const providerLocationLongitude = document.getElementById('location_longitude');
+    const providerLocationStatus = document.querySelector('[data-provider-location-status]');
     const serviceInputs = document.querySelectorAll('input[name="services_offered[]"]');
     const dayInputs = document.querySelectorAll('input[name="available_days[]"]');
     const serviceCount = document.querySelector('[data-service-count]');
@@ -1053,6 +1090,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (step === 2) {
+            if (!providerLocationArea?.value || !providerLocationLatitude?.value || !providerLocationLongitude?.value) {
+                if (showWarnings) {
+                    providerLocationMap?.classList.add('ring-2', 'ring-red-300');
+                    if (providerLocationStatus) {
+                        providerLocationStatus.textContent = 'Choose a city/municipality and place the exact pin on the map.';
+                        providerLocationStatus.classList.remove('text-slate-500', 'text-emerald-700');
+                        providerLocationStatus.classList.add('text-red-600');
+                    }
+                    showFormWarning('Add the provider base location before continuing.');
+                }
+                return false;
+            }
+
             const isSpecificCoverage = document.querySelector('input[name="coverage_mode"]:checked')?.value === 'specific';
 
             if (isSpecificCoverage && !Array.from(coverageOptions).some((option) => option.checked)) {

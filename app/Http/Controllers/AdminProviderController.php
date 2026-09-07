@@ -47,6 +47,32 @@ class AdminProviderController extends Controller
             })
             ->orderBy('business_name');
 
+        $providerMapPoints = (clone $providersQuery)
+            ->whereNotNull('location_latitude')
+            ->whereNotNull('location_longitude')
+            ->get([
+                'id',
+                'business_name',
+                'contact_person',
+                'location_area',
+                'location_latitude',
+                'location_longitude',
+                'availability_status',
+                'status',
+            ])
+            ->map(fn (CleanerApplication $provider): array => [
+                'id' => $provider->id,
+                'name' => $provider->business_name,
+                'contact' => $provider->contact_person,
+                'area' => $provider->location_area,
+                'lat' => (float) $provider->location_latitude,
+                'lng' => (float) $provider->location_longitude,
+                'availability' => $provider->availabilityLabel(),
+                'status' => $provider->status,
+            ])
+            ->values()
+            ->all();
+
         $providers = $providersQuery->paginate(12)->withQueryString();
 
         $providerStats = [
@@ -64,6 +90,7 @@ class AdminProviderController extends Controller
 
         return view('admin.providers.index', compact(
             'providerStats',
+            'providerMapPoints',
             'providers',
             'search',
             'status',

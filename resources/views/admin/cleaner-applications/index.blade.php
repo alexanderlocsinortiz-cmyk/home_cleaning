@@ -226,6 +226,16 @@
                                     @if($application->current_address)
                                         <div><i class="fas fa-location-dot w-4 text-slate-400"></i>{{ $application->current_address }}</div>
                                     @endif
+                                    @if($application->location_area)
+                                        <div class="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-800 ring-1 ring-blue-100">
+                                            <i class="fas fa-map-pin mr-1"></i> Base location: {{ $application->location_area }}
+                                            @if($application->location_latitude && $application->location_longitude)
+                                                <a href="https://www.google.com/maps/search/?api=1&amp;query={{ $application->location_latitude }},{{ $application->location_longitude }}" target="_blank" rel="noopener" class="ml-2 underline decoration-blue-300 underline-offset-2 hover:text-blue-950">Open pin</a>
+                                            @else
+                                                <span class="ml-2 text-amber-700">Pin not saved</span>
+                                            @endif
+                                        </div>
+                                    @endif
                                     @if(! $application->isTeam() && $application->date_of_birth)
                                         <div><i class="fas fa-cake-candles w-4 text-slate-400"></i>{{ $application->date_of_birth->format('M d, Y') }}</div>
                                     @endif

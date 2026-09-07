@@ -4,6 +4,10 @@
 @section('page-title', 'Cleaner Dashboard')
 @section('page-subtitle', 'Manage assignments, availability, and payout setup')
 
+@push('styles')
+<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}">
+@endpush
+
 @section('content')
 @php
     $cleanerName = $application?->business_name ?? auth()->user()->display_name;
@@ -358,6 +362,45 @@
             @endif
         </div>
 
+        @if($application)
+            <section data-provider-location-shell class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-black text-slate-950">Provider Base Location</h2>
+                        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Keep your city/municipality and operating base pin accurate so CleanFlow admin can assign work safely. Customers cannot see this exact pin.</p>
+                    </div>
+                    <span class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700 ring-1 ring-blue-100"><i class="fas fa-lock"></i> Admin-only location</span>
+                </div>
+                <form action="{{ route('provider.location.update') }}" method="POST" class="mt-5 grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+                    @csrf
+                    @method('PATCH')
+                    <div>
+                        <label for="provider_location_area" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">City / municipality</label>
+                        <select id="provider_location_area" name="location_area" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold focus:border-blue-500 focus:outline-hidden">
+                            <option value="">Select area</option>
+                            @foreach(config('cleanflow.bukidnon_coverage_areas', []) as $areaValue => $areaLabel)
+                                <option value="{{ $areaValue }}" {{ old('location_area', $application->location_area) === $areaValue ? 'selected' : '' }}>{{ $areaLabel }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-2 text-xs leading-5 text-slate-500">Select an area first, then click the map at your base location.</p>
+                        <button type="button" data-provider-location-current class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-700 transition hover:bg-blue-100"><i class="fas fa-location-crosshairs"></i> Use current location</button>
+                        <p data-provider-location-status class="mt-3 text-xs font-bold text-slate-500">{{ $application->location_latitude && $application->location_longitude ? 'Saved provider location.' : 'No exact pin saved yet.' }}</p>
+                        @error('location_area')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
+                        @error('location_latitude')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
+                        @error('location_longitude')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <div id="provider-dashboard-location-map" data-provider-location-map data-area-input="provider_location_area" data-latitude-input="provider_location_latitude" data-longitude-input="provider_location_longitude" data-latitude="{{ $application->location_latitude }}" data-longitude="{{ $application->location_longitude }}" class="h-80 overflow-hidden rounded-xl border border-slate-200 bg-slate-100"></div>
+                        <input type="hidden" id="provider_location_latitude" name="location_latitude" value="{{ old('location_latitude', $application->location_latitude) }}">
+                        <input type="hidden" id="provider_location_longitude" name="location_longitude" value="{{ old('location_longitude', $application->location_longitude) }}">
+                    </div>
+                    <div class="lg:col-span-2">
+                        <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-black text-white transition hover:bg-blue-700"><i class="fas fa-save"></i> Save provider location</button>
+                    </div>
+                </form>
+            </section>
+        @endif
+
         <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 class="text-lg font-black text-slate-950">Performance Overview</h2>
             <div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -398,3 +441,12 @@
     </div>
 </section>
 @endsection
+
+@push('scripts')
+<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
+<script>
+    window.cleanflowProviderMapConfig = @json(config('cleanflow.provider_map'));
+    window.cleanflowProviderLocationCenters = @json(config('cleanflow.bukidnon_location_centers', []));
+</script>
+<script src="{{ asset('js/provider-location-map.js') }}"></script>
+@endpush

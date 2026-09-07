@@ -244,6 +244,9 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::patch('/availability', [ProviderPortalController::class, 'updateAvailability'])
             ->middleware('throttle:20,1')
             ->name('availability.update');
+        Route::patch('/location', [ProviderPortalController::class, 'updateLocation'])
+            ->middleware('throttle:20,1')
+            ->name('location.update');
         Route::patch('/payout-setup', [ProviderPortalController::class, 'updatePayoutSetup'])
             ->middleware('throttle:20,1')
             ->name('payout-setup.update');

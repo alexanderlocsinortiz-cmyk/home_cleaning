@@ -61,6 +61,31 @@ $bukidnonCoverageAreas = [
     'Valencia City' => 'Valencia City',
 ];
 
+$bukidnonLocationCenters = [
+    'Baungon' => ['lat' => 8.4420, 'lng' => 124.7890],
+    'Cabanglasan' => ['lat' => 8.1180, 'lng' => 125.3280],
+    'Damulog' => ['lat' => 7.4840, 'lng' => 124.9250],
+    'Dangcagan' => ['lat' => 7.6050, 'lng' => 125.0000],
+    'Don Carlos' => ['lat' => 7.6830, 'lng' => 125.0050],
+    'Impasugong' => ['lat' => 8.3030, 'lng' => 125.0050],
+    'Kadingilan' => ['lat' => 7.6020, 'lng' => 124.9090],
+    'Kalilangan' => ['lat' => 7.7450, 'lng' => 124.7300],
+    'Kibawe' => ['lat' => 7.5670, 'lng' => 124.9900],
+    'Kitaotao' => ['lat' => 7.6400, 'lng' => 125.0100],
+    'Lantapan' => ['lat' => 7.9980, 'lng' => 125.0300],
+    'Libona' => ['lat' => 8.3380, 'lng' => 124.7350],
+    'Malaybalay City' => ['lat' => 8.1570, 'lng' => 125.1280],
+    'Malitbog' => ['lat' => 8.5260, 'lng' => 124.8800],
+    'Manolo Fortich' => ['lat' => 8.3690, 'lng' => 124.8650],
+    'Maramag' => ['lat' => 7.7650, 'lng' => 125.0000],
+    'Pangantucan' => ['lat' => 7.8350, 'lng' => 124.8400],
+    'Quezon' => ['lat' => 7.7300, 'lng' => 125.0700],
+    'San Fernando' => ['lat' => 7.9160, 'lng' => 125.3300],
+    'Sumilao' => ['lat' => 8.1940, 'lng' => 124.9800],
+    'Talakag' => ['lat' => 8.2340, 'lng' => 124.5980],
+    'Valencia City' => ['lat' => 7.9047, 'lng' => 125.0940],
+];
+
 $barangays = [];
 $barangayCenters = [];
 
@@ -113,6 +138,7 @@ return [
     ],
     'barangays' => $barangays,
     'bukidnon_coverage_areas' => $bukidnonCoverageAreas,
+    'bukidnon_location_centers' => $bukidnonLocationCenters,
     'barangay_centers' => $barangayCenters,
     'service_areas' => $serviceAreas,
     'map' => [
@@ -123,6 +149,16 @@ return [
         'maxBounds' => [
             [7.6, 124.8],
             [8.2, 125.4],
+        ],
+    ],
+    'provider_map' => [
+        'center' => ['lat' => 7.95, 'lng' => 124.95],
+        'zoom' => 9,
+        'minZoom' => 8,
+        'maxZoom' => 17,
+        'maxBounds' => [
+            [7.35, 124.40],
+            [8.65, 125.55],
         ],
     ],
 ];

@@ -17,6 +17,7 @@ class CleanerApplicationController extends Controller
     public function create()
     {
         $coverageAreas = config('cleanflow.bukidnon_coverage_areas', []);
+        $locationCenters = config('cleanflow.bukidnon_location_centers', []);
         $serviceOfferings = CleanerApplication::SERVICE_OFFERINGS;
         $governmentIdTypes = CleanerApplication::GOVERNMENT_ID_LABELS;
         $availableDays = CleanerApplication::AVAILABLE_DAY_LABELS;
@@ -24,6 +25,7 @@ class CleanerApplicationController extends Controller
         return view('cleaner-applications.create', compact(
             'availableDays',
             'coverageAreas',
+            'locationCenters',
             'governmentIdTypes',
             'serviceOfferings',
         ));
@@ -51,6 +53,7 @@ class CleanerApplicationController extends Controller
     public function store(Request $request)
     {
         $coverageAreas = config('cleanflow.bukidnon_coverage_areas', []);
+        $locationCenters = config('cleanflow.bukidnon_location_centers', []);
         $minimumBirthDate = now(config('cleanflow.attendance_timezone', config('app.timezone')))
             ->subYears(18)
             ->toDateString();
@@ -80,6 +83,9 @@ class CleanerApplicationController extends Controller
             'date_of_birth' => ['nullable', 'required_if:applicant_type,'.CleanerApplication::TYPE_INDIVIDUAL, 'date', 'before_or_equal:'.$minimumBirthDate],
             'individual_current_address' => ['nullable', 'required_if:applicant_type,'.CleanerApplication::TYPE_INDIVIDUAL, 'string', 'max:255'],
             'business_address' => ['nullable', 'required_if:applicant_type,'.CleanerApplication::TYPE_TEAM, 'string', 'max:255'],
+            'location_area' => ['required', 'string', Rule::in(array_keys($locationCenters))],
+            'location_latitude' => ['required', 'numeric', 'between:7.3,8.7'],
+            'location_longitude' => ['required', 'numeric', 'between:124.4,125.6'],
             'profile_photo' => ['nullable', 'image', 'max:5120'],
             'business_logo' => ['nullable', 'image', 'max:5120'],
             'coverage_mode' => ['required', Rule::in(['all', 'specific'])],

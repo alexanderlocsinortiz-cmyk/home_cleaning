@@ -86,6 +86,24 @@ class AdminProviderDirectoryTest extends TestCase
         ]);
     }
 
+    public function test_admin_provider_directory_shows_pinned_provider_locations(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $provider = $this->createCleanerApplication('Mapped Provider', CleanerApplication::TYPE_INDIVIDUAL, CleanerApplication::STATUS_APPROVED);
+        $provider->update([
+            'location_area' => 'Malaybalay City',
+            'location_latitude' => 8.1571234,
+            'location_longitude' => 125.1285678,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.providers'));
+
+        $response->assertOk();
+        $response->assertSee('Provider location map');
+        $response->assertSee('Showing 1 pinned provider');
+        $response->assertSee('Malaybalay City');
+    }
+
     private function createCleanerApplication(string $name, string $type, string $status, ?int $teamSize = null): CleanerApplication
     {
         return CleanerApplication::create([

@@ -115,6 +115,24 @@ class ProviderPortalController extends Controller
         return back()->with('success', 'Availability updated.');
     }
 
+    public function updateLocation(Request $request)
+    {
+        $application = auth()->user()->cleanerApplication;
+
+        abort_if(! $application, 403);
+
+        $locationCenters = config('cleanflow.bukidnon_location_centers', []);
+        $validated = $request->validate([
+            'location_area' => ['required', 'string', Rule::in(array_keys($locationCenters))],
+            'location_latitude' => ['required', 'numeric', 'between:7.3,8.7'],
+            'location_longitude' => ['required', 'numeric', 'between:124.4,125.6'],
+        ]);
+
+        $application->update($validated);
+
+        return back()->with('success', 'Provider location updated. Only CleanFlow admins can see the exact pin.');
+    }
+
     public function updatePayoutSetup(Request $request)
     {
         $application = auth()->user()->cleanerApplication;

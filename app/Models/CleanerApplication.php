@@ -102,6 +102,9 @@ class CleanerApplication extends Model
         'phone',
         'date_of_birth',
         'current_address',
+        'location_area',
+        'location_latitude',
+        'location_longitude',
         'profile_photo_path',
         'profile_photo_original_filename',
         'business_logo_path',
@@ -159,6 +162,8 @@ class CleanerApplication extends Model
 
     protected $casts = [
         'date_of_birth' => 'date',
+        'location_latitude' => 'decimal:7',
+        'location_longitude' => 'decimal:7',
         'years_experience' => 'integer',
         'team_size' => 'integer',
         'coverage_barangays' => 'array',
