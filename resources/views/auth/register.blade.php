@@ -135,7 +135,7 @@
                                 <label for="date_of_birth" class="mb-3 block text-sm font-bold text-slate-800">Date of Birth <span class="text-red-500">*</span></label>
                                 <div class="relative">
                                     <span class="absolute inset-y-0 left-0 flex items-center pl-5 text-blue-600"><i class="fas fa-calendar"></i></span>
-                                    <input id="date_of_birth" type="date" name="date_of_birth" value="{{ old('date_of_birth') }}" required autocomplete="bday" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-4 text-base text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                                    <input id="date_of_birth" type="date" name="date_of_birth" value="{{ old('date_of_birth') }}" max="{{ now(config('cleanflow.attendance_timezone', config('app.timezone')))->subYears(18)->toDateString() }}" required autocomplete="bday" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-4 text-base text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
                                 </div>
                                 @error('date_of_birth')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
                             </div>
@@ -146,7 +146,7 @@
                                 <label for="password" class="mb-3 block text-sm font-bold text-slate-800">Password <span class="text-red-500">*</span></label>
                                 <div class="relative">
                                     <span class="absolute inset-y-0 left-0 flex items-center pl-5 text-blue-600"><i class="fas fa-lock"></i></span>
-                                    <input id="password" type="password" name="password" placeholder="Minimum 8 characters" required autocomplete="new-password" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-12 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                                    <input id="password" type="password" name="password" placeholder="8+ characters, letters and numbers" required autocomplete="new-password" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-12 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
                                     <button type="button" onclick="togglePw('password', this)" class="absolute inset-y-0 right-0 flex items-center pr-5 text-slate-400 transition hover:text-slate-700" aria-label="Toggle password visibility"><i class="fas fa-eye"></i></button>
                                 </div>
                                 @error('password')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror

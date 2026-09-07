@@ -86,8 +86,30 @@ return [
         'max_request_kb' => (int) env('PROOF_UPLOAD_MAX_REQUEST_KB', 32768),
         'max_video_kb' => (int) env('PROOF_UPLOAD_MAX_VIDEO_KB', 10240),
     ],
+    'privacy' => [
+        // Rejected applications remain available for a limited review/dispute window,
+        // then identity data is deleted while an anonymized audit record remains.
+        'rejected_application_retention_days' => max(1, (int) env('CLEANER_REJECTED_RETENTION_DAYS', 180)),
+        'security_event_retention_days' => max(30, (int) env('SECURITY_EVENT_RETENTION_DAYS', 365)),
+    ],
     'marketplace' => [
         'default_commission_rate' => (float) env('MARKETPLACE_DEFAULT_COMMISSION_RATE', 0.15),
+    ],
+    // Planning capacities are conservative starting values for one cleaner
+    // during one visit. They must be recalibrated with CleanFlow time studies.
+    'staffing' => [
+        'default_capacity_sqm_per_cleaner' => 40,
+        'max_cleaners_per_booking' => 20,
+        'capacity_sqm_per_cleaner' => [
+            'basic' => 40,
+            'deep' => 25,
+            'moveinout' => 40,
+            'postconstruction' => 25,
+            'office-basic' => 60,
+            'commercial' => 50,
+            'office-deep' => 35,
+            'weeklymaintenance' => 40,
+        ],
     ],
     'barangays' => $barangays,
     'bukidnon_coverage_areas' => $bukidnonCoverageAreas,

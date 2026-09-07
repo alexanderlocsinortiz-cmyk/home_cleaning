@@ -51,6 +51,8 @@ class StaffLocationTrackingTest extends TestCase
             'service_type' => 'basic',
             'barangay' => 'Poblacion',
             'street_address' => '123 Rizal Street',
+            'service_latitude' => 7.9073,
+            'service_longitude' => 125.0920,
             'scheduled_date' => now()->addDay()->toDateString(),
             'scheduled_time' => '09:00',
             'price' => 570,
@@ -62,5 +64,30 @@ class StaffLocationTrackingTest extends TestCase
 
         $response->assertOk();
         $response->assertSee(route('booking.location.update', $booking->id));
+
+        $bookingsResponse = $this->actingAs($staff)->get(route('staff.bookings'));
+
+        $bookingsResponse->assertOk();
+        $bookingsResponse->assertSee('data-destination-lat="7.9073"', false);
+        $bookingsResponse->assertSee('data-destination-lng="125.092"', false);
+        $bookingsResponse->assertSee('Show route', false);
+    }
+
+    public function test_provider_cannot_read_a_booking_location_from_the_shared_endpoint(): void
+    {
+        $client = User::factory()->create(['role' => 'client']);
+        $staff = User::factory()->create(['role' => 'staff']);
+        $provider = User::factory()->create(['role' => 'provider']);
+        $booking = Booking::factory()->create([
+            'user_id' => $client->id,
+            'staff_id' => $staff->id,
+            'status' => 'in_progress',
+            'current_latitude' => 7.9073,
+            'current_longitude' => 125.092,
+        ]);
+
+        $this->actingAs($provider)
+            ->getJson(route('booking.location.current', $booking->id))
+            ->assertForbidden();
     }
 }

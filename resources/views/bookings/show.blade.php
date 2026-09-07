@@ -35,12 +35,25 @@
     $selectedAddOns = \App\Models\Booking::addOnBreakdown($booking->add_ons ?? []);
     $includedFloorArea = \App\Models\Booking::includedFloorArea();
     $floorArea = (int) ($booking->floor_area ?? 0);
+    $cleanerCapacity = \App\Models\Service::cleanerCapacityForSlug($booking->service_type);
+    $requiredCleaners = (int) ($booking->required_cleaners ?: \App\Models\Booking::requiredCleanerCountForService($booking->service_type, $floorArea));
     $isPerSquareMeterService = \App\Models\Service::usesPerSquareMeterPricing($booking->service_type);
     $isFlatRateRangeService = \App\Models\Service::usesFlatRateRangePricing($booking->service_type);
     $billableFloorArea = \App\Models\Booking::billableFloorAreaForService($booking->service_type, $floorArea);
     $floorAreaRate = \App\Models\Booking::floorAreaRateForService($booking->service_type);
-    $paymentMethodLabel = \App\Models\Booking::paymentMethodLabel($booking->payment_method);
-    $paymentStatusLabel = \App\Models\Booking::paymentStatusLabel($booking->payment_status);
+    $paymentMethod = $booking->payment?->method ?? 'on_site_cash';
+    $paymentStatus = $booking->payment?->status ?? 'pending';
+    $paymentReference = $booking->payment?->reference;
+    $paymentPaidAt = $booking->payment?->paid_at;
+    $cashProofStatus = $booking->payment?->cash_proof_status;
+    $cashProofStatusLabel = match ($cashProofStatus) {
+        'pending' => 'Awaiting admin review',
+        'approved' => 'Approved',
+        'rejected' => 'Needs correction',
+        default => null,
+    };
+    $paymentMethodLabel = \App\Models\Booking::paymentMethodLabel($paymentMethod);
+    $paymentStatusLabel = \App\Models\Booking::paymentStatusLabel($paymentStatus);
     $servicePlanLabel = \App\Models\Booking::servicePlanLabel($booking->service_plan);
     $subscriptionSummary = $booking->subscriptionSummary();
     $paymentStatusClasses = [
@@ -298,6 +311,7 @@
                                 <div class="text-base font-semibold text-slate-900">{{ $propertyTypeLabel }}</div>
                                 <div class="mt-1 text-sm text-slate-500">{{ $booking->rooms }} room{{ $booking->rooms === 1 ? '' : 's' }} • {{ $booking->bathrooms }} bathroom{{ $booking->bathrooms === 1 ? '' : 's' }}</div>
                                 <div class="mt-1 text-sm text-slate-500">{{ $floorArea > 0 ? $floorArea . ' sqm total floor area' : 'Floor area not provided' }}</div>
+                                <div class="mt-1 text-sm font-semibold text-blue-700">{{ $requiredCleaners }} cleaner{{ $requiredCleaners === 1 ? '' : 's' }} recommended ({{ $cleanerCapacity }} sqm per cleaner)</div>
                             </div>
 
                             <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
@@ -353,26 +367,119 @@
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2">
                                     <div class="text-base font-semibold text-slate-900">{{ $paymentMethodLabel }}</div>
-                                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $paymentStatusClasses[$booking->payment_status] ?? 'bg-slate-100 text-slate-600' }}">
+                                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $paymentStatusClasses[$paymentStatus] ?? 'bg-slate-100 text-slate-600' }}">
                                         {{ $paymentStatusLabel }}
                                     </span>
                                 </div>
                                 <div class="mt-1 text-sm text-slate-500">
-                                    @if($booking->payment_reference)
-                                    Reference: {{ $booking->payment_reference }}
+                                    @if($paymentReference)
+                                    Reference: {{ $paymentReference }}
                                     @else
                                     A payment reference will appear here once one is recorded.
                                     @endif
                                 </div>
                                 <div class="mt-1 text-sm text-slate-500">
-                                    @if($booking->paid_at)
-                                    Paid on {{ $booking->paid_at->format('F d, Y h:i A') }}
-                                    @elseif($booking->payment_method === 'on_site_cash')
+                                    @if($paymentPaidAt)
+                                    Paid on {{ $paymentPaidAt->format('F d, Y h:i A') }}
+                                    @elseif($paymentMethod === 'on_site_cash')
                                     Cash will be recorded after service completion.
                                     @else
                                     Payment is still waiting for confirmation.
                                     @endif
                                 </div>
+                                @if($paymentStatus === 'paid' && $paymentReference)
+                                    @if($paymentMethod === 'on_site_cash' && $booking->payment?->receipt_number)
+                                        <div class="mt-2 text-sm text-emerald-700">
+                                            Cash receipt: <span class="font-mono font-semibold">{{ $booking->payment->receipt_number }}</span>
+                                        </div>
+                                    @endif
+                                    <a href="{{ route('bookings.receipt', $booking->id) }}" target="_blank" rel="noopener" class="mt-3 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50">
+                                        <i class="fas fa-receipt"></i>
+                                        View / print receipt
+                                    </a>
+                                @endif
+                                @if($isClient && $paymentMethod === 'on_site_cash' && $paymentStatus !== 'paid')
+                                    <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50/70 p-3">
+                                        <div class="flex items-center gap-2 text-sm font-bold text-blue-900">
+                                            <i class="fas fa-receipt"></i>
+                                            Cash payment proof
+                                        </div>
+                                        <p class="mt-1 text-xs leading-5 text-blue-800">Upload the receipt provided by the cleaner. Admin will review it and update your payment status.</p>
+                                        @if($cashProofStatusLabel)
+                                            <div class="mt-2 text-xs font-bold {{ $cashProofStatus === 'rejected' ? 'text-red-700' : 'text-blue-800' }}">
+                                                Status: {{ $cashProofStatusLabel }}
+                                            </div>
+                                        @endif
+                                        @if($cashProofStatus === 'rejected' && $booking->payment?->cash_proof_rejection_reason)
+                                            <div class="mt-2 rounded-lg border border-red-100 bg-red-50 p-2 text-xs leading-5 text-red-700">
+                                                {{ $booking->payment->cash_proof_rejection_reason }}
+                                            </div>
+                                        @endif
+                                        @if($cashProofStatus === 'pending')
+                                            <div class="mt-2 text-xs text-slate-600">Your uploaded receipt is securely stored and waiting for admin review.</div>
+                                        @elseif($booking->status !== 'completed')
+                                            <div class="mt-2 text-xs text-slate-600">The upload button will appear after the cleaner marks the service as completed.</div>
+                                        @else
+                                            <form action="{{ route('bookings.cash-payment-proof.upload', $booking->id) }}" method="POST" enctype="multipart/form-data" class="mt-3">
+                                                @csrf
+                                                <label class="mb-1 block text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500" for="cash_payment_proof">Receipt image or PDF</label>
+                                                <input id="cash_payment_proof" type="file" name="cash_payment_proof" accept=".jpg,.jpeg,.png,.webp,.pdf" required class="w-full rounded-lg border border-dashed border-blue-200 bg-white px-2.5 py-2 text-xs text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-blue-700 file:px-2 file:py-1 file:text-[11px] file:font-bold file:text-white">
+                                                @error('cash_payment_proof')
+                                                    <div class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</div>
+                                                @enderror
+                                                <button type="submit" class="mt-2 inline-flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-800">
+                                                    <i class="fas fa-upload"></i>
+                                                    Upload receipt
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                @elseif($isAdmin && $paymentMethod === 'on_site_cash' && $booking->payment?->cash_proof_path)
+                                    @php
+                                        $cashProofStatus = $booking->payment->cash_proof_status ?: 'submitted';
+                                    @endphp
+                                    <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50/70 p-3">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <div class="text-sm font-bold text-blue-900"><i class="fas fa-receipt mr-1"></i> Client cash payment proof</div>
+                                            <span class="rounded-full px-2 py-1 text-[10px] font-bold {{ $cashProofStatus === 'pending' ? 'bg-amber-100 text-amber-700' : ($cashProofStatus === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700') }}">{{ ucfirst($cashProofStatus) }}</span>
+                                        </div>
+                                        <div class="mt-1 text-xs text-slate-600">{{ $booking->payment->cash_proof_original_name ?: 'Uploaded receipt' }}</div>
+                                        <a href="{{ route('bookings.cash-payment-proof.download', $booking->id) }}" class="mt-2 inline-flex items-center gap-1 text-xs font-bold text-blue-700 underline hover:text-blue-900">
+                                            <i class="fas fa-download"></i>
+                                            Download private proof
+                                        </a>
+                                        @if($cashProofStatus === 'pending')
+                                            <form action="{{ route('admin.bookings.cash-payment-proof.review', $booking->id) }}" method="POST" class="mt-3 space-y-2">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="hidden" name="decision" value="approve">
+                                                <div class="grid gap-2 sm:grid-cols-2">
+                                                    <input type="number" name="payment_collected_amount" min="0.01" step="0.01" value="{{ old('payment_collected_amount', $booking->price) }}" placeholder="Cash amount" required class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
+                                                    <input type="datetime-local" name="payment_collected_at" value="{{ old('payment_collected_at', now()->format('Y-m-d\TH:i')) }}" required class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
+                                                </div>
+                                                <input type="text" name="payment_receipt_notes" placeholder="Optional admin note" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
+                                                <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700">
+                                                    <i class="fas fa-circle-check"></i>
+                                                    Approve and mark paid
+                                                </button>
+                                            </form>
+                                            <form action="{{ route('admin.bookings.cash-payment-proof.review', $booking->id) }}" method="POST" class="mt-2 space-y-2">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="hidden" name="decision" value="reject">
+                                                <input type="text" name="cash_proof_rejection_reason" required minlength="5" maxlength="1000" placeholder="Reason if rejecting" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-red-500 focus:outline-hidden">
+                                                <button type="submit" class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-50">
+                                                    <i class="fas fa-rotate-left"></i>
+                                                    Reject and request replacement
+                                                </button>
+                                            </form>
+                                        @elseif($cashProofStatus === 'rejected' && $booking->payment->cash_proof_rejection_reason)
+                                            <div class="mt-2 rounded-lg border border-red-100 bg-red-50 p-2 text-xs leading-5 text-red-700">{{ $booking->payment->cash_proof_rejection_reason }}</div>
+                                        @endif
+                                    </div>
+                                @elseif($isClient && $paymentMethod === 'on_site_cash' && $paymentStatus === 'paid' && $cashProofStatus)
+                                    <div class="mt-3 text-xs text-emerald-700">Cash receipt proof: {{ $cashProofStatusLabel }}</div>
+                                @endif
                             </div>
 
                             <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
@@ -466,7 +573,7 @@
                     @if($booking->rating->photo)
                     <div class="mt-4">
                         <div class="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Client Photo</div>
-                        <img src="{{ asset('storage/' . $booking->rating->photo) }}" alt="Rating photo" class="max-h-64 rounded-2xl border border-slate-200 object-cover">
+                        <img src="{{ route('bookings.rating-photo', $booking) }}" alt="Rating photo" class="max-h-64 rounded-2xl border border-slate-200 object-cover">
                     </div>
                     @endif
                     <div class="mt-4 text-xs text-slate-500">
@@ -497,7 +604,7 @@
                             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 @foreach($beforeProofs as $proof)
                                 <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" alt="Before service proof" class="h-44 w-full object-cover">
+                                    <img src="{{ route('bookings.service-proof', [$booking, $proof]) }}" alt="Before service proof" class="h-44 w-full object-cover">
                                     <div class="space-y-1 px-3 py-2 text-xs text-slate-500">
                                         <div>Uploaded {{ $proof->created_at->format('M d, Y h:i A') }}</div>
                                         <div>By {{ $proof->uploader?->full_name ?? 'Assigned staff' }}</div>
@@ -521,7 +628,7 @@
                             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 @foreach($afterProofs as $proof)
                                 <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" alt="After service proof" class="h-44 w-full object-cover">
+                                    <img src="{{ route('bookings.service-proof', [$booking, $proof]) }}" alt="After service proof" class="h-44 w-full object-cover">
                                     <div class="space-y-1 px-3 py-2 text-xs text-slate-500">
                                         <div>Uploaded {{ $proof->created_at->format('M d, Y h:i A') }}</div>
                                         <div>By {{ $proof->uploader?->full_name ?? 'Assigned staff' }}</div>
@@ -547,7 +654,7 @@
                             @foreach($completionVideos as $proof)
                             <div class="rounded-2xl border border-slate-200 bg-white p-3">
                                 <video controls preload="metadata" class="w-full rounded-2xl border border-slate-200 bg-slate-950">
-                                    <source src="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}">
+                                    <source src="{{ route('bookings.service-proof', [$booking, $proof]) }}">
                                     Your browser does not support HTML video playback.
                                 </video>
                                 <div class="mt-2 text-xs text-slate-500">
@@ -762,7 +869,7 @@
                     @if($booking->rating->photo)
                     <div class="mt-4">
                         <div class="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Your Photo</div>
-                        <img src="{{ asset('storage/' . $booking->rating->photo) }}" alt="Rating photo" class="max-h-64 rounded-2xl border border-slate-200 object-cover">
+                        <img src="{{ route('bookings.rating-photo', $booking) }}" alt="Rating photo" class="max-h-64 rounded-2xl border border-slate-200 object-cover">
                     </div>
                     @endif
                 </div>
@@ -943,8 +1050,8 @@
                             <span class="text-lg font-bold text-emerald-600">&#8369;{{ number_format($booking->price, 2) }}</span>
                         </div>
                         <div class="rounded-xl border border-yellow-100 bg-yellow-50 p-3 text-xs text-yellow-700">
-                            @if($booking->payment_method === 'on_site_cash')
-                            Cash payment will be collected and marked as paid once the service is completed. This saved total is based on the service type, property type, floor area, and selected add-ons.
+                            @if($paymentMethod === 'on_site_cash')
+                            Cash payment remains pending until the service is completed, receipt proof is reviewed, and admin confirms the amount. This saved total is based on the service type, property type, floor area, and selected add-ons.
                             @else
                             This booking was recorded with {{ strtolower($paymentMethodLabel) }} and stores a digital payment reference for admin and client tracking. This saved total is based on the service type, property type, floor area, and selected add-ons.
                             @endif

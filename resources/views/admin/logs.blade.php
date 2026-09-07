@@ -7,8 +7,8 @@
 @section('content')
 @php
     $labelFor = fn ($value) => ucfirst(str_replace(['_', '-'], ' ', (string) $value));
-    $tabUrl = fn ($source) => route('admin.logs', array_merge(request()->except(['source', 'booking_page', 'attendance_page', 'admin_page']), ['source' => $source]));
-    $exportParams = request()->except(['source', 'booking_page', 'attendance_page', 'admin_page']);
+    $tabUrl = fn ($source) => route('admin.logs', array_merge(request()->except(['source', 'booking_page', 'attendance_page', 'admin_page', 'security_page']), ['source' => $source]));
+    $exportParams = request()->except(['source', 'booking_page', 'attendance_page', 'admin_page', 'security_page']);
     $activeExportSource = $filters['source'] === 'all' ? 'bookings' : $filters['source'];
 
     $tabs = [
@@ -299,12 +299,57 @@
                     <div class="border-t border-slate-100 px-6 py-4">{{ $adminLogs->links('pagination::tailwind') }}</div>
                 @endif
             </section>
+
+            <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm {{ $filters['source'] === 'all' ? 'xl:col-span-2' : '' }}">
+                <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-6 py-5">
+                    <div>
+                        <h3 class="text-lg font-black text-slate-950">Security Events</h3>
+                        <p class="mt-1 text-sm text-slate-500">Authentication, session, password, and device-credential activity.</p>
+                    </div>
+                    <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">{{ number_format($securityLogs->total()) }} Records</span>
+                </div>
+                <div class="relative divide-y divide-slate-100 md:before:absolute md:before:bottom-8 md:before:left-8 md:before:top-8 md:before:w-px md:before:bg-slate-200">
+                    @forelse($securityLogs as $log)
+                        @php($metadata = collect($log->metadata ?? [])->reject(fn ($value) => is_array($value)))
+                        <article class="grid gap-4 px-6 py-5 md:grid-cols-[24px_120px_minmax(0,1fr)_200px]">
+                            <div class="relative z-10 hidden pt-1 md:block">
+                                <span class="block h-4 w-4 rounded-full bg-rose-500 ring-4 ring-rose-50"></span>
+                            </div>
+                            <div class="text-sm">
+                                <div class="font-bold text-slate-900">{{ $log->created_at->format('M d, Y') }}</div>
+                                <div class="text-xs text-slate-500">{{ $log->created_at->format('h:i A') }}</div>
+                                <div class="mt-1 text-xs text-slate-400">{{ $log->created_at->diffForHumans() }}</div>
+                            </div>
+                            <div>
+                                <span class="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700 ring-1 ring-rose-200">{{ $labelFor($log->event) }}</span>
+                                <p class="mt-2 text-sm font-semibold text-slate-900">{{ $log->user?->display_name ?? 'System or device' }}</p>
+                                <div class="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                                    @if($log->user?->email)<span>{{ $log->user->email }}</span>@endif
+                                    @if($log->ip_address)<span>IP: {{ $log->ip_address }}</span>@endif
+                                    @foreach($metadata as $key => $value)
+                                        <span>{{ $labelFor($key) }}: {{ $value }}</span>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div class="text-sm">
+                                <div class="font-bold text-slate-900">{{ $log->user?->role ? ucfirst($log->user->role) : 'Automated' }}</div>
+                                <div class="text-xs text-slate-500">{{ $log->user_agent ? str($log->user_agent)->limit(80) : 'No user agent' }}</div>
+                            </div>
+                        </article>
+                    @empty
+                        <div class="px-6 py-14 text-center text-sm text-slate-500">No security events found.</div>
+                    @endforelse
+                </div>
+                @if($securityLogs->hasPages())
+                    <div class="border-t border-slate-100 px-6 py-4">{{ $securityLogs->links('pagination::tailwind') }}</div>
+                @endif
+            </section>
         @endif
     </div>
 
     <div class="rounded-xl bg-blue-50 px-5 py-3 text-sm font-medium text-blue-700">
         <i class="fas fa-circle-info mr-2"></i>
-        Logs are kept for 12 months. Older logs are archived automatically.
+        Security events are retained for {{ config('cleanflow.privacy.security_event_retention_days', 365) }} days. Older events are pruned automatically.
     </div>
 </div>
 @endsection

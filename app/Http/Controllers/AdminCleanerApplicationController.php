@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\SendCleanerApplicationDecisionEmail;
 use App\Models\CleanerApplication;
+use App\Models\CleanerApplicationActivityLog;
 use App\Models\CleanerApplicationDocument;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -16,6 +17,7 @@ class AdminCleanerApplicationController extends Controller
         $status = $request->query('status', CleanerApplication::STATUS_PENDING);
         $allowedStatuses = [
             CleanerApplication::STATUS_PENDING,
+            CleanerApplication::STATUS_NEEDS_CHANGES,
             CleanerApplication::STATUS_APPROVED,
             CleanerApplication::STATUS_REJECTED,
             'all',
@@ -23,7 +25,30 @@ class AdminCleanerApplicationController extends Controller
 
         abort_unless(in_array($status, $allowedStatuses, true), 404);
 
-        $applicationsQuery = CleanerApplication::with(['reviewer', 'documents'])
+        $search = trim((string) $request->query('search', ''));
+        $documentFilter = $request->query('documents', 'all');
+        abort_unless(in_array($documentFilter, ['all', 'complete', 'missing'], true), 404);
+
+        $applicationsQuery = CleanerApplication::with(['reviewer', 'documents', 'auditLogs.actor'])
+            ->when($search !== '', function ($query) use ($search): void {
+                $like = '%'.$search.'%';
+                $query->where(function ($searchQuery) use ($like): void {
+                    $searchQuery->where('business_name', 'like', $like)
+                        ->orWhere('contact_person', 'like', $like)
+                        ->orWhere('email', 'like', $like)
+                        ->orWhere('service_area', 'like', $like);
+                });
+            })
+            ->when($documentFilter === 'complete', function ($query): void {
+                $query->whereNotNull('government_id_document_path')
+                    ->whereNotNull('selfie_with_id_path');
+            })
+            ->when($documentFilter === 'missing', function ($query): void {
+                $query->where(function ($documentQuery): void {
+                    $documentQuery->whereNull('government_id_document_path')
+                        ->orWhereNull('selfie_with_id_path');
+                });
+            })
             ->latest();
 
         if ($status !== 'all') {
@@ -34,6 +59,7 @@ class AdminCleanerApplicationController extends Controller
 
         $applicationStats = [
             'pending' => CleanerApplication::where('status', CleanerApplication::STATUS_PENDING)->count(),
+            'needs_changes' => CleanerApplication::where('status', CleanerApplication::STATUS_NEEDS_CHANGES)->count(),
             'approved' => CleanerApplication::where('status', CleanerApplication::STATUS_APPROVED)->count(),
             'rejected' => CleanerApplication::where('status', CleanerApplication::STATUS_REJECTED)->count(),
             'all' => CleanerApplication::count(),
@@ -43,6 +69,8 @@ class AdminCleanerApplicationController extends Controller
             'applicationStats',
             'applications',
             'status',
+            'search',
+            'documentFilter',
         ));
     }
 
@@ -52,6 +80,7 @@ class AdminCleanerApplicationController extends Controller
             'status' => ['required', Rule::in([
                 CleanerApplication::STATUS_APPROVED,
                 CleanerApplication::STATUS_REJECTED,
+                CleanerApplication::STATUS_NEEDS_CHANGES,
             ])],
             'admin_notes' => ['nullable', 'string', 'max:2000'],
         ]);
@@ -69,11 +98,16 @@ class AdminCleanerApplicationController extends Controller
             'reviewed_at' => now(),
         ]);
 
+        $this->recordAudit($cleanerApplication, 'status_changed', 'Admin changed application status to '.str_replace('_', ' ', $validated['status']).'.', [
+            'status' => $validated['status'],
+        ], $request);
+
         $activationToken = $validated['status'] === CleanerApplication::STATUS_APPROVED
             ? $cleanerApplication->issueActivationToken()
             : null;
+        $trackingToken = $cleanerApplication->issueTrackingToken();
 
-        SendCleanerApplicationDecisionEmail::dispatch($cleanerApplication->id, $activationToken);
+        SendCleanerApplicationDecisionEmail::dispatch($cleanerApplication->id, $activationToken, $trackingToken);
 
         return redirect()
             ->route('admin.cleaner-applications.index')
@@ -113,6 +147,10 @@ class AdminCleanerApplicationController extends Controller
         abort_unless((int) $document->cleaner_application_id === (int) $cleanerApplication->id, 404);
         abort_unless(Storage::disk(config('filesystems.private_uploads_disk'))->exists($document->file_path), 404);
 
+        $this->recordAudit($cleanerApplication, 'document_downloaded', 'Admin downloaded a payout verification document.', [
+            'document_type' => $document->document_type,
+        ], request());
+
         return Storage::disk(config('filesystems.private_uploads_disk'))->download($document->file_path, $document->original_filename);
     }
 
@@ -133,6 +171,22 @@ class AdminCleanerApplicationController extends Controller
 
         abort_unless(filled($path) && Storage::disk(config('filesystems.private_uploads_disk'))->exists($path), 404);
 
+        $this->recordAudit($cleanerApplication, 'verification_file_downloaded', 'Admin downloaded an application verification file.', [
+            'file_type' => $type,
+        ], request());
+
         return Storage::disk(config('filesystems.private_uploads_disk'))->download($path, $cleanerApplication->{$filenameField} ?: basename($path));
+    }
+
+    private function recordAudit(CleanerApplication $application, string $action, string $description, array $metadata, Request $request): void
+    {
+        CleanerApplicationActivityLog::create([
+            'cleaner_application_id' => $application->id,
+            'actor_id' => $request->user()?->id,
+            'action' => $action,
+            'description' => $description,
+            'metadata' => $metadata,
+            'ip_address' => $request->ip(),
+        ]);
     }
 }

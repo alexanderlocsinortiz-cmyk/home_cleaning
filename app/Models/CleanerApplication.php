@@ -11,23 +11,43 @@ class CleanerApplication extends Model
     use HasFactory;
 
     public const STATUS_PENDING = 'pending';
+
+    public const STATUS_NEEDS_CHANGES = 'needs_changes';
+
     public const STATUS_APPROVED = 'approved';
+
     public const STATUS_REJECTED = 'rejected';
+
     public const TYPE_INDIVIDUAL = 'individual';
+
     public const TYPE_TEAM = 'team';
+
     public const AVAILABILITY_AVAILABLE = 'available';
+
     public const AVAILABILITY_PAUSED = 'paused';
+
     public const AVAILABILITY_UNAVAILABLE = 'unavailable';
+
     public const PAYOUT_METHOD_GCASH = 'gcash';
+
     public const PAYOUT_METHOD_MAYA = 'maya';
+
     public const PAYOUT_METHOD_BANK_TRANSFER = 'bank_transfer';
+
     public const PAYOUT_VERIFICATION_PENDING = 'pending';
+
     public const PAYOUT_VERIFICATION_VERIFIED = 'verified';
+
     public const PAYOUT_VERIFICATION_REJECTED = 'rejected';
+
     public const GOVERNMENT_ID_NATIONAL_ID = 'national_id';
+
     public const GOVERNMENT_ID_DRIVERS_LICENSE = 'drivers_license';
+
     public const GOVERNMENT_ID_PASSPORT = 'passport';
+
     public const GOVERNMENT_ID_UMID = 'umid';
+
     public const GOVERNMENT_ID_PHILHEALTH = 'philhealth_id';
 
     public const AVAILABILITY_LABELS = [
@@ -129,6 +149,11 @@ class CleanerApplication extends Model
         'business_permit_submitted',
         'payout_account_proof_submitted',
         'payout_verified_at',
+        'sensitive_data_purged_at',
+        'tracking_token_hash',
+        'tracking_token_expires_at',
+        'tracking_token_previous_hash',
+        'tracking_token_previous_expires_at',
         'payout_verified_by',
     ];
 
@@ -154,6 +179,11 @@ class CleanerApplication extends Model
         'activation_token_expires_at' => 'datetime',
         'activated_at' => 'datetime',
         'payout_verified_at' => 'datetime',
+        'sensitive_data_purged_at' => 'datetime',
+        'tracking_token_expires_at' => 'datetime',
+        'tracking_token_previous_expires_at' => 'datetime',
+        'government_id_number' => 'encrypted',
+        'nbi_clearance_number' => 'encrypted',
     ];
 
     public function reviewer()
@@ -179,6 +209,24 @@ class CleanerApplication extends Model
     public function documents()
     {
         return $this->hasMany(CleanerApplicationDocument::class);
+    }
+
+    public function auditLogs()
+    {
+        return $this->hasMany(CleanerApplicationActivityLog::class)->latest();
+    }
+
+    public function missingVerificationDocuments(): array
+    {
+        return collect([
+            'Government ID' => $this->government_id_document_path,
+            'Selfie with ID' => $this->selfie_with_id_path,
+        ])->filter(fn (?string $path): bool => blank($path))->keys()->all();
+    }
+
+    public function verificationDocumentsComplete(): bool
+    {
+        return $this->missingVerificationDocuments() === [];
     }
 
     public function isPending(): bool
@@ -457,6 +505,25 @@ class CleanerApplication extends Model
     }
 
     public static function activationTokenHash(string $token): string
+    {
+        return hash('sha256', $token);
+    }
+
+    public function issueTrackingToken(int $expiresInDays = 365): string
+    {
+        $token = Str::random(64);
+
+        $this->forceFill([
+            'tracking_token_previous_hash' => $this->tracking_token_hash,
+            'tracking_token_previous_expires_at' => $this->tracking_token_expires_at,
+            'tracking_token_hash' => self::trackingTokenHash($token),
+            'tracking_token_expires_at' => now()->addDays($expiresInDays),
+        ])->save();
+
+        return $token;
+    }
+
+    public static function trackingTokenHash(string $token): string
     {
         return hash('sha256', $token);
     }

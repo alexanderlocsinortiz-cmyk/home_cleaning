@@ -7,6 +7,10 @@ use App\Http\Requests\StoreBookingRequest;
 use App\Jobs\SendBookingSubmittedEmail;
 use App\Models\AttendanceLog;
 use App\Models\Booking;
+use App\Models\BookingServiceProof;
+use App\Models\CleanerApplication;
+use App\Models\Payment;
+use App\Models\Rating;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\PaymongoCheckoutService;
@@ -16,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -26,7 +31,7 @@ class BookingController extends Controller
         $user = $this->requireVerifiedClient();
 
         $bookings = Booking::where('user_id', $user->id)
-            ->with(['staff', 'service', 'preferredStaff'])
+            ->with(['staff', 'service', 'preferredStaff', 'payment'])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
@@ -42,7 +47,10 @@ class BookingController extends Controller
         }
 
         $barangays = array_keys(config('cleanflow.barangays'));
-        $services = Service::where('is_active', true)->get();
+        $services = Service::where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('price')
+            ->get();
         $pricingConfig = Booking::pricingConfiguration();
         $servicePackages = Service::packageCatalog();
         $paymentMethods = Booking::paymentMethods();
@@ -71,15 +79,16 @@ class BookingController extends Controller
                 'presentToday' => in_array((int) $staff->id, $presentTodayStaffIds, true),
             ])->values(),
             'assignments' => Booking::query()
+                ->with('service')
                 ->whereIn('status', Booking::staffAssignmentConflictStatuses())
                 ->whereNotNull('staff_id')
                 ->whereDate('scheduled_date', '>=', $bookingNow->toDateString())
-                ->get(['staff_id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'service_type', 'status'])
+                ->get(['staff_id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'service_id', 'status'])
                 ->map(fn (Booking $booking) => [
                     'staffId' => (int) $booking->staff_id,
                     'date' => Booking::normalizeScheduleDate($booking->scheduled_date),
                     'time' => Carbon::parse($booking->scheduled_time)->format('H:i'),
-                    'duration' => (int) ($booking->duration_minutes ?: Service::durationForSlug($booking->service_type)),
+                    'duration' => (int) ($booking->duration_minutes ?: Service::durationForSlug($booking->service?->slug)),
                     'status' => $booking->status,
                 ])->values(),
             'serviceDurations' => $services->mapWithKeys(fn (Service $service) => [
@@ -141,6 +150,13 @@ class BookingController extends Controller
         $preferredStaff = null;
         $preferredStaffStatus = 'none';
         $service = Service::where('slug', $request->service_type)->where('is_active', true)->first();
+
+        if (! $service) {
+            return back()->withErrors([
+                'service_type' => 'The selected service is no longer available. Please choose another service.',
+            ])->withInput();
+        }
+
         $serviceDurationMinutes = (int) ($service?->duration_minutes ?: Service::durationForSlug($request->service_type));
 
         if ($request->filled('preferred_staff_id')) {
@@ -175,6 +191,10 @@ class BookingController extends Controller
 
         if ($service?->requiresScopeManualReview((int) $request->floor_area)) {
             $riskReasons[] = 'Requested floor area exceeds the provisional measurable limit for this service.';
+        }
+
+        if (Booking::staffingRequiresManualReview((int) $pricing['required_cleaners'])) {
+            $riskReasons[] = Booking::staffingManualReviewReason((int) $pricing['required_cleaners']);
         }
 
         $manualReviewStatus = empty($riskReasons) ? 'not_required' : 'pending';
@@ -254,6 +274,7 @@ class BookingController extends Controller
                             'rooms' => $request->rooms,
                             'bathrooms' => $request->bathrooms,
                             'floor_area' => $request->floor_area,
+                            'required_cleaners' => $pricing['required_cleaners'],
                             'add_ons' => $pricing['add_ons'],
                             'barangay' => $request->barangay,
                             'street_address' => $request->street_address,
@@ -296,7 +317,7 @@ class BookingController extends Controller
             return back()->withErrors($exception->errors())->withInput();
         }
 
-        /** @var \App\Models\Booking $booking */
+        /** @var Booking $booking */
         $booking = $createdBookings->first();
         $booking->load(['user', 'service', 'preferredStaff']);
         $this->createPreferredCleanerRequestNotification($booking);
@@ -327,12 +348,12 @@ class BookingController extends Controller
             $redirect->with('warning', 'Your preferred cleaner '.$preferredStaff->full_name.' is already booked for that schedule. Another available cleaner will be assigned during confirmation.');
         }
 
-        if (Booking::isDigitalPaymentMethod($booking->payment_method) && (bool) config('services.paymongo.checkout_redirect_enabled', true)) {
+        if (Booking::isDigitalPaymentMethod($booking->payment?->method ?? 'on_site_cash') && (bool) config('services.paymongo.checkout_redirect_enabled', true)) {
             try {
                 $checkoutSession = app(PaymongoCheckoutService::class)->createCheckoutSession($createdBookings, $user);
 
-                Booking::whereIn('id', $createdBookings->pluck('id'))->update([
-                    'payment_checkout_session_id' => $checkoutSession['id'],
+                Payment::whereIn('booking_id', $createdBookings->pluck('id'))->update([
+                    'checkout_session_id' => $checkoutSession['id'],
                 ]);
 
                 return redirect()->away($checkoutSession['checkout_url']);
@@ -375,24 +396,26 @@ class BookingController extends Controller
     {
         $user = $this->requireVerifiedClient();
 
-        $booking = Booking::where('id', $id)
+        $booking = Booking::with('payment')->where('id', $id)
             ->where('user_id', $user->id)
             ->firstOrFail();
 
-        if (! Booking::isDigitalPaymentMethod($booking->payment_method)) {
+        $payment = $booking->payment;
+
+        if (! Booking::isDigitalPaymentMethod($payment?->method ?? 'on_site_cash')) {
             return redirect()
                 ->route('bookings.show', $booking->id)
                 ->with('info', 'This booking is not using an online PayMongo payment method.');
         }
 
-        if ($booking->payment_status === 'paid') {
+        if ($payment?->status === 'paid') {
             return redirect()
                 ->route('bookings.show', $booking->id)
                 ->with('success', 'Your payment is already confirmed.');
         }
 
-        $checkoutSessionId = $booking->payment_checkout_session_id
-            ?: (is_string($booking->payment_reference) && str_starts_with($booking->payment_reference, 'cs_') ? $booking->payment_reference : null);
+        $checkoutSessionId = $payment?->checkout_session_id
+            ?: (is_string($payment?->reference) && str_starts_with($payment->reference, 'cs_') ? $payment->reference : null);
 
         if (! $checkoutSessionId) {
             return redirect()
@@ -428,7 +451,7 @@ class BookingController extends Controller
             ->values();
 
         $bookingIds = $metadataBookingIds->isNotEmpty() ? $metadataBookingIds : collect([$booking->id]);
-        $paidBookings = Booking::whereIn('id', $bookingIds)
+        $paidBookings = Booking::with('payment')->whereIn('id', $bookingIds)
             ->where('user_id', $user->id)
             ->get();
 
@@ -437,20 +460,28 @@ class BookingController extends Controller
         }
 
         $paidBookings->each(function (Booking $paidBooking) use ($user, $paymentReference): void {
-            $wasPending = $paidBooking->payment_status !== 'paid';
-            $shouldReplaceReference = ! $paidBooking->payment_reference || str_starts_with((string) $paidBooking->payment_reference, 'cs_');
+            $payment = $paidBooking->paymentOrCreate([
+                'method' => 'gcash',
+                'status' => 'pending',
+                'amount' => $paidBooking->price ?? 0,
+                'currency' => 'PHP',
+                'provider' => 'paymongo',
+            ]);
+            $wasPending = $payment->status !== 'paid';
+            $shouldReplaceReference = ! $payment->reference || str_starts_with((string) $payment->reference, 'cs_');
 
-            $paidBooking->forceFill([
-                'payment_status' => 'paid',
-                'payment_reference' => $shouldReplaceReference ? $paymentReference : $paidBooking->payment_reference,
-                'paid_at' => $paidBooking->paid_at ?: now(),
+            $payment->forceFill([
+                'status' => 'paid',
+                'reference' => $shouldReplaceReference ? $paymentReference : $payment->reference,
+                'paid_at' => $payment->paid_at ?: now(),
             ])->save();
+            $paidBooking->setRelation('payment', $payment);
 
             if ($wasPending) {
                 $paidBooking->logActivity($user, 'payment_updated', 'Payment confirmed through PayMongo return verification.', [
                     'from_payment_status' => 'pending',
                     'to_payment_status' => 'paid',
-                    'payment_reference' => $paidBooking->payment_reference,
+                    'payment_reference' => $payment->reference,
                 ]);
             }
         });
@@ -467,6 +498,7 @@ class BookingController extends Controller
             'user',
             'rating',
             'service',
+            'payment',
             'preferredStaff',
             'serviceProofs.uploader',
             'activityLogs.actor',
@@ -489,6 +521,152 @@ class BookingController extends Controller
         }
 
         return view('bookings.show', compact('booking'));
+    }
+
+    public function uploadCashPaymentProof(Request $request, $id)
+    {
+        $user = $this->requireVerifiedClient();
+        $booking = Booking::with('payment')->where('user_id', $user->id)->findOrFail($id);
+        $payment = $booking->payment;
+
+        if ($payment?->method !== 'on_site_cash') {
+            return back()->withErrors(['cash_payment_proof' => 'A cash receipt can only be uploaded for cash bookings.']);
+        }
+
+        if ($payment->status === 'paid') {
+            return back()->withErrors(['cash_payment_proof' => 'This booking is already marked as paid.']);
+        }
+
+        if ($booking->status !== 'completed') {
+            return back()->withErrors(['cash_payment_proof' => 'Cash payment proof can be uploaded after the cleaner marks the service as completed.']);
+        }
+
+        if ($payment->cash_proof_status === 'pending') {
+            return back()->withErrors(['cash_payment_proof' => 'Your cash receipt is already waiting for admin review.']);
+        }
+
+        $request->validate([
+            'cash_payment_proof' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
+        ]);
+
+        $disk = config('filesystems.private_uploads_disk');
+        $oldPath = $payment->cash_proof_path;
+        $file = $request->file('cash_payment_proof');
+        $path = $file->store('cash-payment-proofs', $disk);
+
+        $payment->forceFill([
+            'cash_proof_path' => $path,
+            'cash_proof_original_name' => $file->getClientOriginalName(),
+            'cash_proof_mime_type' => $file->getMimeType(),
+            'cash_proof_size' => $file->getSize(),
+            'cash_proof_status' => 'pending',
+            'cash_proof_submitted_at' => now(),
+            'cash_proof_reviewed_at' => null,
+            'cash_proof_reviewed_by' => null,
+            'cash_proof_rejection_reason' => null,
+            'status' => 'pending',
+        ])->save();
+
+        if ($oldPath && $oldPath !== $path) {
+            Storage::disk($disk)->delete($oldPath);
+        }
+
+        $bookingCode = 'CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT);
+        foreach (User::where('role', 'admin')->get() as $admin) {
+            $this->createNotification([
+                'user_id' => $admin->id,
+                'booking_id' => $booking->id,
+                'title' => 'Cash payment proof submitted',
+                'message' => 'The client uploaded cash payment proof for booking '.$bookingCode.'. Review it before confirming payment.',
+                'type' => 'warning',
+                'link' => route('bookings.show', $booking->id),
+            ]);
+        }
+
+        $booking->logActivity($user, 'cash_payment_proof_submitted', 'Client uploaded cash payment proof for admin review.', [
+            'filename' => $payment->cash_proof_original_name,
+            'size' => $payment->cash_proof_size,
+        ]);
+
+        return back()->with('success', 'Your cash receipt was uploaded securely and sent to admin for review. Payment remains pending until it is approved.');
+    }
+
+    public function downloadCashPaymentProof($id)
+    {
+        $booking = Booking::with('payment')->findOrFail($id);
+        $user = auth()->user();
+
+        if ($user->role === 'client' && (int) $booking->user_id !== (int) $user->id) {
+            abort(403);
+        }
+
+        if (! in_array($user->role, ['client', 'admin'], true)) {
+            abort(403);
+        }
+
+        $payment = $booking->payment;
+        abort_unless($payment?->method === 'on_site_cash' && $payment?->cash_proof_path, 404);
+
+        $disk = config('filesystems.private_uploads_disk');
+        abort_unless(Storage::disk($disk)->exists($payment->cash_proof_path), 404);
+
+        return Storage::disk($disk)->download(
+            $payment->cash_proof_path,
+            $payment->cash_proof_original_name ?: 'cash-payment-proof'
+        );
+    }
+
+    public function serviceProof(Booking $booking, BookingServiceProof $proof)
+    {
+        $user = auth()->user();
+
+        abort_unless((int) $proof->booking_id === (int) $booking->id, 404);
+        abort_unless($this->canAccessBookingMedia($booking, $user), 403);
+
+        return $this->privateBookingMediaResponse(
+            $proof->file_path,
+            $proof->original_name ?: basename($proof->file_path)
+        );
+    }
+
+    public function ratingPhoto(Booking $booking)
+    {
+        $user = auth()->user();
+
+        abort_unless($this->canAccessBookingMedia($booking, $user), 403);
+        abort_unless($booking->rating?->photo, 404);
+
+        return $this->privateBookingMediaResponse(
+            $booking->rating->photo,
+            basename($booking->rating->photo)
+        );
+    }
+
+    public function receipt($id)
+    {
+        $booking = Booking::with(['staff', 'user', 'service', 'payment.collector'])->findOrFail($id);
+        $user = auth()->user();
+
+        if ($user->role === 'client' && $booking->user_id !== $user->id) {
+            abort(403);
+        }
+
+        if ($user->role === 'staff' && $booking->staff_id !== $user->id) {
+            abort(403);
+        }
+
+        if (! in_array($user->role, ['client', 'admin', 'staff'], true)) {
+            abort(403);
+        }
+
+        $payment = $booking->payment;
+        abort_unless($payment?->status === 'paid' && $payment->reference, 404);
+
+        if ($payment->method === 'on_site_cash') {
+            abort_unless($payment->receipt_number && $payment->collected_amount && $payment->collected_at, 404);
+        }
+
+        return view('bookings.receipt', compact('booking'));
     }
 
     public function rate(Request $request, $id)
@@ -526,10 +704,10 @@ class BookingController extends Controller
 
         $photoPath = null;
         if ($request->hasFile('photo')) {
-            $photoPath = $request->file('photo')->store('ratings', config('filesystems.public_uploads_disk'));
+            $photoPath = $request->file('photo')->store('ratings', config('filesystems.proof_uploads_disk'));
         }
 
-        \App\Models\Rating::create([
+        Rating::create([
             'booking_id' => $booking->id,
             'client_id' => $user->id,
             'staff_id' => $booking->staff_id,
@@ -661,7 +839,7 @@ class BookingController extends Controller
         $this->createNotification([
             'user_id' => $user->id,
             'title' => 'Booking rescheduled',
-            'message' => 'Booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' has been rescheduled to '.\Carbon\Carbon::parse($request->scheduled_date)->format('F d, Y').' at '.\Carbon\Carbon::parse($request->scheduled_time)->format('h:i A').'.',
+            'message' => 'Booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' has been rescheduled to '.Carbon::parse($request->scheduled_date)->format('F d, Y').' at '.Carbon::parse($request->scheduled_time)->format('h:i A').'.',
             'type' => 'success',
             'link' => route('bookings.show', $booking->id),
         ]);
@@ -743,6 +921,37 @@ class BookingController extends Controller
             ->all();
 
         return $this->withSequentialLocks($lockKeys, $callback);
+    }
+
+    private function canAccessBookingMedia(Booking $booking, User $user): bool
+    {
+        return match ($user->role) {
+            'admin' => true,
+            'client' => (int) $booking->user_id === (int) $user->id,
+            'staff' => (int) $booking->staff_id === (int) $user->id,
+            'provider' => $user->cleanerApplication
+                && $user->cleanerApplication->status === CleanerApplication::STATUS_APPROVED
+                && $user->cleanerApplication->activated_at
+                && (int) $booking->cleaner_application_id === (int) $user->cleanerApplication->id,
+            default => false,
+        };
+    }
+
+    private function privateBookingMediaResponse(string $path, string $name)
+    {
+        $storage = Storage::disk(config('filesystems.proof_uploads_disk'));
+
+        // Existing media may still be on the legacy public disk until the
+        // migration command is run. New uploads never use this fallback.
+        if (! $storage->exists($path)) {
+            $legacyStorage = Storage::disk(config('filesystems.public_uploads_disk'));
+            abort_unless($legacyStorage->exists($path), 404);
+            $storage = $legacyStorage;
+        }
+
+        return $storage->response($path, $name, [
+            'Cache-Control' => 'private, no-store, max-age=0',
+        ]);
     }
 
     private function withSequentialLocks(array $lockKeys, callable $callback, int $index = 0): mixed
@@ -885,7 +1094,7 @@ class BookingController extends Controller
 
         if (! $user->date_of_birth) {
             $errors['date_of_birth'] = 'Add your date of birth in your profile before creating a booking.';
-        } elseif ($user->date_of_birth->isAfter(now()->subYears(18)->endOfDay())) {
+        } elseif ($user->date_of_birth->isAfter(now(config('cleanflow.attendance_timezone', config('app.timezone')))->subYears(18)->endOfDay())) {
             $errors['date_of_birth'] = 'You must be at least 18 years old to book a cleaning service.';
         }
 

@@ -46,27 +46,41 @@ class PaymongoWebhookController extends Controller
         $paymentReference = $this->resolvePaymentReference($event);
 
         $checkoutSessionId = data_get($event, 'data.attributes.data.id');
+        $providerPaymentId = $eventType === 'payment.paid'
+            ? data_get($event, 'data.attributes.data.id')
+            : data_get($event, 'data.attributes.data.attributes.payment_intent_id');
 
         // PayMongo may retry a webhook. Once every matched booking already
         // carries this provider reference, the event has been applied and
         // there is no work left to repeat.
-        if ($bookings->every(fn (Booking $booking): bool =>
-            $booking->payment_status === 'paid'
-            && $booking->payment_reference === $paymentReference
+        if ($bookings->every(fn (Booking $booking): bool => $booking->payment?->status === 'paid'
+            && $booking->payment?->reference === $paymentReference
         )) {
             return response()->json(['status' => 'already_processed']);
         }
 
-        $bookings->each(function (Booking $booking) use ($paymentReference, $checkoutSessionId): void {
-            $wasPending = $booking->payment_status !== 'paid';
-            $shouldReplaceReference = ! $booking->payment_reference || str_starts_with((string) $booking->payment_reference, 'cs_');
+        $bookings->each(function (Booking $booking) use ($paymentReference, $checkoutSessionId, $providerPaymentId): void {
+            $payment = $booking->paymentOrCreate([
+                'method' => 'gcash',
+                'status' => 'pending',
+                'amount' => $booking->price ?? 0,
+                'currency' => 'PHP',
+                'provider' => 'paymongo',
+            ]);
+            $wasPending = $payment->status !== 'paid';
+            $shouldReplaceReference = ! $payment->reference || str_starts_with((string) $payment->reference, 'cs_');
 
-            $booking->forceFill([
-                'payment_status' => 'paid',
-                'payment_reference' => $shouldReplaceReference ? $paymentReference : $booking->payment_reference,
-                'payment_checkout_session_id' => $booking->payment_checkout_session_id ?: (is_string($checkoutSessionId) && str_starts_with($checkoutSessionId, 'cs_') ? $checkoutSessionId : null),
-                'paid_at' => $booking->paid_at ?: now(),
+            $payment->forceFill([
+                'status' => 'paid',
+                'reference' => $shouldReplaceReference ? $paymentReference : $payment->reference,
+                'checkout_session_id' => $payment->checkout_session_id ?: (is_string($checkoutSessionId) && str_starts_with($checkoutSessionId, 'cs_') ? $checkoutSessionId : null),
+                'paid_at' => $payment->paid_at ?: now(),
+                'provider_payment_id' => is_string($providerPaymentId) && $providerPaymentId !== ''
+                    ? $providerPaymentId
+                    : $payment->provider_payment_id,
             ])->save();
+
+            $booking->setRelation('payment', $payment);
 
             if ($wasPending) {
                 $this->createPaymentNotification($booking);
@@ -115,20 +129,20 @@ class PaymongoWebhookController extends Controller
             ->values();
 
         if ($bookingIds->isNotEmpty()) {
-            return Booking::whereIn('id', $bookingIds)->get();
+            return Booking::with('payment')->whereIn('id', $bookingIds)->get();
         }
 
         $bookingId = data_get($metadata, 'booking_id');
 
         if ($bookingId && ctype_digit((string) $bookingId)) {
-            return Booking::whereKey((int) $bookingId)->get();
+            return Booking::with('payment')->whereKey((int) $bookingId)->get();
         }
 
         $externalReference = data_get($resource, 'attributes.external_reference_number')
             ?: data_get($resource, 'attributes.reference_number');
 
         if (is_string($externalReference) && preg_match('/^CF-?0*(\d+)$/i', $externalReference, $matches)) {
-            return Booking::whereKey((int) $matches[1])->get();
+            return Booking::with('payment')->whereKey((int) $matches[1])->get();
         }
 
         return new EloquentCollection;

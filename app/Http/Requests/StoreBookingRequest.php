@@ -2,11 +2,10 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Service;
 use App\Models\Booking;
+use App\Models\Service;
 use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -22,8 +21,10 @@ class StoreBookingRequest extends FormRequest
         $this->merge([
             'payment_method' => $this->input('payment_method', 'on_site_cash'),
             'service_plan' => $this->input('service_plan', 'one_time'),
-            'rooms' => 1,
-            'bathrooms' => 1,
+            // Keep older clients compatible while the booking form now
+            // collects the real property counts.
+            'rooms' => $this->input('rooms', 1),
+            'bathrooms' => $this->input('bathrooms', 1),
         ]);
 
         if ($this->filled('notes')) {
@@ -33,11 +34,6 @@ class StoreBookingRequest extends FormRequest
 
     public function rules(): array
     {
-        $validSlugs = Cache::remember('active_service_slugs', 300, function () {
-            $activeSlugs = Service::where('is_active', true)->pluck('slug')->toArray();
-
-            return array_values(array_unique(array_merge($activeSlugs, array_keys(Service::packageCatalog()))));
-        });
         $validAddOns = array_keys(Booking::addOnCatalog());
         $paymentMethods = array_keys(Booking::paymentMethods());
         $servicePlans = array_keys(Booking::servicePlans());
@@ -48,7 +44,10 @@ class StoreBookingRequest extends FormRequest
         $timeSlots = ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
 
         return [
-            'service_type' => ['required', Rule::in($validSlugs)],
+            'service_type' => [
+                'required',
+                Rule::exists('services', 'slug')->where(fn ($query) => $query->where('is_active', true)),
+            ],
             'property_type' => ['required', Rule::in($propertyTypes)],
             'rooms' => 'nullable|integer|min:1|max:20',
             'bathrooms' => 'nullable|integer|min:1|max:10',
@@ -86,9 +85,26 @@ class StoreBookingRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            if (
+                $this->filled(['service_type', 'property_type'])
+                && ! Service::supportsPropertyType(
+                    (string) $this->input('service_type'),
+                    (string) $this->input('property_type')
+                )
+            ) {
+                $validator->errors()->add(
+                    'service_type',
+                    'Please choose a service that matches the selected property type.'
+                );
+            }
+
             $service = Service::where('slug', $this->input('service_type'))
                 ->where('is_active', true)
                 ->first();
+
+            if (! $service) {
+                return;
+            }
 
             if (
                 $service?->scopeIsApproved()

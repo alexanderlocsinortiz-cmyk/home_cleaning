@@ -5,6 +5,9 @@
 @section('page-subtitle', 'Review cleaner assignments and responses')
 
 @section('content')
+@php
+    $statusHeading = $status === 'all' ? 'All assigned bookings' : str_replace('_', ' ', ucfirst($status));
+@endphp
 <section class="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 sm:py-8">
     <div class="mx-auto max-w-6xl space-y-6">
         <section class="cleanflow-hero overflow-hidden px-6 py-7 text-white shadow-lg shadow-blue-950/10 sm:px-8">
@@ -26,17 +29,17 @@
             </div>
         </section>
 
-        <div class="grid gap-4 md:grid-cols-5">
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             @foreach([
-                'all' => ['label' => 'All', 'icon' => 'fa-layer-group', 'color' => 'text-slate-700', 'bg' => 'bg-white'],
-                'pending_response' => ['label' => 'Pending Response', 'icon' => 'fa-hourglass-half', 'color' => 'text-amber-700', 'bg' => 'bg-amber-50'],
-                'active' => ['label' => 'Active', 'icon' => 'fa-person-running', 'color' => 'text-blue-700', 'bg' => 'bg-blue-50'],
-                'completed' => ['label' => 'Completed', 'icon' => 'fa-circle-check', 'color' => 'text-emerald-700', 'bg' => 'bg-emerald-50'],
-                'cancelled' => ['label' => 'Cancelled', 'icon' => 'fa-circle-xmark', 'color' => 'text-rose-700', 'bg' => 'bg-rose-50'],
+                'all' => ['label' => 'All', 'icon' => 'fa-layer-group', 'color' => 'text-slate-700', 'bg' => 'bg-white', 'border' => 'border-slate-300'],
+                'pending_response' => ['label' => 'Needs response', 'icon' => 'fa-hourglass-half', 'color' => 'text-amber-700', 'bg' => 'bg-amber-50', 'border' => 'border-amber-400'],
+                'active' => ['label' => 'Active', 'icon' => 'fa-person-running', 'color' => 'text-blue-700', 'bg' => 'bg-blue-50', 'border' => 'border-blue-400'],
+                'completed' => ['label' => 'Completed', 'icon' => 'fa-circle-check', 'color' => 'text-emerald-700', 'bg' => 'bg-emerald-50', 'border' => 'border-emerald-400'],
+                'cancelled' => ['label' => 'Cancelled', 'icon' => 'fa-circle-xmark', 'color' => 'text-rose-700', 'bg' => 'bg-rose-50', 'border' => 'border-rose-400'],
             ] as $key => $meta)
-                <a href="{{ route('provider.bookings', ['status' => $key]) }}" class="rounded-2xl border border-slate-200 {{ $meta['bg'] }} p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md {{ $status === $key ? 'ring-2 ring-blue-100 border-blue-300' : '' }}">
+                <a href="{{ route('provider.bookings', ['status' => $key]) }}" class="rounded-2xl border-t-4 {{ $meta['border'] }} border-x border-b border-slate-200 {{ $meta['bg'] }} p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md {{ $status === $key ? 'ring-2 ring-blue-100' : '' }}">
                     <div class="flex items-center justify-between gap-3">
-                        <div class="text-xs font-black uppercase tracking-wide {{ $meta['color'] }}">{{ $meta['label'] }}</div>
+                        <div class="text-[11px] font-black uppercase tracking-wide {{ $meta['color'] }}">{{ $meta['label'] }}</div>
                         <i class="fas {{ $meta['icon'] }} {{ $meta['color'] }}"></i>
                     </div>
                     <div class="mt-3 text-3xl font-black text-slate-950">{{ number_format($counts[$key]) }}</div>
@@ -45,22 +48,37 @@
         </div>
 
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div class="flex flex-col gap-3 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex flex-col gap-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <div>
-                    <h2 class="text-lg font-black text-slate-950">{{ $status === 'all' ? 'All Assigned Bookings' : str_replace('_', ' ', ucfirst($status)) }}</h2>
+                    <h2 class="text-lg font-black capitalize text-slate-950">{{ $statusHeading }}</h2>
                     <p class="mt-1 text-sm text-slate-500">{{ $bookings->total() }} booking{{ $bookings->total() === 1 ? '' : 's' }} in this view.</p>
                 </div>
+                @if($counts['pending_response'] > 0 && $status !== 'pending_response')
+                    <a href="{{ route('provider.bookings', ['status' => 'pending_response']) }}" class="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800 transition hover:bg-amber-100">
+                        <i class="fas fa-hourglass-half"></i>
+                        {{ number_format($counts['pending_response']) }} needs your response
+                    </a>
+                @endif
             </div>
             <div class="divide-y divide-slate-100">
                 @forelse($bookings as $booking)
                     @php
                         $hasClientPin = filled($booking->service_latitude) && filled($booking->service_longitude);
                         $clientAddress = $booking->street_address.', '.ucfirst($booking->barangay).', Valencia City, Bukidnon';
+                        $isPendingResponse = $booking->canProviderRespondToAssignment();
                     @endphp
-                    <article class="grid gap-5 px-6 py-5 transition hover:bg-blue-50/40 lg:grid-cols-[minmax(0,1fr)_auto]">
+                    <article class="grid gap-5 border-l-4 {{ $isPendingResponse ? 'border-amber-400 bg-amber-50/30' : 'border-transparent' }} px-5 py-5 transition hover:bg-blue-50/40 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto]">
                         <div>
-                            <div class="font-mono text-sm font-bold text-blue-700">CF-{{ str_pad($booking->id, 5, '0', STR_PAD_LEFT) }}</div>
-                            <h2 class="mt-2 text-xl font-black text-slate-950">{{ $booking->service_label }}</h2>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <div class="font-mono text-sm font-bold text-blue-700">CF-{{ str_pad($booking->id, 5, '0', STR_PAD_LEFT) }}</div>
+                                @if($isPendingResponse)
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-amber-800">
+                                        <i class="fas fa-bolt text-[10px]"></i>
+                                        Action required
+                                    </span>
+                                @endif
+                            </div>
+                            <h2 class="mt-2 text-lg font-black text-slate-950 sm:text-xl">{{ $booking->service_label }}</h2>
                             <div class="mt-2 flex items-start gap-2 text-sm text-slate-500">
                                 <i class="fas fa-location-dot mt-1 text-blue-500"></i>
                                 <span>{{ $booking->street_address }}, {{ $booking->barangay }}</span>
@@ -68,7 +86,7 @@
                             <div class="mt-4 flex flex-wrap gap-2">
                                 <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">{{ ucfirst(str_replace('_', ' ', $booking->status)) }}</span>
                                 <span class="rounded-full px-3 py-1 text-xs font-bold {{ $booking->providerAssignmentBadgeClass() }}">{{ \App\Models\Booking::providerAssignmentStatusLabel($booking->effectiveProviderAssignmentStatus()) }}</span>
-                                <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{{ \App\Models\Booking::paymentStatusLabel($booking->payment_status) }}</span>
+                                <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{{ \App\Models\Booking::paymentStatusLabel($booking->payment?->status ?? 'pending') }}</span>
                                 <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{{ number_format($booking->duration_minutes ?? \App\Models\Service::DEFAULT_DURATION_MINUTES) }} min</span>
                             </div>
                             <div class="mt-4">
@@ -86,21 +104,22 @@
                                 @endif
                             </div>
                         </div>
-                        <div class="flex flex-col items-start gap-3 lg:items-end">
-                            <div class="text-sm lg:text-right">
-                                <div class="font-bold text-slate-900">{{ $booking->scheduled_date->format('M d, Y') }}</div>
-                                <div class="mt-1 text-slate-500">{{ \Carbon\Carbon::parse($booking->scheduled_time)->format('h:i A') }}</div>
+                        <div class="flex flex-col items-stretch gap-3 lg:items-end">
+                            <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left lg:min-w-44 lg:text-right">
+                                <div class="text-[11px] font-black uppercase tracking-wide text-slate-400">Scheduled service</div>
+                                <div class="mt-1 font-black text-slate-900">{{ $booking->scheduled_date->format('M d, Y') }}</div>
+                                <div class="mt-1 text-sm font-semibold text-slate-500">{{ \Carbon\Carbon::parse($booking->scheduled_time)->format('h:i A') }}</div>
                             </div>
-                            <div class="flex flex-wrap gap-2 lg:justify-end">
+                            <div class="flex flex-col gap-2 sm:flex-row lg:justify-end">
                                 @if($hasClientPin)
-                                    <a href="https://www.google.com/maps/dir/?api=1&destination={{ $booking->service_latitude }},{{ $booking->service_longitude }}" target="_blank" class="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 transition hover:bg-blue-100">
+                                    <a href="https://www.google.com/maps/dir/?api=1&destination={{ $booking->service_latitude }},{{ $booking->service_longitude }}" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 transition hover:bg-blue-100">
                                         <i class="fas fa-map-location-dot"></i>
                                         Open Maps
                                     </a>
                                 @endif
                                 <a href="{{ route('provider.bookings.show', $booking) }}" class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-700">
                                     <i class="fas fa-eye"></i>
-                                    View
+                                    {{ $isPendingResponse ? 'Review' : 'View' }}
                                 </a>
                             </div>
                         </div>

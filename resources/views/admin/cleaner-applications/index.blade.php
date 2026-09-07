@@ -18,6 +18,16 @@
                 'badge' => 'bg-amber-100 text-amber-800 ring-1 ring-amber-200',
                 'iconBox' => 'bg-blue-50 text-blue-700',
             ],
+            'needs_changes' => [
+                'label' => 'Needs changes',
+                'description' => 'Applicant follow-up needed',
+                'icon' => 'fa-message-exclamation',
+                'labelColor' => 'text-amber-700',
+                'card' => 'hover:border-amber-200 hover:shadow-md',
+                'active' => 'border-amber-300 ring-2 ring-amber-100',
+                'badge' => 'bg-amber-100 text-amber-800 ring-1 ring-amber-200',
+                'iconBox' => 'bg-amber-100 text-amber-700',
+            ],
             'approved' => [
                 'label' => 'Approved',
                 'description' => 'Approved cleaners',
@@ -120,7 +130,7 @@
         </div>
     </section>
 
-    <section class="grid gap-4 md:grid-cols-4">
+    <section class="grid gap-4 md:grid-cols-5">
         @foreach($statusMeta as $key => $meta)
             <a href="{{ route('admin.cleaner-applications.index', ['status' => $key]) }}" class="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition {{ $meta['card'] }} {{ $status === $key ? $meta['active'] : '' }}">
                 <div class="flex items-start justify-between gap-5">
@@ -145,13 +155,33 @@
                     {{ $statusMeta[$status]['label'] ?? 'All' }} queue
                 </div>
                 <h3 class="mt-3 text-lg font-extrabold text-slate-900">Applications</h3>
-                <p class="mt-1 text-sm text-slate-500">Approve or reject pending cleaner teams. Reviewed applications are locked.</p>
+                                <p class="mt-1 text-sm text-slate-500">Approve, request changes, or reject pending cleaner applications. Reviewed applications are locked.</p>
             </div>
             <a href="{{ route('cleaner-applications.create') }}" class="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 transition hover:bg-blue-100">
                 <i class="fas fa-external-link-alt"></i>
                 Public form
             </a>
         </div>
+
+        <form method="GET" action="{{ route('admin.cleaner-applications.index') }}" class="grid gap-3 border-b border-slate-100 bg-white px-6 py-4 lg:grid-cols-[minmax(16rem,1fr)_12rem_auto] lg:items-end">
+            <input type="hidden" name="status" value="{{ $status }}">
+            <label class="block text-xs font-black uppercase tracking-wide text-slate-500">
+                Search
+                <input name="search" value="{{ $search }}" placeholder="Name, email, area..." class="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold normal-case tracking-normal outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+            </label>
+            <label class="block text-xs font-black uppercase tracking-wide text-slate-500">
+                Documents
+                <select name="documents" class="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold normal-case tracking-normal outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                    <option value="all" {{ $documentFilter === 'all' ? 'selected' : '' }}>All</option>
+                    <option value="complete" {{ $documentFilter === 'complete' ? 'selected' : '' }}>Complete</option>
+                    <option value="missing" {{ $documentFilter === 'missing' ? 'selected' : '' }}>Missing required</option>
+                </select>
+            </label>
+            <div class="flex gap-2">
+                <button type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white hover:bg-blue-700"><i class="fas fa-filter"></i> Filter</button>
+                <a href="{{ route('admin.cleaner-applications.index', ['status' => $status]) }}" class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-black text-slate-600 hover:bg-slate-50">Clear</a>
+            </div>
+        </form>
 
         <div class="overflow-x-auto">
             <table class="min-w-[1100px] w-full text-sm">
@@ -225,14 +255,27 @@
                                 @endif
                                 @if($application->max_daily_bookings)
                                     <div class="mt-2 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700 ring-1 ring-indigo-100">
-                                        {{ $application->max_daily_bookings >= 5 ? '5+' : $application->max_daily_bookings }} booking{{ $application->max_daily_bookings === 1 ? '' : 's' }} / day
+                                        {{ $application->max_daily_bookings }} booking{{ $application->max_daily_bookings === 1 ? '' : 's' }} / day
                                     </div>
                                 @endif
                                 <div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-700">
                                     <div class="font-black uppercase tracking-wide text-slate-500">Verification</div>
-                                    <div class="mt-1"><span class="font-bold text-slate-800">ID:</span> {{ \App\Models\CleanerApplication::GOVERNMENT_ID_LABELS[$application->government_id_type] ?? 'Not set' }} {{ $application->government_id_number ? '('.$application->government_id_number.')' : '' }}</div>
+                                    @php
+                                        $maskVerificationNumber = static function (?string $value): string {
+                                            if (blank($value)) {
+                                                return 'Not set';
+                                            }
+
+                                            $value = (string) $value;
+
+                                            return strlen($value) <= 4
+                                                ? str_repeat('•', strlen($value))
+                                                : str_repeat('•', strlen($value) - 4).substr($value, -4);
+                                        };
+                                    @endphp
+                                    <div class="mt-1"><span class="font-bold text-slate-800">ID:</span> {{ \App\Models\CleanerApplication::GOVERNMENT_ID_LABELS[$application->government_id_type] ?? 'Not set' }} ({{ $maskVerificationNumber($application->government_id_number) }})</div>
                                     @if($application->nbi_clearance_number)
-                                        <div><span class="font-bold text-slate-800">Clearance:</span> {{ $application->nbi_clearance_number }}</div>
+                                        <div><span class="font-bold text-slate-800">Clearance:</span> {{ $maskVerificationNumber($application->nbi_clearance_number) }}</div>
                                     @endif
                                     @php
                                         $applicationFiles = [
@@ -243,6 +286,11 @@
                                             'selfie-with-id' => ['Selfie with ID', $application->selfie_with_id_path],
                                         ];
                                     @endphp
+                                    @if($application->verificationDocumentsComplete())
+                                        <div class="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-black text-emerald-700 ring-1 ring-emerald-100"><i class="fas fa-circle-check"></i> Required documents complete</div>
+                                    @else
+                                        <div class="mt-2 rounded-lg bg-amber-50 px-3 py-2 font-bold text-amber-800 ring-1 ring-amber-100">Missing: {{ implode(', ', $application->missingVerificationDocuments()) }}</div>
+                                    @endif
                                     <div class="mt-2 flex flex-wrap gap-2">
                                         @foreach($applicationFiles as $fileType => [$fileLabel, $filePath])
                                             @if($filePath)
@@ -267,7 +315,7 @@
                             </td>
                             <td class="px-5 py-4">
                                 <span class="inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide {{ $statusMeta[$application->status]['badge'] ?? 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' }}">
-                                    {{ $application->status }}
+                                    {{ str_replace('_', ' ', $application->status) }}
                                 </span>
                                 <div class="mt-2 text-xs font-semibold text-slate-400">Submitted {{ $application->created_at->format('M d, Y') }}</div>
                                 @if($application->reviewed_at)
@@ -280,6 +328,19 @@
                                 @endif
                                 @if($application->admin_notes)
                                     <div class="mt-3 text-xs leading-5 text-slate-500">{{ $application->admin_notes }}</div>
+                                @endif
+                                @if($application->auditLogs->isNotEmpty())
+                                    <details class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-left">
+                                        <summary class="cursor-pointer text-xs font-black uppercase tracking-wide text-slate-600">Audit trail ({{ $application->auditLogs->count() }})</summary>
+                                        <div class="mt-3 space-y-3">
+                                            @foreach($application->auditLogs->take(5) as $auditLog)
+                                                <div class="border-l-2 border-blue-200 pl-3 text-xs leading-5 text-slate-600">
+                                                    <div class="font-bold text-slate-800">{{ $auditLog->description }}</div>
+                                                    <div>{{ $auditLog->created_at->format('M d, Y g:i A') }} · {{ $auditLog->actor?->display_name ?: 'System' }}</div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </details>
                                 @endif
                                 @if($application->status === \App\Models\CleanerApplication::STATUS_APPROVED)
                                     <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-left">
@@ -321,6 +382,10 @@
                                         @method('PATCH')
                                         <textarea name="admin_notes" rows="3" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-left focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100" placeholder="Admin notes"></textarea>
                                         <div class="flex justify-end gap-2">
+                                            <button name="status" value="needs_changes" type="submit" class="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-amber-600">
+                                                <i class="fas fa-message-exclamation"></i>
+                                                Request changes
+                                            </button>
                                             <button name="status" value="rejected" type="submit" class="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-rose-700">
                                                 <i class="fas fa-xmark"></i>
                                                 Reject

@@ -5,8 +5,10 @@ namespace App\Providers;
 use App\Models\Booking;
 use App\Models\Notification;
 use App\Models\SiteSetting;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use LogicException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->ensureProductionUploadsAreDurable();
+        $this->ensureProductionRuntimeIsSafe();
         $this->removeStaleViteHotFile();
         View::composer('*', function ($view) {
             $view->with('siteSettings', SiteSetting::current());
@@ -37,9 +41,19 @@ class AppServiceProvider extends ServiceProvider
                 ->take(5)
                 ->get();
 
+            $adminNotificationsQuery = auth()->check() && auth()->user()->role === 'admin'
+                ? Notification::where('user_id', auth()->id())->whereNull('read_at')
+                : Notification::whereRaw('1 = 0');
+
             $view->with([
                 'pendingBookingsCount' => $pendingQuery->count(),
                 'pendingBookingsPreview' => $pendingBookingsPreview,
+                'adminUnreadNotificationsCount' => (clone $adminNotificationsQuery)->count(),
+                'adminNotificationsPreview' => (clone $adminNotificationsQuery)
+                    ->with('booking')
+                    ->latest()
+                    ->take(5)
+                    ->get(),
             ]);
         });
 
@@ -51,7 +65,7 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            $unreadCount = \Illuminate\Support\Facades\Cache::remember(
+            $unreadCount = Cache::remember(
                 'staff:unread_notif_'.auth()->id(),
                 60,  // 1 minute
                 function () {
@@ -83,6 +97,92 @@ class AppServiceProvider extends ServiceProvider
                     ->get(),
             ]);
         });
+    }
+
+    private function ensureProductionUploadsAreDurable(): void
+    {
+        if (! app()->environment('production')) {
+            return;
+        }
+
+        $privateDisk = (string) config('filesystems.private_uploads_disk');
+        $publicDisk = (string) config('filesystems.public_uploads_disk');
+        $proofDisk = (string) config('filesystems.proof_uploads_disk');
+
+        $usesLocalDriver = function (string $diskName): bool {
+            $diskConfig = config("filesystems.disks.{$diskName}");
+
+            return ! is_array($diskConfig) || ($diskConfig['driver'] ?? null) === 'local';
+        };
+
+        if ($usesLocalDriver($privateDisk)) {
+            throw new LogicException(
+                'Production cannot start with local private uploads. Configure FILESYSTEM_PRIVATE_DISK to durable private object storage.'
+            );
+        }
+
+        if ($usesLocalDriver($publicDisk)) {
+            throw new LogicException(
+                'Production cannot start with local public uploads. Configure FILESYSTEM_PUBLIC_DISK to durable object storage.'
+            );
+        }
+
+        if ($usesLocalDriver($proofDisk)) {
+            throw new LogicException(
+                'Production cannot start with local booking proof uploads. Configure FILESYSTEM_PROOF_DISK to durable private object storage.'
+            );
+        }
+
+        if ($proofDisk === $publicDisk) {
+            throw new LogicException(
+                'Production cannot use the public uploads disk for booking proof media. Configure FILESYSTEM_PROOF_DISK separately.'
+            );
+        }
+
+        $proofVisibility = strtolower((string) (config("filesystems.disks.{$proofDisk}.visibility") ?? 'private'));
+
+        if (in_array($proofVisibility, ['public', 'public-read'], true)) {
+            throw new LogicException(
+                'Production booking proof uploads must use private object visibility.'
+            );
+        }
+    }
+
+    private function ensureProductionRuntimeIsSafe(): void
+    {
+        if (! app()->environment('production')) {
+            return;
+        }
+
+        $unsafeSettings = [];
+
+        if ((bool) config('app.debug')) {
+            $unsafeSettings[] = 'APP_DEBUG must be false';
+        }
+
+        if (! filled(config('app.key'))) {
+            $unsafeSettings[] = 'APP_KEY must be configured';
+        }
+
+        if (in_array((string) config('queue.default'), ['sync', 'null'], true)) {
+            $unsafeSettings[] = 'QUEUE_CONNECTION must use a durable queue with a running worker';
+        }
+
+        if (in_array((string) config('mail.default'), ['log', 'array'], true)) {
+            $unsafeSettings[] = 'MAIL_MAILER must use a real delivery transport';
+        }
+
+        if (in_array((string) config('cache.default'), ['array', 'file'], true)) {
+            $unsafeSettings[] = 'CACHE_STORE must use database or shared Redis storage';
+        }
+
+        if ((string) config('session.driver') === 'file') {
+            $unsafeSettings[] = 'SESSION_DRIVER must use database or shared Redis storage';
+        }
+
+        if ($unsafeSettings !== []) {
+            throw new LogicException('Unsafe production configuration: '.implode('; ', $unsafeSettings).'.');
+        }
     }
 
     private function removeStaleViteHotFile(): void

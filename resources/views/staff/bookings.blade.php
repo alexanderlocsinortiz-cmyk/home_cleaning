@@ -187,19 +187,19 @@
             @if($beforeProofs->count() || $afterProofs->count() || $completionVideos->count())
               <div class="proof-preview-list">
                 @foreach($beforeProofs->take(2) as $proof)
-                  <a href="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" target="_blank" class="proof-preview proof-preview--before">
-                    <img src="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" alt="Before-service proof">
+                  <a href="{{ route('bookings.service-proof', [$booking, $proof]) }}" target="_blank" class="proof-preview proof-preview--before">
+                    <img src="{{ route('bookings.service-proof', [$booking, $proof]) }}" alt="Before-service proof">
                     <span>Before {{ $loop->iteration }}</span>
                   </a>
                 @endforeach
                 @foreach($afterProofs->take(2) as $proof)
-                  <a href="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" target="_blank" class="proof-preview proof-preview--after">
-                    <img src="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" alt="After-service proof">
+                  <a href="{{ route('bookings.service-proof', [$booking, $proof]) }}" target="_blank" class="proof-preview proof-preview--after">
+                    <img src="{{ route('bookings.service-proof', [$booking, $proof]) }}" alt="After-service proof">
                     <span>After {{ $loop->iteration }}</span>
                   </a>
                 @endforeach
                 @foreach($completionVideos->take(1) as $proof)
-                  <a href="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" target="_blank" class="proof-preview proof-preview--video">
+                  <a href="{{ route('bookings.service-proof', [$booking, $proof]) }}" target="_blank" class="proof-preview proof-preview--video">
                     <i class="fas fa-video"></i>
                     <span>{{ $proof->original_name ?: 'Video proof' }}</span>
                   </a>

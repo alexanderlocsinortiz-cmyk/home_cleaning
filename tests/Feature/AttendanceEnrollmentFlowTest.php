@@ -242,34 +242,33 @@ class AttendanceEnrollmentFlowTest extends TestCase
 
     private function createDevice(string $serial = 'ESP32-ENROLL-01', string $token = ''): Device
     {
-        return Device::create([
+        $plainToken = $token ?: Str::random(64);
+        $device = Device::create([
             'name' => 'Enrollment Device',
             'serial_number' => $serial,
-            'api_token' => $token ?: str_repeat('c', 64),
+            'api_token' => Device::hashToken($plainToken),
+            'secret_key' => 'test-secret-'.$serial,
+            'token_expires_at' => now()->addDay(),
             'location' => 'Front Desk',
             'is_active' => true,
         ]);
+
+        $device->setAttribute('plain_test_token', $plainToken);
+
+        return $device;
     }
 
     private function signedDeviceHeaders(Device $device, string $method, string $path, array $payload = []): array
     {
         $timestamp = (string) now()->timestamp;
-        $nonce = Str::lower(Str::random(24));
+        $nonce = 'nonce-'.Str::random(24);
         $requestBody = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $bodyHash = hash('sha256', $requestBody ?: '');
-        $canonicalString = implode("\n", [
-            strtoupper($method),
-            ltrim($path, '/'),
-            $timestamp,
-            $nonce,
-            $bodyHash,
-        ]);
 
         return [
-            'X-Device-Token' => $device->api_token,
-            'X-IoT-Timestamp' => $timestamp,
-            'X-IoT-Nonce' => $nonce,
-            'X-IoT-Signature' => hash_hmac('sha256', $canonicalString, $device->api_token),
+            'X-Device-Serial' => $device->serial_number,
+            'X-Timestamp' => $timestamp,
+            'X-Nonce' => $nonce,
+            'X-Signature' => hash_hmac('sha256', $timestamp.$nonce.($requestBody ?: ''), $device->secret_key),
         ];
     }
 }

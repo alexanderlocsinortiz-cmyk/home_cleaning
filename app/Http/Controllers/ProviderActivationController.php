@@ -34,7 +34,7 @@ class ProviderActivationController extends Controller
         }
 
         $validated = $request->validate([
-            'password' => ['required', 'confirmed', Password::min(8)],
+            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
             'username' => [
                 'nullable',
                 'string',

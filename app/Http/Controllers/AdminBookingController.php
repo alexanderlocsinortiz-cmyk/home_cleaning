@@ -32,11 +32,11 @@ class AdminBookingController extends Controller
             ? $request->get('filter')
             : '';
 
-        $activeBookingsQuery = Booking::with(['user', 'staff', 'cleanerApplication', 'service', 'reviewedBy', 'preferredStaff'])
+        $activeBookingsQuery = Booking::with(['user', 'staff', 'cleanerApplication', 'service', 'payment', 'reviewedBy', 'preferredStaff'])
             ->withCount(['beforeServiceProofs', 'afterServiceProofs'])
             ->whereIn('status', ['pending', 'confirmed', 'in_progress']);
 
-        $completedBookingsQuery = Booking::with(['user', 'staff', 'cleanerApplication', 'service', 'rating', 'reviewedBy', 'preferredStaff'])
+        $completedBookingsQuery = Booking::with(['user', 'staff', 'cleanerApplication', 'service', 'payment', 'rating', 'reviewedBy', 'preferredStaff'])
             ->whereIn('status', ['completed', 'cancelled']);
 
         $filteredActiveBookingsQuery = (clone $activeBookingsQuery)
@@ -202,10 +202,10 @@ class AdminBookingController extends Controller
 
     public function updateBookingStatus(Request $request, $id)
     {
-        $booking = Booking::with('cleanerApplication.documents')->findOrFail($id);
+        $booking = Booking::with(['cleanerApplication.documents', 'payment'])->findOrFail($id);
         $oldStaffId = $booking->staff_id;
         $oldStatus = $booking->status;
-        $oldPaymentStatus = $booking->payment_status;
+        $oldPaymentStatus = $booking->payment?->status ?? 'pending';
 
         $validated = $request->validate([
             'status' => ['required', Rule::in(Booking::statuses())],
@@ -214,13 +214,16 @@ class AdminBookingController extends Controller
                 'nullable',
                 Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'staff')),
             ],
+            'payment_collected_amount' => ['nullable', 'numeric', 'min:0.01'],
+            'payment_collected_at' => ['nullable', 'date'],
+            'payment_receipt_notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $newStatus = $validated['status'];
         $newStaffId = array_key_exists('staff_id', $validated) ? $validated['staff_id'] : $booking->staff_id;
         $newPaymentStatus = array_key_exists('payment_status', $validated)
             ? $validated['payment_status']
-            : $booking->payment_status;
+            : ($booking->payment?->status ?? 'pending');
 
         if (in_array($oldStatus, ['completed', 'cancelled'], true) && $newStaffId != $oldStaffId) {
             return back()->withErrors([
@@ -281,32 +284,22 @@ class AdminBookingController extends Controller
                 : 'alternate_assigned';
         }
 
-        $paymentStatusChanged = $newPaymentStatus !== $oldPaymentStatus;
+        if ($newPaymentStatus === 'paid' && $booking->payment?->method === 'on_site_cash') {
+            if ($booking->payment?->cash_proof_path && $booking->payment?->cash_proof_status !== 'approved') {
+                return back()->withErrors([
+                    'payment_status' => 'Review and approve the uploaded cash payment proof before marking this payment as paid.',
+                ]);
+            }
 
-        if ($paymentStatusChanged) {
-            $booking->payment_status = $newPaymentStatus;
-
-            if ($booking->payment_status === 'paid') {
-                $booking->payment_reference = $booking->payment_reference ?: Booking::generatePaymentReference($booking->payment_method);
-                $booking->paid_at = $booking->paid_at ?: now();
-            } else {
-                $booking->paid_at = null;
-
-                if ($booking->payment_method === 'on_site_cash') {
-                    $booking->payment_reference = null;
-                }
+            if ($cashPaymentError = $this->cashPaymentDetailsError($booking, $validated)) {
+                return back()->withErrors(['payment_collected_amount' => $cashPaymentError])->withInput();
             }
         }
 
-        if (
-            $newStatus === 'completed'
-            && $booking->payment_method === 'on_site_cash'
-            && $booking->payment_status !== 'paid'
-        ) {
-            $booking->payment_status = 'paid';
-            $booking->payment_reference = $booking->payment_reference ?: Booking::generatePaymentReference($booking->payment_method);
-            $booking->paid_at = $booking->paid_at ?: now();
-            $paymentStatusChanged = true;
+        $paymentStatusChanged = $newPaymentStatus !== $oldPaymentStatus;
+
+        if ($paymentStatusChanged || ($newPaymentStatus === 'paid' && $booking->payment?->method === 'on_site_cash')) {
+            $this->applyPaymentStatus($booking, $newPaymentStatus, $validated);
         }
 
         $booking->staff_id = $newStaffId;
@@ -350,10 +343,10 @@ class AdminBookingController extends Controller
         }
 
         if ($paymentStatusChanged) {
-            $booking->logActivity($actor, 'payment_updated', 'Payment status changed to '.$booking->payment_status.'.', [
+            $booking->logActivity($actor, 'payment_updated', 'Payment status changed to '.($booking->payment?->status ?? 'pending').'.', [
                 'from_payment_status' => $oldPaymentStatus,
-                'to_payment_status' => $booking->payment_status,
-                'payment_method' => $booking->payment_method,
+                'to_payment_status' => $booking->payment?->status,
+                'payment_method' => $booking->payment?->method,
             ]);
         }
 
@@ -374,46 +367,46 @@ class AdminBookingController extends Controller
         if ($newStaffId && $oldStaffId != $newStaffId) {
             SendBookingStaffAssignedEmail::dispatch($booking->id);
 
-                $this->createNotification([
-                    'user_id' => $newStaffId,
-                    'title' => 'New Booking Assigned',
-                    'message' => 'You have been assigned to booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' scheduled for '.Carbon::parse($booking->scheduled_date)->format('F d, Y').' in '.ucfirst($booking->barangay).'.',
-                    'type' => 'info',
-                    'link' => route('staff.bookings'),
-                ]);
+            $this->createNotification([
+                'user_id' => $newStaffId,
+                'title' => 'New Booking Assigned',
+                'message' => 'You have been assigned to booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' scheduled for '.Carbon::parse($booking->scheduled_date)->format('F d, Y').' in '.ucfirst($booking->barangay).'.',
+                'type' => 'info',
+                'link' => route('staff.bookings'),
+            ]);
 
-                $this->createClientAssignmentNotification($booking);
+            $this->createClientAssignmentNotification($booking);
         }
 
-            if ($newStatus === 'confirmed' && $booking->staff_id && $oldStatus !== 'confirmed' && $oldStaffId == $newStaffId) {
-                $this->createClientStatusNotification($booking, 'confirmed');
-            }
+        if ($newStatus === 'confirmed' && $booking->staff_id && $oldStatus !== 'confirmed' && $oldStaffId == $newStaffId) {
+            $this->createClientStatusNotification($booking, 'confirmed');
+        }
 
-            if ($newStatus === 'confirmed' && $booking->staff_id) {
-                $this->createNotification([
-                    'user_id' => $booking->staff_id,
-                    'title' => 'Booking Confirmed',
-                    'message' => 'Booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' has been confirmed. Please prepare for '.Carbon::parse($booking->scheduled_date)->format('F d, Y').'.',
-                    'type' => 'success',
-                    'link' => route('staff.bookings'),
-                ]);
-            }
+        if ($newStatus === 'confirmed' && $booking->staff_id) {
+            $this->createNotification([
+                'user_id' => $booking->staff_id,
+                'title' => 'Booking Confirmed',
+                'message' => 'Booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' has been confirmed. Please prepare for '.Carbon::parse($booking->scheduled_date)->format('F d, Y').'.',
+                'type' => 'success',
+                'link' => route('staff.bookings'),
+            ]);
+        }
 
-            if ($newStatus === 'in_progress' && $oldStatus !== 'in_progress') {
-                $this->createClientStatusNotification($booking, 'in_progress');
-            }
+        if ($newStatus === 'in_progress' && $oldStatus !== 'in_progress') {
+            $this->createClientStatusNotification($booking, 'in_progress');
+        }
 
-            if ($newStatus === 'completed' && $oldStatus !== 'completed') {
-                $this->createClientStatusNotification($booking, 'completed');
-            }
+        if ($newStatus === 'completed' && $oldStatus !== 'completed') {
+            $this->createClientStatusNotification($booking, 'completed');
+        }
 
-            if ($newStatus === 'cancelled' && $oldStatus !== 'cancelled') {
-                $this->createClientStatusNotification($booking, 'cancelled');
-            }
+        if ($newStatus === 'cancelled' && $oldStatus !== 'cancelled') {
+            $this->createClientStatusNotification($booking, 'cancelled');
+        }
 
-            if ($paymentStatusChanged && $oldPaymentStatus !== $booking->payment_status) {
-                $this->createClientPaymentNotification($booking);
-            }
+        if ($paymentStatusChanged && $oldPaymentStatus !== ($booking->payment?->status ?? 'pending')) {
+            $this->createClientPaymentNotification($booking);
+        }
         Cache::forget('admin:pending_bookings_count');
 
         $message = 'Booking details have been updated.';
@@ -433,34 +426,40 @@ class AdminBookingController extends Controller
 
     public function updateBookingPayment(Request $request, $id)
     {
-        $booking = Booking::findOrFail($id);
+        $booking = Booking::with('payment')->findOrFail($id);
 
         $validated = $request->validate([
             'payment_status' => ['required', Rule::in(Booking::paymentStatuses())],
+            'payment_collected_amount' => ['nullable', 'numeric', 'min:0.01'],
+            'payment_collected_at' => ['nullable', 'date'],
+            'payment_receipt_notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $oldPaymentStatus = $booking->payment_status;
-        $booking->payment_status = $validated['payment_status'];
+        $oldPaymentStatus = $booking->payment?->status ?? 'pending';
+        $newPaymentStatus = $validated['payment_status'];
 
-        if ($booking->payment_status === 'paid') {
-            $booking->payment_reference = $booking->payment_reference ?: Booking::generatePaymentReference($booking->payment_method);
-            $booking->paid_at = $booking->paid_at ?: now();
-        } else {
-            $booking->paid_at = null;
+        if ($newPaymentStatus === 'paid' && $booking->payment?->method === 'on_site_cash') {
+            if ($booking->payment?->cash_proof_path && $booking->payment?->cash_proof_status !== 'approved') {
+                return back()->withErrors([
+                    'payment_status' => 'Review and approve the uploaded cash payment proof before marking this payment as paid.',
+                ]);
+            }
 
-            if ($booking->payment_method === 'on_site_cash') {
-                $booking->payment_reference = null;
+            if ($cashPaymentError = $this->cashPaymentDetailsError($booking, $validated)) {
+                return back()->withErrors(['payment_collected_amount' => $cashPaymentError])->withInput();
             }
         }
+
+        $this->applyPaymentStatus($booking, $newPaymentStatus, $validated);
 
         $booking->save();
         $booking->load('user');
 
-        if ($oldPaymentStatus !== $booking->payment_status) {
-            $booking->logActivity(auth()->user(), 'payment_updated', 'Payment status changed to '.$booking->payment_status.'.', [
+        if ($oldPaymentStatus !== ($booking->payment?->status ?? 'pending')) {
+            $booking->logActivity(auth()->user(), 'payment_updated', 'Payment status changed to '.($booking->payment?->status ?? 'pending').'.', [
                 'from_payment_status' => $oldPaymentStatus,
-                'to_payment_status' => $booking->payment_status,
-                'payment_method' => $booking->payment_method,
+                'to_payment_status' => $booking->payment?->status,
+                'payment_method' => $booking->payment?->method,
             ]);
             $this->createClientPaymentNotification($booking);
         }
@@ -468,9 +467,92 @@ class AdminBookingController extends Controller
         return back()->with('success', 'Payment status updated successfully.');
     }
 
+    public function reviewCashPaymentProof(Request $request, $id)
+    {
+        $booking = Booking::with(['payment', 'user'])->findOrFail($id);
+        $payment = $booking->payment;
+
+        $validated = $request->validate([
+            'decision' => ['required', Rule::in(['approve', 'reject'])],
+            'payment_collected_amount' => ['required_if:decision,approve', 'nullable', 'numeric', 'min:0.01'],
+            'payment_collected_at' => ['required_if:decision,approve', 'nullable', 'date'],
+            'payment_receipt_notes' => ['nullable', 'string', 'max:1000'],
+            'cash_proof_rejection_reason' => ['required_if:decision,reject', 'nullable', 'string', 'min:5', 'max:1000'],
+        ]);
+
+        if ($payment?->method !== 'on_site_cash' || ! $payment->cash_proof_path) {
+            return back()->withErrors(['cash_payment_proof' => 'There is no uploaded cash payment proof to review.']);
+        }
+
+        if ($validated['decision'] === 'approve') {
+            if ($payment->cash_proof_status !== 'pending') {
+                return back()->withErrors(['cash_payment_proof' => 'Only pending cash payment proofs can be approved.']);
+            }
+
+            if (abs((float) $validated['payment_collected_amount'] - (float) $booking->price) > 0.009) {
+                return back()->withErrors(['payment_collected_amount' => 'The cash amount must match the booking total of PHP '.number_format((float) $booking->price, 2).'.']);
+            }
+
+            $payment->forceFill([
+                'status' => 'paid',
+                'reference' => $payment->reference ?: Booking::generatePaymentReference('on_site_cash'),
+                'receipt_number' => $payment->receipt_number ?: Booking::generateCashReceiptNumber(),
+                'paid_at' => $payment->paid_at ?: now(),
+                'collected_amount' => $validated['payment_collected_amount'],
+                'collected_at' => $validated['payment_collected_at'],
+                'collected_by' => auth()->id(),
+                'receipt_notes' => $validated['payment_receipt_notes'] ?? $payment->receipt_notes,
+                'cash_proof_status' => 'approved',
+                'cash_proof_reviewed_at' => now(),
+                'cash_proof_reviewed_by' => auth()->id(),
+                'cash_proof_rejection_reason' => null,
+            ])->save();
+
+            $message = 'Cash payment proof approved and payment marked as paid.';
+            $clientMessage = 'Your cash payment proof for booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' was approved. Your payment is now confirmed.';
+            $activity = 'Admin approved the uploaded cash payment proof and marked payment as paid.';
+        } else {
+            if ($payment->cash_proof_status !== 'pending') {
+                return back()->withErrors(['cash_payment_proof' => 'Only pending cash payment proofs can be rejected.']);
+            }
+
+            $payment->forceFill([
+                'status' => 'pending',
+                'cash_proof_status' => 'rejected',
+                'cash_proof_reviewed_at' => now(),
+                'cash_proof_reviewed_by' => auth()->id(),
+                'cash_proof_rejection_reason' => $validated['cash_proof_rejection_reason'],
+            ])->save();
+
+            $message = 'Cash payment proof rejected. The client can upload a replacement.';
+            $clientMessage = 'Your cash payment proof for booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' needs correction: '.$validated['cash_proof_rejection_reason'];
+            $activity = 'Admin rejected the uploaded cash payment proof.';
+        }
+
+        $booking->setRelation('payment', $payment);
+        $booking->logActivity(auth()->user(), 'cash_payment_proof_reviewed', $activity, [
+            'decision' => $validated['decision'],
+            'proof_status' => $payment->cash_proof_status,
+        ]);
+        $this->createNotification([
+            'user_id' => $booking->user_id,
+            'booking_id' => $booking->id,
+            'title' => $validated['decision'] === 'approve' ? 'Cash payment approved' : 'Cash payment proof needs correction',
+            'message' => $clientMessage,
+            'type' => $validated['decision'] === 'approve' ? 'success' : 'warning',
+            'link' => route('bookings.show', $booking->id),
+        ]);
+
+        if ($validated['decision'] === 'approve') {
+            $this->createClientPaymentNotification($booking);
+        }
+
+        return back()->with('success', $message);
+    }
+
     public function updateBookingPayout(Request $request, $id)
     {
-        $booking = Booking::findOrFail($id);
+        $booking = Booking::with('payment')->findOrFail($id);
 
         $validated = $request->validate([
             'provider_payout_status' => ['required', Rule::in(Booking::providerPayoutStatuses())],
@@ -485,7 +567,7 @@ class AdminBookingController extends Controller
             ]);
         }
 
-        if ($booking->payment_method === 'on_site_cash') {
+        if ($booking->payment?->method === 'on_site_cash') {
             return back()->withErrors([
                 'provider_payout_status' => 'Cash marketplace bookings do not use provider payouts. Track the provider commission collection instead.',
             ]);
@@ -516,7 +598,7 @@ class AdminBookingController extends Controller
             ]);
         }
 
-        if ($newStatus === 'paid' && $booking->payment_status !== 'paid') {
+        if ($newStatus === 'paid' && $booking->payment?->status !== 'paid') {
             return back()->withErrors([
                 'provider_payout_status' => 'Provider payout cannot be marked paid until the customer payment is paid.',
             ]);
@@ -592,7 +674,7 @@ class AdminBookingController extends Controller
             'provider_commission_proof' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
         ]);
 
-        if ($booking->payment_method !== 'on_site_cash' || ! $booking->cleaner_application_id || $booking->provider_commission_due === null) {
+        if ($booking->payment?->method !== 'on_site_cash' || ! $booking->cleaner_application_id || $booking->provider_commission_due === null) {
             return back()->withErrors([
                 'provider_commission_status' => 'Commission collection is only available for cash marketplace provider bookings.',
             ]);
@@ -620,11 +702,6 @@ class AdminBookingController extends Controller
                 $booking->provider_commission_proof_original_filename = $proof->getClientOriginalName();
             }
 
-            if ($booking->payment_status !== 'paid') {
-                $booking->payment_status = 'paid';
-                $booking->payment_reference = $booking->payment_reference ?: Booking::generatePaymentReference('on_site_cash');
-                $booking->paid_at = $booking->paid_at ?: now();
-            }
         } elseif ($newStatus !== 'paid') {
             $booking->provider_commission_reference = null;
             $booking->provider_commission_paid_at = null;
@@ -915,15 +992,80 @@ class AdminBookingController extends Controller
             });
     }
 
+    private function cashPaymentDetailsError(Booking $booking, array $validated): ?string
+    {
+        $amount = $validated['payment_collected_amount'] ?? $booking->payment?->collected_amount;
+        $collectedAt = $validated['payment_collected_at'] ?? $booking->payment?->collected_at;
+
+        if ($amount === null || $amount === '') {
+            return 'Enter the cash amount collected before marking this booking as paid.';
+        }
+
+        if (abs((float) $amount - (float) $booking->price) > 0.009) {
+            return 'The cash amount must match the booking total of PHP '.number_format((float) $booking->price, 2).'.';
+        }
+
+        if ($collectedAt === null || $collectedAt === '') {
+            return 'Enter when the cash was collected before marking this booking as paid.';
+        }
+
+        return null;
+    }
+
+    private function applyPaymentStatus(Booking $booking, string $paymentStatus, array $validated): void
+    {
+        $payment = $booking->paymentOrCreate([
+            'method' => 'on_site_cash',
+            'status' => 'pending',
+            'amount' => $booking->price ?? 0,
+            'currency' => 'PHP',
+            'provider' => 'manual',
+        ]);
+        $method = $payment->method;
+        $payment->status = $paymentStatus;
+
+        if ($paymentStatus === 'paid') {
+            $payment->reference = $payment->reference ?: Booking::generatePaymentReference($method);
+            $payment->paid_at = $payment->paid_at ?: now();
+
+            if ($method === 'on_site_cash') {
+                $payment->receipt_number = $payment->receipt_number ?: Booking::generateCashReceiptNumber();
+                $payment->collected_amount = $validated['payment_collected_amount'] ?? $payment->collected_amount;
+                $payment->collected_at = $validated['payment_collected_at'] ?? $payment->collected_at;
+                $payment->collected_by = auth()->id();
+                $payment->receipt_notes = $validated['payment_receipt_notes'] ?? $payment->receipt_notes;
+            }
+
+            $payment->save();
+            $booking->setRelation('payment', $payment);
+
+            return;
+        }
+
+        $payment->paid_at = null;
+
+        if ($method === 'on_site_cash' && $paymentStatus === 'pending') {
+            $payment->reference = null;
+            $payment->receipt_number = null;
+            $payment->collected_amount = null;
+            $payment->collected_at = null;
+            $payment->collected_by = null;
+            $payment->receipt_notes = null;
+        }
+
+        $payment->save();
+        $booking->setRelation('payment', $payment);
+    }
+
     private function createClientPaymentNotification(Booking $booking): void
     {
         $bookingCode = 'CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT);
-        $paymentLabel = Booking::paymentMethodLabel($booking->payment_method);
+        $paymentLabel = Booking::paymentMethodLabel($booking->payment?->method ?? 'on_site_cash');
 
-        [$title, $message, $type] = $booking->payment_status === 'paid'
+        [$title, $message, $type] = ($booking->payment?->status ?? 'pending') === 'paid'
             ? [
                 'Payment confirmed',
-                'Payment for booking '.$bookingCode.' has been recorded as paid via '.$paymentLabel.($booking->payment_reference ? ' with reference '.$booking->payment_reference.'.' : '.'),
+                'Payment for booking '.$bookingCode.' has been recorded as paid via '.$paymentLabel.($booking->payment?->reference ? ' with reference '.$booking->payment->reference.'.' : '.'),
                 'success',
             ]
             : [

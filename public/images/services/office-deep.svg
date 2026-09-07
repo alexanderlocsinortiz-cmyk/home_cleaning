@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" role="img" aria-labelledby="title desc">
+  <title id="title">Deep office cleaning illustration</title><desc id="desc">An office building protected by a shield and surrounded by sanitation sparkles.</desc>
+  <rect width="800" height="420" rx="32" fill="#f0efff"/><circle cx="660" cy="86" r="55" fill="#dedbff"/><path d="M82 326h635" stroke="#c7c2ed" stroke-width="12" stroke-linecap="round"/>
+  <path d="M165 326V139h190v187z" fill="#fff" stroke="#615abd" stroke-width="10"/><path d="M198 172h31v31h-31zM245 172h31v31h-31zM292 172h31v31h-31zM198 223h31v31h-31zM245 223h31v31h-31zM292 223h31v31h-31z" fill="#c6c3ff" stroke="#615abd" stroke-width="6"/><path d="M455 186l78 29v57c0 51-40 77-78 89-38-12-78-38-78-89v-57z" fill="#fff" stroke="#615abd" stroke-width="10"/><path d="M416 263l27 27 53-59" fill="none" stroke="#53b69a" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M555 295l42-84" stroke="#8b5e3c" stroke-width="12" stroke-linecap="round"/><path d="M570 196h57v45h-57z" fill="#ff8d7a" stroke="#a64252" stroke-width="8"/><path d="M590 126l8 20 20 8-20 8-8 20-8-20-20-8 20-8zM670 189l6 15 15 6-15 6-6 15-6-15-15-6 15-6z" fill="#f3bd45"/>
+  <g stroke="#403d86" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="265" cy="170" r="24" fill="#f2bd91"/><path d="M241 200h51l23 66-69 6z" fill="#6b66c9"/><path d="M253 272l-20 54M283 272l22 54" fill="none"/><path d="M233 326h-28M305 326h28" fill="none"/><path d="M246 218l-42 42" fill="none"/><path d="M204 260l-35 23" fill="none"/><path d="M165 278h48v17h-48z" fill="#ff8d7a"/><path d="M187 262v33" fill="none"/>
+  </g>
+</svg>

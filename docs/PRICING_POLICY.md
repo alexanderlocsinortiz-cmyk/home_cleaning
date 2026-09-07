@@ -28,11 +28,13 @@ This document defines the pricing currently configured in CleanFlow. It separate
 | Pet Hair Removal | PHP 300 |
 | Yard Sweeping | PHP 250 |
 
+Each add-on is currently selected at most once and charged once per booking. The application does not support quantity-based billing such as per window, panel, room, or appliance.
+
 ## Calculation rules
 
 - Per-sqm service quotes use the matching database service rate. If the database row is unavailable, the package catalog is the fallback.
 - Per-sqm quotes charge the complete submitted floor area; there is currently no free-area deduction.
-- General/Regular Cleaning is flat-rate. The backend currently starts the calculated quote at PHP 500, the low end of the displayed PHP 500–800 range.
+- General/Regular Cleaning is flat-rate. The backend uses the persisted service price as the current session quote; the PHP 500–800 range is informational until an owner-approved rule selects a price based on scope or condition.
 - Selected add-ons are summed and added to the service amount.
 - Property, room, and bathroom surcharges are currently PHP 0.
 - The booking stores the calculated pricing breakdown as a snapshot. Future rate changes do not rewrite existing bookings.
@@ -55,6 +57,7 @@ The code and database migration now use one effective service-rate path, so an a
 
 - Confirm that each rate covers labor, supplies, travel, overhead, and target margin.
 - Confirm whether the General/Regular PHP 500–800 range needs a rule for selecting an amount above the minimum.
+- Confirm whether any add-on needs quantity-based billing; implementing that requires explicit units, quantity limits, and revised booking/API fields.
 - Validate the rates against local competitors and documented operating costs.
 - Record the approver, approval date, effective date, and any geographic or property-size limits.
 

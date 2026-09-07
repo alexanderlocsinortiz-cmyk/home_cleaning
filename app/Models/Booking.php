@@ -6,12 +6,86 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class Booking extends Model
 {
     use HasFactory;
+
+    public const PAYMENT_ATTRIBUTES = [
+        'payment_method',
+        'payment_status',
+        'payment_reference',
+        'payment_checkout_session_id',
+        'paid_at',
+        'cash_receipt_number',
+        'payment_collected_amount',
+        'payment_collected_at',
+        'payment_collected_by',
+        'payment_receipt_notes',
+    ];
+
+    public const DISPUTE_ATTRIBUTES = [
+        'dispute_status',
+        'dispute_reason',
+        'dispute_description',
+        'disputed_at',
+        'dispute_resolution',
+        'dispute_admin_notes',
+        'dispute_reviewed_by',
+        'dispute_resolved_at',
+    ];
+
+    public const PAYOUT_ATTRIBUTES = [
+        'provider_gross_amount',
+        'platform_commission_rate',
+        'platform_commission_amount',
+        'provider_payout_amount',
+        'provider_payout_status',
+        'provider_payout_reference',
+        'provider_payout_paid_at',
+        'provider_payout_processed_by',
+        'provider_payout_proof_path',
+        'provider_payout_proof_original_filename',
+        'cash_collected_amount',
+        'provider_commission_due',
+        'provider_commission_status',
+        'provider_commission_reference',
+        'provider_commission_paid_at',
+        'provider_commission_collected_by',
+        'provider_commission_proof_path',
+        'provider_commission_proof_original_filename',
+    ];
+
+    public const VIDEO_ATTRIBUTES = [
+        'daily_room_name',
+        'daily_room_url',
+        'daily_room_expires_at',
+        'live_video_started_at',
+        'live_video_ended_at',
+    ];
+
+    /** @var array<string, mixed> */
+    protected array $pendingPaymentAttributes = [];
+
+    protected mixed $pendingServiceType = null;
+
+    protected bool $hasPendingServiceType = false;
+
+    protected bool $priceChangedForPaymentSync = false;
+
+    /** @var array<string, mixed> */
+    protected array $pendingDisputeAttributes = [];
+
+    /** @var array<string, mixed> */
+    protected array $pendingPayoutAttributes = [];
+
+    /** @var array<string, mixed> */
+    protected array $pendingVideoAttributes = [];
 
     public const STATUS_TRANSITIONS = [
         'pending' => ['pending', 'confirmed', 'cancelled'],
@@ -132,10 +206,56 @@ class Booking extends Model
     protected static function booted(): void
     {
         static::saving(function (Booking $booking): void {
+            $booking->priceChangedForPaymentSync = $booking->exists && $booking->isDirty('price');
+            $booking->resolveCanonicalServiceId();
+
             if ($booking->shouldRefreshMarketplaceAmountsForDirtyMoneyFields()) {
                 $booking->refreshMarketplaceAmounts();
             }
         });
+
+        static::saved(function (Booking $booking): void {
+            $booking->syncPaymentAttributes();
+            $booking->syncDisputeAttributes();
+            $booking->syncPayoutAttributes();
+            $booking->syncVideoAttributes();
+        });
+    }
+
+    public function setAttribute($key, $value)
+    {
+        if (in_array($key, self::PAYMENT_ATTRIBUTES, true)) {
+            $this->pendingPaymentAttributes[$key] = $value;
+
+            return $this;
+        }
+
+        if (in_array($key, self::DISPUTE_ATTRIBUTES, true)) {
+            $this->pendingDisputeAttributes[$key] = $value;
+
+            return $this;
+        }
+
+        if (in_array($key, self::PAYOUT_ATTRIBUTES, true)) {
+            $this->pendingPayoutAttributes[$key] = $value;
+
+            return $this;
+        }
+
+        if (in_array($key, self::VIDEO_ATTRIBUTES, true)) {
+            $this->pendingVideoAttributes[$key] = $value;
+
+            return $this;
+        }
+
+        if ($key === 'service_type') {
+            $this->pendingServiceType = $value;
+            $this->hasPendingServiceType = true;
+
+            return $this;
+        }
+
+        return parent::setAttribute($key, $value);
     }
 
     public const PAYMENT_METHOD_LABELS = [
@@ -221,9 +341,12 @@ class Booking extends Model
         ],
     ];
 
+    public const ADD_ON_PRICING_UNIT = 'per booking';
+
     protected $fillable = [
         'user_id',
         'service_id',
+        'service_label',
         'service_type',
         'property_type',
         'rooms',
@@ -257,11 +380,17 @@ class Booking extends Model
         'bathrooms_fee',
         'floor_area_fee',
         'add_ons_fee',
+        'required_cleaners',
         'payment_method',
         'payment_status',
         'payment_reference',
         'payment_checkout_session_id',
         'paid_at',
+        'cash_receipt_number',
+        'payment_collected_amount',
+        'payment_collected_at',
+        'payment_collected_by',
+        'payment_receipt_notes',
         'service_plan',
         'subscription_frequency',
         'subscription_occurrences',
@@ -316,11 +445,11 @@ class Booking extends Model
         'risk_reasons' => 'array',
         'scheduled_date' => 'date',
         'reviewed_at' => 'datetime',
-        'paid_at' => 'datetime',
         'expected_started_at' => 'datetime',
         'expected_completed_at' => 'datetime',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
+        'required_cleaners' => 'integer',
         'provider_assignment_responded_at' => 'datetime',
         'provider_gross_amount' => 'decimal:2',
         'platform_commission_rate' => 'decimal:4',
@@ -340,6 +469,540 @@ class Booking extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function payment(): HasOne
+    {
+        return $this->hasOne(Payment::class)->latestOfMany('id');
+    }
+
+    public function paymentOrCreate(array $defaults = []): Payment
+    {
+        try {
+            return $this->payment()->firstOrCreate([], $defaults);
+        } catch (QueryException $exception) {
+            $payment = $this->payment()->first();
+
+            if ($payment) {
+                return $payment;
+            }
+
+            throw $exception;
+        }
+    }
+
+    public static function staffingRequiresManualReview(int $requiredCleaners): bool
+    {
+        return $requiredCleaners > (int) config('cleanflow.staffing.max_cleaners_per_booking', 20);
+    }
+
+    public static function staffingManualReviewReason(int $requiredCleaners): string
+    {
+        $maximum = (int) config('cleanflow.staffing.max_cleaners_per_booking', 20);
+
+        return "This booking requires {$requiredCleaners} cleaners, exceeding the automatic staffing limit of {$maximum}.";
+    }
+
+    public function dispute(): HasOne
+    {
+        return $this->hasOne(BookingDispute::class);
+    }
+
+    public function payout(): HasOne
+    {
+        return $this->hasOne(BookingPayout::class);
+    }
+
+    public function videoSession(): HasOne
+    {
+        return $this->hasOne(BookingVideoSession::class);
+    }
+
+    public function getServiceTypeAttribute($value): ?string
+    {
+        if ($this->hasPendingServiceType) {
+            return $this->pendingServiceType;
+        }
+
+        if ($this->relationLoaded('service') && $this->service) {
+            return $this->service->slug;
+        }
+
+        return $this->service?->slug ?? $this->getRawOriginal('service_label') ?? $value;
+    }
+
+    public function getPaymentMethodAttribute($value): string
+    {
+        return (string) $this->paymentValue('payment_method', 'on_site_cash');
+    }
+
+    public function getPaymentStatusAttribute($value): string
+    {
+        return (string) $this->paymentValue('payment_status', 'pending');
+    }
+
+    public function getPaymentReferenceAttribute($value): ?string
+    {
+        return $this->paymentValue('payment_reference');
+    }
+
+    public function getPaymentCheckoutSessionIdAttribute($value): ?string
+    {
+        return $this->paymentValue('payment_checkout_session_id');
+    }
+
+    public function getPaidAtAttribute($value): mixed
+    {
+        return $this->paymentValue('paid_at');
+    }
+
+    public function getCashReceiptNumberAttribute($value): ?string
+    {
+        return $this->paymentValue('cash_receipt_number');
+    }
+
+    public function getPaymentCollectedAmountAttribute($value): mixed
+    {
+        return $this->paymentValue('payment_collected_amount');
+    }
+
+    public function getPaymentCollectedAtAttribute($value): mixed
+    {
+        return $this->paymentValue('payment_collected_at');
+    }
+
+    public function getPaymentCollectedByAttribute($value): ?int
+    {
+        $collectedBy = $this->paymentValue('payment_collected_by');
+
+        return $collectedBy !== null ? (int) $collectedBy : null;
+    }
+
+    public function getPaymentReceiptNotesAttribute($value): ?string
+    {
+        return $this->paymentValue('payment_receipt_notes');
+    }
+
+    public function getDisputeStatusAttribute($value): ?string
+    {
+        return $this->disputeValue('dispute_status');
+    }
+
+    public function getDisputeReasonAttribute($value): ?string
+    {
+        return $this->disputeValue('dispute_reason');
+    }
+
+    public function getDisputeDescriptionAttribute($value): ?string
+    {
+        return $this->disputeValue('dispute_description');
+    }
+
+    public function getDisputedAtAttribute($value): mixed
+    {
+        return $this->disputeValue('disputed_at');
+    }
+
+    public function getDisputeResolutionAttribute($value): ?string
+    {
+        return $this->disputeValue('dispute_resolution');
+    }
+
+    public function getDisputeAdminNotesAttribute($value): ?string
+    {
+        return $this->disputeValue('dispute_admin_notes');
+    }
+
+    public function getDisputeReviewedByAttribute($value): ?int
+    {
+        $reviewedBy = $this->disputeValue('dispute_reviewed_by');
+
+        return $reviewedBy !== null ? (int) $reviewedBy : null;
+    }
+
+    public function getDisputeResolvedAtAttribute($value): mixed
+    {
+        return $this->disputeValue('dispute_resolved_at');
+    }
+
+    public function getProviderGrossAmountAttribute($value): mixed
+    {
+        return $this->payoutValue('provider_gross_amount');
+    }
+
+    public function getPlatformCommissionRateAttribute($value): mixed
+    {
+        return $this->payoutValue('platform_commission_rate');
+    }
+
+    public function getPlatformCommissionAmountAttribute($value): mixed
+    {
+        return $this->payoutValue('platform_commission_amount');
+    }
+
+    public function getProviderPayoutAmountAttribute($value): mixed
+    {
+        return $this->payoutValue('provider_payout_amount');
+    }
+
+    public function getProviderPayoutStatusAttribute($value): ?string
+    {
+        return $this->payoutValue('provider_payout_status');
+    }
+
+    public function getProviderPayoutReferenceAttribute($value): ?string
+    {
+        return $this->payoutValue('provider_payout_reference');
+    }
+
+    public function getProviderPayoutPaidAtAttribute($value): mixed
+    {
+        return $this->payoutValue('provider_payout_paid_at');
+    }
+
+    public function getProviderPayoutProcessedByAttribute($value): ?int
+    {
+        $processedBy = $this->payoutValue('provider_payout_processed_by');
+
+        return $processedBy !== null ? (int) $processedBy : null;
+    }
+
+    public function getProviderPayoutProofPathAttribute($value): ?string
+    {
+        return $this->payoutValue('provider_payout_proof_path');
+    }
+
+    public function getProviderPayoutProofOriginalFilenameAttribute($value): ?string
+    {
+        return $this->payoutValue('provider_payout_proof_original_filename');
+    }
+
+    public function getCashCollectedAmountAttribute($value): mixed
+    {
+        return $this->payoutValue('cash_collected_amount');
+    }
+
+    public function getProviderCommissionDueAttribute($value): mixed
+    {
+        return $this->payoutValue('provider_commission_due');
+    }
+
+    public function getProviderCommissionStatusAttribute($value): ?string
+    {
+        return $this->payoutValue('provider_commission_status');
+    }
+
+    public function getProviderCommissionReferenceAttribute($value): ?string
+    {
+        return $this->payoutValue('provider_commission_reference');
+    }
+
+    public function getProviderCommissionPaidAtAttribute($value): mixed
+    {
+        return $this->payoutValue('provider_commission_paid_at');
+    }
+
+    public function getProviderCommissionCollectedByAttribute($value): ?int
+    {
+        $collectedBy = $this->payoutValue('provider_commission_collected_by');
+
+        return $collectedBy !== null ? (int) $collectedBy : null;
+    }
+
+    public function getProviderCommissionProofPathAttribute($value): ?string
+    {
+        return $this->payoutValue('provider_commission_proof_path');
+    }
+
+    public function getProviderCommissionProofOriginalFilenameAttribute($value): ?string
+    {
+        return $this->payoutValue('provider_commission_proof_original_filename');
+    }
+
+    public function getDailyRoomNameAttribute($value): ?string
+    {
+        return $this->videoValue('daily_room_name');
+    }
+
+    public function getDailyRoomUrlAttribute($value): ?string
+    {
+        return $this->videoValue('daily_room_url');
+    }
+
+    public function getDailyRoomExpiresAtAttribute($value): mixed
+    {
+        return $this->videoValue('daily_room_expires_at');
+    }
+
+    public function getLiveVideoStartedAtAttribute($value): mixed
+    {
+        return $this->videoValue('live_video_started_at');
+    }
+
+    public function getLiveVideoEndedAtAttribute($value): mixed
+    {
+        return $this->videoValue('live_video_ended_at');
+    }
+
+    public function getPaymentCollectorAttribute(): ?User
+    {
+        return $this->payment?->collector;
+    }
+
+    private function paymentValue(string $attribute, mixed $default = null): mixed
+    {
+        if (array_key_exists($attribute, $this->pendingPaymentAttributes)) {
+            return $this->pendingPaymentAttributes[$attribute];
+        }
+
+        $payment = $this->exists ? $this->payment : null;
+
+        if (! $payment) {
+            return $default;
+        }
+
+        return match ($attribute) {
+            'payment_method' => $payment->method,
+            'payment_status' => $payment->status,
+            'payment_reference' => $payment->reference,
+            'payment_checkout_session_id' => $payment->checkout_session_id,
+            'paid_at' => $payment->paid_at,
+            'cash_receipt_number' => $payment->receipt_number,
+            'payment_collected_amount' => $payment->method === 'on_site_cash' ? $payment->collected_amount : null,
+            'payment_collected_at' => $payment->collected_at,
+            'payment_collected_by' => $payment->collected_by,
+            'payment_receipt_notes' => $payment->receipt_notes,
+            default => $default,
+        };
+    }
+
+    private function disputeValue(string $attribute, mixed $default = null): mixed
+    {
+        if (array_key_exists($attribute, $this->pendingDisputeAttributes)) {
+            return $this->pendingDisputeAttributes[$attribute];
+        }
+
+        $dispute = $this->exists ? $this->dispute : null;
+
+        if (! $dispute) {
+            return $default;
+        }
+
+        return match ($attribute) {
+            'dispute_status' => $dispute->status,
+            'dispute_reason' => $dispute->reason,
+            'dispute_description' => $dispute->description,
+            'disputed_at' => $dispute->disputed_at,
+            'dispute_resolution' => $dispute->resolution,
+            'dispute_admin_notes' => $dispute->admin_notes,
+            'dispute_reviewed_by' => $dispute->reviewed_by,
+            'dispute_resolved_at' => $dispute->resolved_at,
+            default => $default,
+        };
+    }
+
+    private function syncDisputeAttributes(): void
+    {
+        if (! $this->exists || $this->pendingDisputeAttributes === []) {
+            return;
+        }
+
+        $pending = $this->pendingDisputeAttributes;
+        $dispute = $this->relationLoaded('dispute')
+            ? $this->getRelation('dispute')
+            : $this->dispute()->first();
+
+        $attributes = [
+            'status' => $pending['dispute_status'] ?? $dispute?->status,
+            'reason' => $pending['dispute_reason'] ?? $dispute?->reason,
+            'description' => $pending['dispute_description'] ?? $dispute?->description,
+            'disputed_at' => $pending['disputed_at'] ?? $dispute?->disputed_at,
+            'resolution' => $pending['dispute_resolution'] ?? $dispute?->resolution,
+            'admin_notes' => $pending['dispute_admin_notes'] ?? $dispute?->admin_notes,
+            'reviewed_by' => $pending['dispute_reviewed_by'] ?? $dispute?->reviewed_by,
+            'resolved_at' => $pending['dispute_resolved_at'] ?? $dispute?->resolved_at,
+        ];
+
+        if (! $dispute) {
+            $dispute = $this->dispute()->create($attributes);
+        } else {
+            $dispute->forceFill($attributes)->save();
+        }
+
+        $this->setRelation('dispute', $dispute);
+        $this->pendingDisputeAttributes = [];
+    }
+
+    private function payoutValue(string $attribute, mixed $default = null): mixed
+    {
+        if (array_key_exists($attribute, $this->pendingPayoutAttributes)) {
+            return $this->pendingPayoutAttributes[$attribute];
+        }
+
+        $payout = $this->exists ? $this->payout : null;
+
+        if (! $payout) {
+            return $default;
+        }
+
+        return $payout->getAttribute($attribute);
+    }
+
+    private function syncPayoutAttributes(): void
+    {
+        if (! $this->exists || $this->pendingPayoutAttributes === []) {
+            return;
+        }
+
+        $pending = $this->pendingPayoutAttributes;
+        $payout = $this->relationLoaded('payout')
+            ? $this->getRelation('payout')
+            : $this->payout()->first();
+        $attributes = [];
+
+        foreach (self::PAYOUT_ATTRIBUTES as $attribute) {
+            if (array_key_exists($attribute, $pending)) {
+                $attributes[$attribute] = $pending[$attribute];
+            } elseif ($payout) {
+                $attributes[$attribute] = $payout->getAttribute($attribute);
+            }
+        }
+
+        if (! $payout) {
+            $payout = $this->payout()->create($attributes);
+        } else {
+            $payout->forceFill($attributes)->save();
+        }
+
+        $this->setRelation('payout', $payout);
+        $this->pendingPayoutAttributes = [];
+    }
+
+    private function videoValue(string $attribute, mixed $default = null): mixed
+    {
+        if (array_key_exists($attribute, $this->pendingVideoAttributes)) {
+            return $this->pendingVideoAttributes[$attribute];
+        }
+
+        $session = $this->exists ? $this->videoSession : null;
+
+        return $session?->getAttribute($attribute) ?? $default;
+    }
+
+    private function syncVideoAttributes(): void
+    {
+        if (! $this->exists || $this->pendingVideoAttributes === []) {
+            return;
+        }
+
+        $pending = $this->pendingVideoAttributes;
+        $session = $this->relationLoaded('videoSession')
+            ? $this->getRelation('videoSession')
+            : $this->videoSession()->first();
+        $attributes = [];
+
+        foreach (self::VIDEO_ATTRIBUTES as $attribute) {
+            if (array_key_exists($attribute, $pending)) {
+                $attributes[$attribute] = $pending[$attribute];
+            } elseif ($session) {
+                $attributes[$attribute] = $session->getAttribute($attribute);
+            }
+        }
+
+        if (! $session) {
+            $session = $this->videoSession()->create($attributes);
+        } else {
+            $session->forceFill($attributes)->save();
+        }
+
+        $this->setRelation('videoSession', $session);
+        $this->pendingVideoAttributes = [];
+    }
+
+    private function resolveCanonicalServiceId(): void
+    {
+        if (! $this->hasPendingServiceType || $this->getRawOriginal('service_id')) {
+            return;
+        }
+
+        $slug = Service::catalogSlug($this->pendingServiceType) ?: $this->pendingServiceType;
+        $serviceId = Service::query()->where('slug', $slug)->value('id');
+
+        if ($serviceId) {
+            parent::setAttribute('service_id', $serviceId);
+        } else {
+            parent::setAttribute('service_label', $this->pendingServiceType);
+        }
+    }
+
+    private function syncPaymentAttributes(): void
+    {
+        if (! $this->exists) {
+            return;
+        }
+
+        $pending = $this->pendingPaymentAttributes;
+
+        if ($pending === [] && ! $this->wasRecentlyCreated && ! $this->priceChangedForPaymentSync) {
+            $this->hasPendingServiceType = false;
+            $this->pendingServiceType = null;
+
+            return;
+        }
+
+        $payment = $this->relationLoaded('payment')
+            ? $this->getRelation('payment')
+            : $this->payments()->latest('id')->first();
+
+        $method = $pending['payment_method'] ?? $payment?->method ?? 'on_site_cash';
+        $status = $pending['payment_status'] ?? $payment?->status ?? 'pending';
+        $attributes = [
+            'method' => $method,
+            'status' => $status,
+            'amount' => $payment?->status === 'paid'
+                ? $payment->amount
+                : ($this->price ?? 0),
+            'collected_amount' => $method === 'on_site_cash'
+                ? (array_key_exists('payment_collected_amount', $pending)
+                    ? $pending['payment_collected_amount']
+                    : $payment?->collected_amount)
+                : null,
+            'currency' => 'PHP',
+            'provider' => $method === 'on_site_cash' ? 'manual' : 'paymongo',
+        ];
+
+        $attributeMap = [
+            'payment_reference' => 'reference',
+            'payment_checkout_session_id' => 'checkout_session_id',
+            'paid_at' => 'paid_at',
+            'cash_receipt_number' => 'receipt_number',
+            'payment_collected_at' => 'collected_at',
+            'payment_collected_by' => 'collected_by',
+            'payment_receipt_notes' => 'receipt_notes',
+        ];
+
+        foreach ($attributeMap as $bookingAttribute => $paymentAttribute) {
+            if (array_key_exists($bookingAttribute, $pending)) {
+                $attributes[$paymentAttribute] = $pending[$bookingAttribute];
+            }
+        }
+
+        if (! $payment) {
+            $payment = $this->paymentOrCreate($attributes);
+        } elseif ($pending !== [] || $this->priceChangedForPaymentSync) {
+            $payment->forceFill($attributes)->save();
+        }
+
+        $this->setRelation('payment', $payment);
+        $this->pendingPaymentAttributes = [];
+        $this->priceChangedForPaymentSync = false;
+        $this->hasPendingServiceType = false;
+        $this->pendingServiceType = null;
     }
 
     public function staff()
@@ -608,7 +1271,7 @@ class Booking extends Model
         return $this->exists
             && $this->cleaner_application_id !== null
             && $this->provider_gross_amount !== null
-            && $this->isDirty(['price', 'payment_method'])
+            && ($this->isDirty('price') || array_key_exists('payment_method', $this->pendingPaymentAttributes))
             && ! $this->marketplaceAmountsAreSettled();
     }
 
@@ -708,6 +1371,11 @@ class Booking extends Model
         return $prefix.'-'.now()->format('YmdHis').'-'.Str::upper(Str::random(5));
     }
 
+    public static function generateCashReceiptNumber(): string
+    {
+        return 'RCPT-CASH-'.now()->format('YmdHis').'-'.Str::upper(Str::random(6));
+    }
+
     public static function servicePlans(): array
     {
         return self::SERVICE_PLAN_LABELS;
@@ -796,6 +1464,11 @@ class Booking extends Model
         return Service::effectiveRateForSlug($serviceType);
     }
 
+    public static function requiredCleanerCountForService(?string $serviceType, ?int $floorArea): int
+    {
+        return Service::requiredCleanerCountForSlug($serviceType, $floorArea);
+    }
+
     public static function billableFloorAreaForService(?string $serviceType, int $floorArea): int
     {
         $floorArea = max(0, $floorArea);
@@ -817,14 +1490,25 @@ class Booking extends Model
             $catalog = ServiceAddOn::catalog($activeOnly);
 
             if ($catalog !== []) {
-                return $catalog;
+                return collect($catalog)
+                    ->map(fn (array $addOn) => array_merge($addOn, [
+                        'pricing_unit' => self::ADD_ON_PRICING_UNIT,
+                    ]))
+                    ->all();
             }
         }
 
         return $activeOnly
-            ? self::ADD_ON_CATALOG
+            ? collect(self::ADD_ON_CATALOG)
+                ->map(fn (array $addOn) => array_merge($addOn, [
+                    'pricing_unit' => self::ADD_ON_PRICING_UNIT,
+                ]))
+                ->all()
             : collect(self::ADD_ON_CATALOG)
-                ->map(fn (array $addOn) => array_merge($addOn, ['is_active' => true]))
+                ->map(fn (array $addOn) => array_merge($addOn, [
+                    'is_active' => true,
+                    'pricing_unit' => self::ADD_ON_PRICING_UNIT,
+                ]))
                 ->all();
     }
 
@@ -862,6 +1546,7 @@ class Booking extends Model
                     'label' => self::addOnLabel($key),
                     'price' => (float) $catalog[$key]['price'],
                     'description' => $catalog[$key]['description'] ?? '',
+                    'pricing_unit' => $catalog[$key]['pricing_unit'] ?? self::ADD_ON_PRICING_UNIT,
                 ];
             })
             ->values()
@@ -1364,7 +2049,10 @@ class Booking extends Model
         $isFlatRateRange = Service::usesFlatRateRangePricing($serviceType);
         if ($isFlatRateRange) {
             $range = Service::priceRangeForSlug($serviceType);
-            $basePrice = (float) ($range['min'] ?? $basePrice);
+            $configuredPrice = Service::effectiveRateForSlug($serviceType);
+            $basePrice = $configuredPrice > 0
+                ? $configuredPrice
+                : (float) ($range['min'] ?? $basePrice);
         }
         $basePrice = $isPerSquareMeter ? 0.0 : $basePrice;
         $propertyFee = $isFlatRateRange ? 0.0 : (float) (self::PROPERTY_FEES[$propertyType] ?? 0.0);
@@ -1378,6 +2066,7 @@ class Booking extends Model
         $addOnBreakdown = self::addOnBreakdown($addOns);
         $addOnsFee = (float) collect($addOnBreakdown)->sum('price');
         $totalPrice = $basePrice + $propertyFee + $roomsFee + $bathroomsFee + $floorAreaFee + $addOnsFee;
+        $requiredCleaners = self::requiredCleanerCountForService($serviceType, $floorArea);
 
         return [
             'base_price' => round($basePrice, 2),
@@ -1389,6 +2078,9 @@ class Booking extends Model
             'billable_floor_area' => $billableFloorArea,
             'floor_area_rate' => round($floorAreaRate, 2),
             'floor_area_fee' => round((float) $floorAreaFee, 2),
+            'cleaner_capacity_sqm' => Service::cleanerCapacityForSlug($serviceType),
+            'required_cleaners' => $requiredCleaners,
+            'staffing_manual_review' => self::staffingRequiresManualReview($requiredCleaners),
             'add_ons' => collect($addOnBreakdown)->pluck('key')->all(),
             'add_on_breakdown' => $addOnBreakdown,
             'add_ons_fee' => round($addOnsFee, 2),

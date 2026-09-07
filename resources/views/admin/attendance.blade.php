@@ -91,10 +91,10 @@
         <section class="rounded-[30px] bg-slate-950 px-6 py-6 text-white shadow-[0_24px_60px_rgba(15,23,42,0.18)]">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                    <div class="text-xs font-extrabold uppercase tracking-[0.18em] text-emerald-300">Generated Device Token</div>
+                    <div class="text-xs font-extrabold uppercase tracking-[0.18em] text-emerald-300">Generated Device Credentials</div>
                     <p class="mt-3 text-sm leading-7 text-slate-300">
-                        Copy this token into <code class="rounded bg-white/10 px-1.5 py-0.5 text-white">DEVICE_TOKEN</code> in your ESP32 sketch.
-                        The full value is only shown right after generation or token rotation.
+                        Copy the token, serial, and signing secret into your ESP32 device configuration.
+                        The full values are only shown right after generation or token rotation.
                     </p>
                 </div>
                 <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
@@ -105,6 +105,11 @@
             <div class="mt-5 rounded-3xl border border-white/10 bg-white/5 px-4 py-4 font-mono text-sm break-all text-emerald-100">
                 {{ session('generated_device_token') }}
             </div>
+            @if(session('generated_device_secret'))
+                <div class="mt-3 rounded-3xl border border-white/10 bg-white/5 px-4 py-4 font-mono text-sm break-all text-amber-100">
+                    {{ session('generated_device_secret') }}
+                </div>
+            @endif
         </section>
     @endif
 

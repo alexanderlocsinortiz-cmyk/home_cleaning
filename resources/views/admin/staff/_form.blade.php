@@ -49,10 +49,11 @@
         <label for="password" class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">
             Password @if(!isset($staff))<span class="text-red-500">*</span>@endif
         </label>
-        <input id="password" type="password" name="password" autocomplete="new-password" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100" @if(!isset($staff)) required @endif>
+        <input id="password" type="password" name="password" minlength="8" autocomplete="new-password" aria-describedby="password-help" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100" @if(!isset($staff)) required @endif>
         @error('password')
             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
         @enderror
+        <p id="password-help" class="mt-2 text-xs text-slate-500">Use at least 8 characters with letters and numbers.</p>
         @isset($staff)
             <p class="mt-2 text-xs text-slate-500">Leave this blank if you want to keep the current password.</p>
         @endisset

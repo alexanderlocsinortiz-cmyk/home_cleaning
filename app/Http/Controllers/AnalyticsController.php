@@ -59,7 +59,8 @@ class AnalyticsController extends Controller
     private function getRevenueMetricsFromDatabase($bookings): array
     {
         $totalSql = $this->bookingTotalSql();
-        $row = (clone $bookings)->where('status', 'completed')->selectRaw("COUNT(*) as completed, SUM($totalSql) as total_revenue, SUM(CASE WHEN payment_status = 'paid' THEN 1 ELSE 0 END) as paid_bookings, SUM(CASE WHEN payment_status != 'paid' OR payment_status IS NULL THEN 1 ELSE 0 END) as pending_payments, SUM(CASE WHEN payment_status != 'paid' OR payment_status IS NULL THEN $totalSql ELSE 0 END) as outstanding_revenue")->first();
+        $latestPaymentStatus = "COALESCE((SELECT p.status FROM payments p WHERE p.booking_id = bookings.id ORDER BY p.id DESC LIMIT 1), 'pending')";
+        $row = (clone $bookings)->where('bookings.status', 'completed')->selectRaw("COUNT(*) as completed, SUM($totalSql) as total_revenue, SUM(CASE WHEN $latestPaymentStatus = 'paid' THEN 1 ELSE 0 END) as paid_bookings, SUM(CASE WHEN $latestPaymentStatus != 'paid' THEN 1 ELSE 0 END) as pending_payments, SUM(CASE WHEN $latestPaymentStatus != 'paid' THEN $totalSql ELSE 0 END) as outstanding_revenue")->first();
         $completed = (int) ($row->completed ?? 0);
         $totalRevenue = (float) ($row->total_revenue ?? 0);
         $paid = (int) ($row->paid_bookings ?? 0);
@@ -86,6 +87,7 @@ class AnalyticsController extends Controller
         return $rows->map(function ($row) use ($staff) {
             $member = $staff->get($row->staff_id);
             $assigned = (int) $row->assigned;
+
             return [
                 'name' => $member?->full_name ?? 'Unknown staff member',
                 'barangay' => $member?->barangay_name,
@@ -102,6 +104,7 @@ class AnalyticsController extends Controller
     {
         $ratings = DB::table('ratings')->join('bookings', 'bookings.id', '=', 'ratings.booking_id')->where('bookings.created_at', '>=', $startDate)->select('ratings.stars')->get();
         $total = $ratings->count();
+
         return [
             'average_rating' => $total > 0 ? round((float) $ratings->avg('stars'), 1) : null,
             'total_ratings' => $total,
@@ -113,7 +116,8 @@ class AnalyticsController extends Controller
     private function getServicePopularityFromDatabase($bookings): Collection
     {
         $totalSql = $this->bookingTotalSql();
-        return (clone $bookings)->leftJoin('services', 'services.id', '=', 'bookings.service_id')->select(['bookings.service_type', 'services.name as service_name'])->selectRaw("COUNT(bookings.id) as bookings, SUM(CASE WHEN bookings.status = 'completed' THEN 1 ELSE 0 END) as completed, AVG($totalSql) as average_price, SUM(CASE WHEN bookings.status = 'completed' THEN $totalSql ELSE 0 END) as revenue")->groupBy('bookings.service_type', 'services.name')->orderByDesc('bookings')->get()->map(fn ($row) => ['name' => $row->service_name ?? Service::displayNameForSlug($row->service_type), 'bookings' => (int) $row->bookings, 'completed' => (int) $row->completed, 'completion_rate' => $row->bookings > 0 ? round(((int) $row->completed / $row->bookings) * 100, 1) : 0.0, 'average_price' => round((float) ($row->average_price ?? 0), 2), 'revenue' => round((float) ($row->revenue ?? 0), 2)])->values();
+
+        return (clone $bookings)->leftJoin('services', 'services.id', '=', 'bookings.service_id')->select(['services.slug as service_slug', 'services.name as service_name'])->selectRaw("COUNT(bookings.id) as bookings, SUM(CASE WHEN bookings.status = 'completed' THEN 1 ELSE 0 END) as completed, AVG($totalSql) as average_price, SUM(CASE WHEN bookings.status = 'completed' THEN $totalSql ELSE 0 END) as revenue")->groupBy('services.slug', 'services.name')->orderByDesc('bookings')->get()->map(fn ($row) => ['name' => $row->service_name ?? Service::displayNameForSlug($row->service_slug), 'bookings' => (int) $row->bookings, 'completed' => (int) $row->completed, 'completion_rate' => $row->bookings > 0 ? round(((int) $row->completed / (int) $row->bookings) * 100, 1) : 0.0, 'average_price' => round((float) ($row->average_price ?? 0), 2), 'revenue' => round((float) ($row->revenue ?? 0), 2)])->values();
     }
 
     private function getDailyTrendsFromDatabase($bookings, Carbon $startDate): Collection
@@ -125,6 +129,7 @@ class AnalyticsController extends Controller
             $row = $rows->get($cursor->toDateString());
             $trends->push(['date' => $cursor->toDateString(), 'label' => $cursor->format('M d'), 'bookings' => (int) ($row->bookings ?? 0), 'completed' => (int) ($row->completed ?? 0), 'revenue' => round((float) ($row->revenue ?? 0), 2)]);
         }
+
         return $trends;
     }
 
@@ -279,10 +284,10 @@ class AnalyticsController extends Controller
     private function getServicePopularity(Collection $bookings): Collection
     {
         return $bookings
-            ->groupBy('service_type')
-            ->map(function (Collection $serviceBookings, ?string $serviceType) {
+            ->groupBy(fn (Booking $booking) => $booking->service_id)
+            ->map(function (Collection $serviceBookings) {
                 $completedBookings = $serviceBookings->where('status', 'completed');
-                $serviceName = $serviceBookings->first()?->service?->name ?? Service::displayNameForSlug($serviceType);
+                $serviceName = $serviceBookings->first()?->service?->name ?? Service::displayNameForSlug($serviceBookings->first()?->service_type);
 
                 return [
                     'name' => $serviceName,

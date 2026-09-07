@@ -69,7 +69,7 @@
         <div class="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
                 <h3 class="text-lg font-extrabold text-slate-900">Booking Add-ons</h3>
-                <p class="mt-1 text-sm text-slate-500">Manage optional extras clients can select during booking. These are not service packages.</p>
+                <p class="mt-1 text-sm text-slate-500">Manage optional extras clients can select during booking. These are not service packages. Current add-ons are charged once per booking; quantity billing is not supported.</p>
             </div>
             <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500">
                 <i class="fas fa-puzzle-piece text-slate-400"></i>
@@ -202,7 +202,8 @@
                 <thead class="bg-slate-50/90">
                     <tr>
                         <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">#</th>
-                        <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Service Name</th>
+                        <th class="px-5 py-3 text-center text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Order</th>
+                        <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Image / Service Name</th>
                         <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Description</th>
                         <th class="px-5 py-3 text-center text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Price</th>
                         <th class="px-5 py-3 text-center text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Duration</th>
@@ -218,8 +219,17 @@
                         @endphp
                         <tr class="border-t border-slate-100 transition hover:bg-slate-50/70">
                             <td class="px-5 py-4 text-sm font-semibold text-slate-400">{{ $loop->iteration }}</td>
+                            <td class="px-5 py-4 text-center text-sm font-black text-blue-700">{{ $service->sort_order ?? 0 }}</td>
                             <td class="px-5 py-4">
-                                <div class="font-bold text-slate-900">{{ $service->name }}</div>
+                                <div class="flex items-start gap-3">
+                                    <img src="{{ $service->image_url }}" alt="{{ $service->image_alt }}" loading="lazy" decoding="async" class="h-16 w-20 shrink-0 rounded-xl border border-slate-200 object-cover">
+                                    <div>
+                                        <div class="font-bold text-slate-900">{{ $service->name }}</div>
+                                        <div class="mt-1 text-[11px] font-semibold {{ $service->image_path ? 'text-blue-600' : 'text-emerald-600' }}">
+                                            <i class="fas {{ $service->image_path ? 'fa-cloud-arrow-up' : 'fa-wand-magic-sparkles' }} mr-1"></i>{{ $service->image_path ? 'Custom image' : 'Matching default' }}
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="mt-2 flex flex-wrap gap-2">
                                     @if($package)
                                         <span class="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-indigo-700">{{ $package['badge'] }}</span>
@@ -245,8 +255,8 @@
                             <td class="px-5 py-4 text-center text-sm font-bold text-slate-700">{{ number_format($service->duration_minutes ?? \App\Models\Service::DEFAULT_DURATION_MINUTES) }} min</td>
                             <td class="px-5 py-4 text-center text-xs font-semibold text-slate-600">
                                 <div>{{ $service->scope_max_floor_area ? number_format($service->scope_max_floor_area) . ' sqm' : 'No area limit' }}</div>
-                                <div class="mt-1 text-[11px] {{ $service->scopeDefinitionIsComplete() ? 'text-emerald-600' : 'text-amber-600' }}">{{ $service->scopeDefinitionIsComplete() ? 'Definition ready for approval' : 'Definition incomplete' }}</div>
-                                <div class="mt-1 text-[11px] text-slate-400">{{ $service->scope_cleaner_count ?: 1 }} cleaner · {{ ucfirst($service->scope_status ?: 'provisional') }}</div>
+                                <div class="mt-1 text-[11px] {{ $service->scopeApprovalIsComplete() ? 'text-emerald-600' : 'text-amber-600' }}">{{ $service->scopeApprovalIsComplete() ? 'Definition ready for approval' : 'Approval definition incomplete' }}</div>
+                                <div class="mt-1 text-[11px] text-slate-400">{{ $service->scope_cleaner_count ?: 1 }} cleaner · {{ $service->scopeIsApproved() ? 'Approved' : 'Provisional' }}</div>
                             </td>
                             <td class="px-5 py-4 text-center">
                                 @if($service->is_active)
@@ -308,7 +318,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-16 text-center">
+                            <td colspan="9" class="px-6 py-16 text-center">
                                 <div class="mx-auto flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-[1.75rem] bg-slate-100 text-3xl text-slate-400">
                                     <i class="fas fa-concierge-bell"></i>
                                 </div>

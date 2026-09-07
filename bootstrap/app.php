@@ -9,10 +9,10 @@ use App\Http\Middleware\ProviderMiddleware;
 use App\Http\Middleware\RateLimitPerDevice;
 use App\Http\Middleware\RejectOversizedProofUpload;
 use App\Http\Middleware\StaffMiddleware;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Console\Scheduling\Schedule;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -24,6 +24,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('database:backup-cloud')
             ->dailyAt('02:00')
+            ->withoutOverlapping(30);
+        $schedule->command('cleaner-applications:purge-sensitive-data')
+            ->dailyAt('03:30')
+            ->withoutOverlapping(30);
+        $schedule->command('security:prune-events')
+            ->dailyAt('04:00')
             ->withoutOverlapping(30);
     })
     ->withMiddleware(function (Middleware $middleware): void {

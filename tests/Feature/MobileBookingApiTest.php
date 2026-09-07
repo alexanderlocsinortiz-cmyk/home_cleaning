@@ -19,6 +19,37 @@ class MobileBookingApiTest extends TestCase
             ->assertUnauthorized();
     }
 
+    public function test_unverified_mobile_client_cannot_manage_bookings(): void
+    {
+        $client = User::factory()->unverified()->create([
+            'email' => 'unverified-mobile@example.com',
+            'password' => Hash::make('Password123'),
+        ]);
+        $booking = Booking::factory()->create(['user_id' => $client->id, 'status' => 'pending']);
+        $token = $this->loginToken('unverified-mobile@example.com');
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/mobile/bookings')
+            ->assertForbidden()
+            ->assertJsonPath('requires_email_verification', true);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/mobile/bookings', $this->validPayload())
+            ->assertForbidden()
+            ->assertJsonPath('requires_email_verification', true);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/mobile/bookings/'.$booking->id.'/cancel')
+            ->assertForbidden()
+            ->assertJsonPath('requires_email_verification', true);
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'status' => 'pending',
+        ]);
+        $this->assertDatabaseCount('bookings', 1);
+    }
+
     public function test_mobile_client_can_create_real_booking(): void
     {
         $service = $this->service();
@@ -38,7 +69,6 @@ class MobileBookingApiTest extends TestCase
 
         $this->assertDatabaseHas('bookings', [
             'service_id' => $service->id,
-            'service_type' => 'deep',
             'property_type' => 'house',
             'floor_area' => 30,
             'barangay' => 'Poblacion',
@@ -46,6 +76,48 @@ class MobileBookingApiTest extends TestCase
             'status' => 'pending',
             'price' => 2850,
         ]);
+    }
+
+    public function test_mobile_booking_rejects_incompatible_service_and_property_type(): void
+    {
+        $this->service();
+        $token = $this->mobileToken();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/mobile/bookings', $this->validPayload([
+                'property_type' => 'office',
+            ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('service_type');
+
+        $this->assertDatabaseCount('bookings', 0);
+    }
+
+    public function test_mobile_booking_persists_staffing_requirement_and_manual_review(): void
+    {
+        $service = $this->canonicalService([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'price' => 35,
+            'is_active' => true,
+        ]);
+        $token = $this->mobileToken();
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/mobile/bookings', $this->validPayload([
+                'service_type' => $service->slug,
+                'floor_area' => 1000,
+            ]));
+
+        $response->assertCreated();
+        $booking = Booking::latest('id')->first();
+
+        $this->assertSame(25, $booking->required_cleaners);
+        $this->assertSame('pending', $booking->manual_review_status);
+        $this->assertContains(
+            'This booking requires 25 cleaners, exceeding the automatic staffing limit of 20.',
+            $booking->risk_reasons ?? []
+        );
     }
 
     public function test_mobile_client_can_list_own_bookings(): void

@@ -22,7 +22,7 @@ class ProviderPortalController extends Controller
             : Booking::whereRaw('1 = 0');
 
         $assignedBookings = (clone $assignedBookingsQuery)
-            ->with(['rating'])
+            ->with(['rating', 'payment'])
             ->get();
 
         $bookingStats = [
@@ -57,20 +57,20 @@ class ProviderPortalController extends Controller
         ];
 
         $payoutRows = $application
-            ? Booking::where('cleaner_application_id', $application->id)->whereNotNull('provider_gross_amount')->get()
+            ? Booking::where('cleaner_application_id', $application->id)->whereHas('payout')->with(['payment', 'payout'])->get()
             : collect();
 
         $payoutStats = $this->payoutStats($payoutRows);
 
         $currentBooking = (clone $assignedBookingsQuery)
-            ->with(['user', 'service'])
+            ->with(['user', 'service', 'payment'])
             ->whereIn('status', ['pending', 'confirmed', 'in_progress'])
             ->orderBy('scheduled_date')
             ->orderBy('scheduled_time')
             ->first();
 
         $recentBookings = (clone $assignedBookingsQuery)
-            ->with(['user', 'service'])
+            ->with(['user', 'service', 'payment'])
             ->latest()
             ->take(5)
             ->get();
@@ -201,7 +201,7 @@ class ProviderPortalController extends Controller
         ];
 
         $bookings = (clone $baseQuery)
-            ->with(['user', 'service'])
+            ->with(['user', 'service', 'payment'])
             ->when($status === 'pending_response', function ($query) {
                 $query->where(function ($innerQuery) {
                     $innerQuery->whereNull('provider_assignment_status')
@@ -228,13 +228,14 @@ class ProviderPortalController extends Controller
 
         $payoutStats = $this->payoutStats(
             Booking::where('cleaner_application_id', $application->id)
-                ->whereNotNull('provider_gross_amount')
+                ->whereHas('payout')
+                ->with(['payment', 'payout'])
                 ->get()
         );
 
-        $payouts = Booking::with(['user', 'service'])
+        $payouts = Booking::with(['user', 'service', 'payment', 'payout'])
             ->where('cleaner_application_id', $application->id)
-            ->whereNotNull('provider_gross_amount')
+            ->whereHas('payout')
             ->orderByDesc('scheduled_date')
             ->orderByDesc('id')
             ->paginate(10);
@@ -248,7 +249,7 @@ class ProviderPortalController extends Controller
 
         abort_if(! $application || (int) $booking->cleaner_application_id !== (int) $application->id, 403);
 
-        $booking->load(['user', 'service', 'staff', 'serviceProofs.uploader']);
+        $booking->load(['user', 'service', 'staff', 'payment', 'payout', 'serviceProofs.uploader']);
 
         return view('provider.booking-show', compact('application', 'booking'));
     }
@@ -348,7 +349,7 @@ class ProviderPortalController extends Controller
 
             $videoUploaded = false;
             if ($request->hasFile('completion_video')) {
-                $videoPath = $request->file('completion_video')->store('booking-proofs/after', config('filesystems.public_uploads_disk'));
+                $videoPath = $request->file('completion_video')->store('booking-proofs/after', config('filesystems.proof_uploads_disk'));
 
                 $booking->serviceProofs()->create([
                     'uploaded_by' => $actor->id,
@@ -364,7 +365,7 @@ class ProviderPortalController extends Controller
             $booking->status = 'completed';
             $booking->markServiceCompleted();
 
-            if ($booking->payment_method === 'on_site_cash') {
+            if ($booking->payment?->method === 'on_site_cash') {
                 $booking->cash_collected_amount = $booking->cash_collected_amount ?: $booking->provider_gross_amount;
                 $booking->provider_commission_due = $booking->provider_commission_due ?: $booking->platform_commission_amount;
                 $booking->provider_commission_status = $booking->provider_commission_status ?: 'unpaid';
@@ -389,7 +390,7 @@ class ProviderPortalController extends Controller
             $booking->logActivity($actor, 'provider_status_updated', 'Provider marked the booking as completed.', [
                 'from_status' => 'in_progress',
                 'to_status' => 'completed',
-                'payment_status' => $booking->payment_status,
+                'payment_status' => $booking->payment?->status ?? 'pending',
                 'on_time_status' => $booking->on_time_status,
                 'started_late_minutes' => $booking->started_late_minutes,
                 'completed_late_minutes' => $booking->completed_late_minutes,
@@ -492,7 +493,7 @@ class ProviderPortalController extends Controller
         User $uploadedBy
     ): int {
         foreach ($files as $file) {
-            $path = $file->store('booking-proofs/'.$stage, config('filesystems.public_uploads_disk'));
+            $path = $file->store('booking-proofs/'.$stage, config('filesystems.proof_uploads_disk'));
 
             $booking->serviceProofs()->create([
                 'uploaded_by' => $uploadedBy->id,

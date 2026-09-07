@@ -27,7 +27,7 @@ class SendBookingSubmittedEmail implements ShouldQueue
 
     public function handle(): void
     {
-        $booking = Booking::with(['user', 'service', 'preferredStaff'])->find($this->bookingId);
+        $booking = Booking::with(['user', 'service', 'preferredStaff', 'payment'])->find($this->bookingId);
 
         if (! $booking || ! $booking->user?->email) {
             return;

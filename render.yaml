@@ -11,7 +11,7 @@ services:
       - key: APP_DEBUG
         value: false
       - key: APP_KEY
-        generateValue: true
+        sync: false
       - key: APP_URL
         value: https://cleanflow-app.onrender.com
       - key: DB_CONNECTION
@@ -31,17 +31,33 @@ services:
       - key: DB_SSLMODE
         sync: false
       - key: CACHE_STORE
-        value: file
+        value: database
       - key: SESSION_DRIVER
-        value: file
+        value: database
       - key: QUEUE_CONNECTION
         value: database
+      - key: PAYMONGO_PUBLIC_KEY
+        sync: false
+      - key: PAYMONGO_SECRET_KEY
+        sync: false
+      - key: PAYMONGO_WEBHOOK_SECRET
+        sync: false
+      - key: PAYMONGO_CHECKOUT_REDIRECT_ENABLED
+        value: true
+      - key: DAILY_API_KEY
+        sync: false
+      - key: DAILY_DOMAIN
+        sync: false
       - key: FILESYSTEM_PRIVATE_DISK
         value: s3
       - key: FILESYSTEM_PRIVATE_PREFIX
         sync: false
       - key: FILESYSTEM_PUBLIC_DISK
         value: s3_public
+      - key: FILESYSTEM_PROOF_DISK
+        value: s3_proof
+      - key: FILESYSTEM_PROOF_PREFIX
+        sync: false
       - key: FILESYSTEM_PUBLIC_PREFIX
         sync: false
       - key: DATABASE_BACKUP_DISK
@@ -125,6 +141,10 @@ services:
         sync: false
       - key: FILESYSTEM_PUBLIC_DISK
         value: s3_public
+      - key: FILESYSTEM_PROOF_DISK
+        value: s3_proof
+      - key: FILESYSTEM_PROOF_PREFIX
+        sync: false
       - key: FILESYSTEM_PUBLIC_PREFIX
         sync: false
       - key: AWS_ACCESS_KEY_ID
@@ -161,3 +181,73 @@ services:
         sync: false
       - key: MAIL_FROM_NAME
         sync: false
+
+  - type: cron
+    name: cleanflow-database-backup
+    env: docker
+    plan: starter
+    schedule: "0 2 * * *"
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    dockerCommand: php artisan database:backup-cloud
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: 5432
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SCHEMA
+        sync: false
+      - key: DB_SSLMODE
+        sync: false
+      - key: FILESYSTEM_PRIVATE_DISK
+        value: s3
+      - key: FILESYSTEM_PRIVATE_PREFIX
+        sync: false
+      - key: FILESYSTEM_PUBLIC_DISK
+        value: s3_public
+      - key: FILESYSTEM_PROOF_DISK
+        value: s3_proof
+      - key: FILESYSTEM_PROOF_PREFIX
+        sync: false
+      - key: FILESYSTEM_PUBLIC_PREFIX
+        sync: false
+      - key: DATABASE_BACKUP_DISK
+        value: s3
+      - key: DATABASE_BACKUP_PREFIX
+        value: database-backups
+      - key: DATABASE_BACKUP_RETENTION_COUNT
+        value: 30
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_DEFAULT_REGION
+        value: auto
+      - key: AWS_PRIVATE_BUCKET
+        sync: false
+      - key: AWS_PUBLIC_BUCKET
+        sync: false
+      - key: AWS_PRIVATE_URL
+        sync: false
+      - key: AWS_PUBLIC_URL
+        sync: false
+      - key: AWS_ENDPOINT
+        sync: false
+      - key: AWS_USE_PATH_STYLE_ENDPOINT
+        value: false

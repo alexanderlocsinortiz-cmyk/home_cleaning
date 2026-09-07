@@ -62,11 +62,13 @@ class RateLimitPerDevice
         RateLimiter::hit($ipKey, 60);
 
         // ESP32 devices poll enrollment and heartbeat frequently while online.
+        // Cache increment() does not accept a TTL, so the old counter never
+        // expired and a device was permanently blocked after 120 requests.
         $key = 'rate_limit:device:'.($deviceSerial ?: hash('sha256', $deviceToken));
         $limit = 120;
-        $decayMinutes = 1;
+        $decaySeconds = 60;
 
-        if (cache()->get($key, 0) >= $limit) {
+        if (RateLimiter::tooManyAttempts($key, $limit)) {
             Log::warning('Device rate limit exceeded', [
                 'device_serial' => $deviceSerial,
                 'has_device_token' => (bool) $deviceToken,
@@ -74,11 +76,12 @@ class RateLimitPerDevice
 
             return response()->json(
                 ['error' => 'Too many requests. Please wait.'],
-                429
+                429,
+                ['Retry-After' => (string) RateLimiter::availableIn($key)]
             );
         }
 
-        cache()->increment($key, 1, now()->addMinutes($decayMinutes));
+        RateLimiter::hit($key, $decaySeconds);
 
         return $next($request);
     }

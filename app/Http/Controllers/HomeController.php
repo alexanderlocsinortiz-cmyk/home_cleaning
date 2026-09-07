@@ -12,6 +12,7 @@ class HomeController extends Controller
     public function index()
     {
         $services = Service::where('is_active', true)
+            ->orderBy('sort_order')
             ->orderBy('price')
             ->get();
         $pricingConfig = Booking::pricingConfiguration();
@@ -19,9 +20,20 @@ class HomeController extends Controller
 
         $serviceAreas = config('cleanflow.service_areas', []);
 
-        $serviceBookingCounts = Booking::selectRaw('service_type, COUNT(*) as total')
-            ->groupBy('service_type')
-            ->pluck('total', 'service_type');
+        $serviceBookingCounts = Booking::query()
+            ->join('services', 'services.id', '=', 'bookings.service_id')
+            ->selectRaw('services.slug as service_slug, COUNT(bookings.id) as total')
+            ->groupBy('services.slug')
+            ->pluck('total', 'service_slug');
+
+        $serviceRatingStats = Rating::query()
+            ->join('bookings', 'bookings.id', '=', 'ratings.booking_id')
+            ->where('bookings.status', 'completed')
+            ->whereNotNull('bookings.service_id')
+            ->selectRaw('bookings.service_id, COUNT(ratings.id) as total, AVG(ratings.stars) as average')
+            ->groupBy('bookings.service_id')
+            ->get()
+            ->keyBy('service_id');
 
         $stats = [
             'barangays' => count($serviceAreas),
@@ -49,6 +61,7 @@ class HomeController extends Controller
             'reviewStats',
             'servicePackages',
             'serviceBookingCounts',
+            'serviceRatingStats',
             'services',
             'stats',
             'topServiceSlug',

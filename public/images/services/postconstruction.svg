@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" role="img" aria-labelledby="title desc">
+  <title id="title">Post construction cleaning illustration</title><desc id="desc">A hard hat, paint roller, and newly finished building being cleaned.</desc>
+  <rect width="800" height="420" rx="32" fill="#fff1e7"/><circle cx="665" cy="82" r="55" fill="#ffd0b3"/><path d="M82 326h635" stroke="#efc1a2" stroke-width="12" stroke-linecap="round"/>
+  <path d="M520 326V170h125v156M494 170l88-76 88 76" fill="#fff" stroke="#d96f38" stroke-width="10" stroke-linejoin="round"/><path d="M570 326v-68h25v68M548 205h26v30h-26zM600 205h26v30h-26z" fill="#ffd0b3" stroke="#d96f38" stroke-width="7"/>
+  <path d="M185 310l92-132" stroke="#8b5e3c" stroke-width="13" stroke-linecap="round"/><path d="M240 150h64v58h-64z" fill="#f2c14e" stroke="#a86c00" stroke-width="9"/><path d="M231 150c0-36 83-36 83 0" fill="none" stroke="#a86c00" stroke-width="12"/><path d="M184 310l-28 30h75l-25-30z" fill="#59a9c5" stroke="#23627b" stroke-width="8"/><path d="M382 296l28-78 28 78M397 262h26" fill="none" stroke="#d96f38" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M360 122l8 21 21 8-21 8-8 21-8-21-21-8 21-8zM440 102l6 15 15 6-15 6-6 15-6-15-15-6 15-6z" fill="#f2c14e"/>
+  <g stroke="#713c25" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M337 174c0-34 72-34 72 0" fill="#f2c14e"/><circle cx="373" cy="190" r="24" fill="#f2bd91"/><path d="M348 216h54l17 62h-72z" fill="#e67c45"/><path d="M355 278l-22 48M392 278l22 48" fill="none"/><path d="M333 326h-29M414 326h29" fill="none"/><path d="M405 230l42 33" fill="none"/><path d="M446 263l35-47" fill="none"/><path d="M476 208h24v72h-24z" fill="#59a9c5"/><path d="M473 208h30" fill="none"/>
+  </g>
+</svg>

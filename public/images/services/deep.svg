@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" role="img" aria-labelledby="title desc">
+  <title id="title">Deep cleaning illustration</title><desc id="desc">A scrub brush, bucket, and sparkling clean room for detailed cleaning.</desc>
+  <rect width="800" height="420" rx="32" fill="#eef1ff"/><circle cx="655" cy="90" r="57" fill="#d7d9ff"/><path d="M85 326h630" stroke="#c4c9ed" stroke-width="12" stroke-linecap="round"/>
+  <path d="M520 326V185h124v141M495 185l87-73 87 73" fill="#fff" stroke="#5458bb" stroke-width="10" stroke-linejoin="round"/><path d="M570 326v-68h25v68M546 220h27v30h-27zM598 220h27v30h-27z" fill="#c7c9ff" stroke="#5458bb" stroke-width="7"/>
+  <path d="M225 155l115 138" stroke="#74573d" stroke-width="15" stroke-linecap="round"/><path d="M196 140h84l24 37-98 20z" fill="#ff8a76" stroke="#9f3e4f" stroke-width="9"/><path d="M242 196l-34 39M266 191l-28 45M292 184l-22 46" stroke="#9f3e4f" stroke-width="8" stroke-linecap="round"/>
+  <path d="M390 308h105l-13-101h-80z" fill="#fff" stroke="#5458bb" stroke-width="9"/><path d="M415 207c0-37 55-37 55 0" fill="none" stroke="#5458bb" stroke-width="9"/><path d="M410 246h65M417 276h51" stroke="#9da2e6" stroke-width="8" stroke-linecap="round"/><path d="M370 103l9 24 24 9-24 9-9 24-9-24-24-9 24-9zM482 92l6 16 16 6-16 6-6 16-6-16-16-6 16-6z" fill="#f4be45"/>
+  <g stroke="#393b84" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="350" cy="181" r="25" fill="#f2bd91"/><path d="M326 210h54l30 58-55 29-49-42z" fill="#5b63c5"/><path d="M351 296l-35 30M377 285l31 41" fill="none"/><path d="M316 326h-28M408 326h28" fill="none"/><path d="M328 229l-45 50" fill="none"/><path d="M284 279l-44 17" fill="none"/><path d="M231 296l-19-9 8-18 20 8z" fill="#ff8a76"/>
+  </g>
+</svg>

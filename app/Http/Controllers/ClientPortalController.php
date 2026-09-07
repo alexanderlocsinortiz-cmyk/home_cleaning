@@ -11,7 +11,7 @@ class ClientPortalController extends Controller
     public function dashboard()
     {
         $bookings = Booking::where('user_id', auth()->id())
-            ->with(['staff', 'service', 'preferredStaff'])
+            ->with(['staff', 'service', 'preferredStaff', 'payment'])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
@@ -49,7 +49,9 @@ class ClientPortalController extends Controller
     public function updateProfile(Request $request)
     {
         $user = auth()->user();
-        $minimumBirthDate = now()->subYears(18)->toDateString();
+        $minimumBirthDate = now(config('cleanflow.attendance_timezone', config('app.timezone')))
+            ->subYears(18)
+            ->toDateString();
 
         $request->validate([
             'first_name' => 'required|string|max:50',

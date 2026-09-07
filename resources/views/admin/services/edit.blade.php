@@ -54,7 +54,7 @@
             <h3 class="text-lg font-extrabold text-slate-900">Service Details</h3>
             <p class="mt-1 text-sm text-slate-500">Update the catalog details clients and admins rely on during booking.</p>
         </div>
-        <form action="{{ route('admin.services.update', $service->id) }}" method="POST" class="space-y-6 px-6 py-6"
+        <form action="{{ route('admin.services.update', $service->id) }}" method="POST" enctype="multipart/form-data" class="space-y-6 px-6 py-6"
             data-service-confirm
             data-confirm-title="Save service changes?"
             data-confirm-message="This will update {{ $service->name }} in the service catalog."
@@ -72,6 +72,7 @@
                     <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Description</label>
                     <textarea name="description" rows="4" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">{{ old('description', $service->description) }}</textarea>
                 </div>
+                @include('admin.services._image_fields', ['serviceImage' => $service])
                 <div>
                     <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Price (&#8369;) <span class="text-red-500">*</span></label>
                     <input type="number" name="price" value="{{ old('price', $service->price) }}" required min="1" step="0.01" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
@@ -88,12 +89,18 @@
                     <p class="mt-1 text-xs text-slate-500">Staff availability blocks this duration plus 60 minutes rest. Existing bookings keep their saved duration.</p>
                     @error('duration_minutes')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
+                <div>
+                    <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Landing Page Display Order</label>
+                    <input type="number" name="sort_order" value="{{ old('sort_order', $service->sort_order ?? 0) }}" min="0" max="9999" step="1" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
+                    <p class="mt-1 text-xs text-slate-500">Lower numbers appear first. Equal numbers fall back to price.</p>
+                    @error('sort_order')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
                 <div class="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
                     <div class="text-sm font-extrabold text-slate-900">Measurable Scope Controls</div>
-                    <p class="mt-1 text-xs leading-5 text-slate-600">These controls cover only measurable limits. Subjective condition and task decisions still require an inspection or owner-approved scope sheet.</p>
+                    <p class="mt-1 text-xs leading-5 text-slate-600">These controls cover only measurable limits. Approved requires the area limit, cleaner count, and every scope-definition field below. Subjective condition and task decisions still require an inspection or owner-approved scope sheet.</p>
                     <div class="mt-4 grid gap-4 md:grid-cols-2">
                         <div>
-                            <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Maximum Floor Area (sqm)</label>
+                            <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Maximum Floor Area (sqm) <span class="text-red-500">*</span> <span class="font-normal normal-case tracking-normal text-slate-400">when approved</span></label>
                             <input type="number" name="scope_max_floor_area" value="{{ old('scope_max_floor_area', $service->scope_max_floor_area) }}" min="10" max="1000" step="1" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
                             <p class="mt-1 text-xs text-slate-500">Leave blank only when there is no measurable area limit.</p>
                             @error('scope_max_floor_area')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror

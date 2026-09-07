@@ -183,6 +183,7 @@
                             name="date_of_birth"
                             class="client-profile-input"
                             value="{{ old('date_of_birth', optional($user->date_of_birth)->format('Y-m-d')) }}"
+                            max="{{ now(config('cleanflow.attendance_timezone', config('app.timezone')))->subYears(18)->toDateString() }}"
                             required
                         >
                         @error('date_of_birth')

@@ -28,12 +28,34 @@
         default => '#instant-quote',
     };
 
-    $instantQuotePackages = [
-        ['slug' => 'basic-clean', 'label' => 'Basic', 'base' => 0, 'area_rate' => 35, 'pricing_unit' => 'sqm'],
-        ['slug' => 'deep', 'label' => 'Deep', 'base' => 0, 'area_rate' => 95, 'pricing_unit' => 'sqm'],
-        ['slug' => 'moveinout', 'label' => 'Move-in', 'base' => 0, 'area_rate' => 80, 'pricing_unit' => 'sqm'],
-        ['slug' => 'postconstruction', 'label' => 'Post-Con', 'base' => 0, 'area_rate' => 105, 'pricing_unit' => 'sqm'],
+    $instantQuoteDefinitions = [
+        ['slugs' => ['basic', 'basic-clean'], 'label' => 'Basic'],
+        ['slugs' => ['deep'], 'label' => 'Deep'],
+        ['slugs' => ['moveinout'], 'label' => 'Move-in'],
+        ['slugs' => ['postconstruction'], 'label' => 'Post-Con'],
     ];
+    $instantQuotePackages = collect($instantQuoteDefinitions)
+        ->map(function (array $definition) use ($services): ?array {
+            $service = collect($definition['slugs'])
+                ->map(fn (string $slug) => $services->firstWhere('slug', $slug))
+                ->filter()
+                ->first();
+
+            if (! $service || ! \App\Models\Service::usesPerSquareMeterPricing($service->slug)) {
+                return null;
+            }
+
+            return [
+                'slug' => $service->slug,
+                'label' => $definition['label'],
+                'base' => 0,
+                'area_rate' => (float) $service->price,
+                'pricing_unit' => 'sqm',
+            ];
+        })
+        ->filter()
+        ->values()
+        ->all();
 
     $instantQuotePropertyOptions = [
         ['key' => 'house', 'label' => 'House', 'fee' => 0],
@@ -164,7 +186,7 @@
             aria-hidden="true"
         >
         <div class="home-hero-bg-overlay" aria-hidden="true"></div>
-        <div class="hero-section container-pad relative z-10 mx-auto max-w-7xl px-6 pt-16 pb-16 lg:min-h-[760px] lg:pt-28 lg:pb-24">
+        <div class="hero-section container-pad relative z-10 mx-auto grid max-w-7xl items-center gap-12 px-6 pt-16 pb-16 lg:min-h-[760px] lg:grid-cols-[minmax(0,0.86fr)_minmax(480px,1.14fr)] lg:gap-16 lg:pt-24 lg:pb-24">
             <div class="max-w-xl space-y-6 reveal-on-scroll">
                 @if($showEarlyLaunchBanner)
                 <div class="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-700 shadow-sm">
@@ -214,6 +236,101 @@
                     </div>
                     @endforeach
                 </div>
+            </div>
+            <div class="home-hero-slider reveal-on-scroll" data-advertising-slider>
+                <div class="relative aspect-[0.98] min-h-[430px] sm:aspect-[1.18] lg:min-h-[520px]">
+                    <article class="home-hero-slide absolute inset-0 grid" data-ad-slide aria-hidden="false">
+                        <img src="{{ asset('images/services/ChatGPT Image Sep 4, 2026, 02_14_05 AM.png') }}" alt="A professional cleaner working in a bright home" class="home-hero-slide__image">
+                        <div class="home-hero-slide__veil" aria-hidden="true"></div>
+                        <div class="home-hero-slide__content">
+                            <span class="home-hero-slide__eyebrow">General cleaning</span>
+                            <h2 class="home-hero-slide__title">A Cleaner Home,<br>Less Stress</h2>
+                            <p class="home-hero-slide__copy">Professional home cleaning you can schedule in just a few clicks.</p>
+                            <a href="{{ $primaryCtaUrl }}" class="home-hero-slide__cta">Book a Cleaning <i class="fas fa-arrow-right text-xs"></i></a>
+                        </div>
+                    </article>
+                    <article class="home-hero-slide absolute inset-0 hidden" data-ad-slide aria-hidden="true">
+                        <img src="{{ asset('images/services/deep.jpg') }}" alt="Deep cleaning service" class="home-hero-slide__image">
+                        <div class="home-hero-slide__veil" aria-hidden="true"></div>
+                        <div class="home-hero-slide__content">
+                            <span class="home-hero-slide__eyebrow">Deep cleaning</span>
+                            <h2 class="home-hero-slide__title">Give Every Corner<br>A Fresh Start</h2>
+                            <p class="home-hero-slide__copy">Choose a deeper clean for kitchens, bathrooms, and the spaces that need extra care.</p>
+                            <a href="{{ $primaryCtaUrl }}" class="home-hero-slide__cta">Book a Deep Clean <i class="fas fa-arrow-right text-xs"></i></a>
+                        </div>
+                    </article>
+                    <article class="home-hero-slide absolute inset-0 hidden" data-ad-slide aria-hidden="true">
+                        <img src="{{ asset('images/services/weeklymaintenance.jpg') }}" alt="Regular maintenance cleaning" class="home-hero-slide__image">
+                        <div class="home-hero-slide__veil" aria-hidden="true"></div>
+                        <div class="home-hero-slide__content">
+                            <span class="home-hero-slide__eyebrow">Flexible scheduling</span>
+                            <h2 class="home-hero-slide__title">A Fresh Home,<br>Every Week</h2>
+                            <p class="home-hero-slide__copy">Keep your home comfortable with weekly, bi-weekly, or monthly cleaning plans.</p>
+                            <a href="{{ $primaryCtaUrl }}" class="home-hero-slide__cta">Choose a Schedule <i class="fas fa-arrow-right text-xs"></i></a>
+                        </div>
+                    </article>
+                </div>
+                <button type="button" class="home-hero-slider__arrow home-hero-slider__arrow--prev" data-ad-prev aria-label="Previous announcement"><i class="fas fa-chevron-left text-xs"></i></button>
+                <button type="button" class="home-hero-slider__arrow home-hero-slider__arrow--next" data-ad-next aria-label="Next announcement"><i class="fas fa-chevron-right text-xs"></i></button>
+                <div class="home-hero-slider__dots" role="tablist" aria-label="Choose announcement">
+                    <button type="button" class="home-hero-slider__dot is-active" data-ad-dot aria-label="Show announcement 1" aria-selected="true"></button>
+                    <button type="button" class="home-hero-slider__dot" data-ad-dot aria-label="Show announcement 2" aria-selected="false"></button>
+                    <button type="button" class="home-hero-slider__dot" data-ad-dot aria-label="Show announcement 3" aria-selected="false"></button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="services" class="section-padding bg-white py-20">
+        <div class="container-pad mx-auto max-w-7xl px-6">
+            <div id="pricing" class="scroll-mt-28"></div>
+            <div class="section-heading mx-auto mb-12 max-w-3xl text-center reveal-on-scroll">
+                <div class="text-sm font-extrabold uppercase tracking-[0.18em] text-blue-600">Our services</div>
+                <h2 class="section-title mt-3 text-3xl font-bold text-slate-900 lg:text-5xl">Choose the clean that fits your home</h2>
+                <p class="section-subtitle mt-4 text-lg leading-8 text-slate-500">
+                    Explore a service, then open its details to see what is included before you book.
+                </p>
+            </div>
+            <div class="services-grid grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-3">
+                @foreach($services as $service)
+                @php
+                    $ratingStats = $serviceRatingStats[$service->id] ?? null;
+                    $ratingCount = (int) ($ratingStats->total ?? 0);
+                    $ratingAverage = $ratingCount > 0 ? (float) $ratingStats->average : null;
+                    $priceLabel = \App\Models\Service::usesPerSquareMeterPricing($service->slug)
+                        ? '&#8369;' . number_format($service->price, 0) . ' per sqm'
+                        : (
+                            \App\Models\Service::usesFlatRateRangePricing($service->slug) && ($range = \App\Models\Service::priceRangeForSlug($service->slug))
+                                ? '&#8369;' . number_format($range['min'], 0) . ' - &#8369;' . number_format($range['max'], 0)
+                                : 'Starts at &#8369;' . number_format($service->price, 0)
+                        );
+                @endphp
+                <a href="{{ route('services.show', $service) }}" aria-label="View details for {{ $service->name }}" class="home-service-card group block focus:outline-none">
+                    <div class="home-service-media relative overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200 transition duration-300 group-hover:-translate-y-1 group-hover:shadow-xl group-focus:ring-4 group-focus:ring-blue-100">
+                        <img src="{{ $service->image_url }}" alt="{{ $service->image_alt }}" loading="lazy" class="home-service-image transition duration-500 group-hover:scale-105">
+                    </div>
+                    <div class="mt-4 flex items-start justify-between gap-4">
+                        <div class="min-w-0">
+                            <h3 class="truncate text-base font-bold text-slate-950">{{ $service->name }}</h3>
+                            <div class="mt-1 text-sm font-semibold text-slate-900">{!! $priceLabel !!}</div>
+                        </div>
+                        <div class="shrink-0 text-right text-sm font-semibold text-slate-700">
+                            @if($ratingAverage !== null)
+                                <span class="inline-flex items-center gap-1">
+                                    <i class="fas fa-star text-amber-400"></i>
+                                    {{ number_format($ratingAverage, 1) }}
+                                </span>
+                                <div class="mt-1 text-xs font-medium text-slate-500">
+                                    {{ $ratingCount }} review{{ $ratingCount === 1 ? '' : 's' }}
+                                </div>
+                            @else
+                                <span class="text-xs font-semibold text-slate-400">No reviews yet</span>
+                            @endif
+                        </div>
+                    </div>
+                    <span class="sr-only">Open details for {{ $service->name }}</span>
+                </a>
+                @endforeach
             </div>
         </div>
     </section>
@@ -321,9 +438,9 @@
         </div>
     </section>
 
-    <section id="services" class="section-padding bg-white py-20">
+    <section id="services-pricing-legacy" class="hidden section-padding bg-white py-20" aria-hidden="true">
         <div class="container-pad mx-auto max-w-7xl px-6">
-            <div id="pricing" class="scroll-mt-28"></div>
+            <div id="pricing-legacy" class="scroll-mt-28"></div>
             <div class="section-heading mx-auto mb-12 max-w-3xl text-center reveal-on-scroll">
                 <h2 class="section-title text-3xl font-bold text-slate-900 lg:text-5xl">Choose the clean that fits your home</h2>
                 <p class="section-subtitle mt-4 text-lg leading-8 text-slate-500">
@@ -339,12 +456,13 @@
                     $scopeDefinition = $service->scopeDefinition();
                 @endphp
                 <article class="service-card reveal-on-scroll flex h-full flex-col rounded-3xl border border-slate-200 p-8 shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-xl">
-                    <div class="flex items-start justify-between gap-4">
-                        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
-                            <i class="fas {{ $package['icon'] ?? 'fa-broom' }} text-xl"></i>
+                    <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                        <img src="{{ $service->image_url }}" alt="{{ $service->image_alt }}" loading="lazy" decoding="async" class="h-40 w-full object-cover">
+                        <div class="absolute left-4 top-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/90 text-blue-600 shadow-sm backdrop-blur">
+                            <i class="fas {{ $package['icon'] ?? 'fa-broom' }} text-lg"></i>
                         </div>
                         @if(!empty($package['badge']))
-                        <span class="rounded-full bg-blue-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-blue-700">
+                        <span class="absolute right-3 top-3 rounded-full bg-white/90 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-blue-700 shadow-sm backdrop-blur">
                             {{ $package['badge'] }}
                         </span>
                         @endif
@@ -377,6 +495,10 @@
                     </div>
                     <div class="service-note mt-5 rounded-2xl bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-600">
                         {{ $package['highlight'] ?? 'This package can be requested directly through our Valencia City cleaning team.' }}
+                    </div>
+                    <div class="mt-3 rounded-2xl border {{ $scope['status'] === 'approved' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800' }} px-4 py-3 text-xs leading-5">
+                        <span class="font-extrabold">{{ $scope['status'] === 'approved' ? 'Approved scope basis.' : 'Provisional package scope.' }}</span>
+                        {{ $scope['status'] === 'approved' ? ' Measurable limits apply.' : ' Features are a planning baseline; condition, access, equipment, and booked time can change the final scope.' }}
                     </div>
                     @if($service->scopeDefinitionIsComplete())
                     <details class="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left">
@@ -479,7 +601,7 @@
 
                                 <div class="rounded-2xl border border-white/70 bg-white/70 p-4">
                                     <label class="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">Add-ons</label>
-                                    <p class="mb-3 text-xs text-slate-500">Tap to include extras and instantly update your quote.</p>
+                                    <p class="mb-3 text-xs text-slate-500">Tap to include extras and instantly update your quote. Each is charged once per booking.</p>
                                     <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                         @foreach($pricingAddOns as $key => $addOn)
                                         <label class="cursor-pointer">
@@ -490,7 +612,7 @@
                                                 </span>
                                                 <span class="min-w-0">
                                                     <span class="block text-sm font-semibold text-slate-900">{{ $addOn['label'] }}</span>
-                                                    <span class="mt-0.5 block text-xs text-blue-700">+&#8369;{{ number_format($addOn['price'], 0) }}</span>
+                                                    <span class="mt-0.5 block text-xs text-blue-700">+&#8369;{{ number_format($addOn['price'], 0) }} <span class="text-slate-500">per booking</span></span>
                                                 </span>
                                             </span>
                                         </label>
@@ -780,6 +902,52 @@
     addOnInputs.forEach((input) => input.addEventListener('change', () => calculateInstantQuote({ animateTotal: true })));
 
     calculateInstantQuote();
+})();
+</script>
+<script>
+(() => {
+    const slider = document.querySelector('[data-advertising-slider]');
+    if (!slider) return;
+
+    const slides = Array.from(slider.querySelectorAll('[data-ad-slide]'));
+    const dots = Array.from(slider.querySelectorAll('[data-ad-dot]'));
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let current = 0;
+    let timer;
+
+    const show = (index) => {
+        current = (index + slides.length) % slides.length;
+        slides.forEach((slide, slideIndex) => {
+            const active = slideIndex === current;
+            slide.classList.toggle('hidden', !active);
+            slide.classList.toggle('grid', active);
+            slide.setAttribute('aria-hidden', active ? 'false' : 'true');
+        });
+        dots.forEach((dot, dotIndex) => {
+            const active = dotIndex === current;
+            dot.classList.toggle('is-active', active);
+            dot.classList.toggle('w-7', active);
+            dot.classList.toggle('w-2.5', !active);
+            dot.classList.toggle('bg-white', active);
+            dot.classList.toggle('bg-white/40', !active);
+            dot.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    };
+
+    const start = () => {
+        if (!reducedMotion) timer = window.setInterval(() => show(current + 1), 6500);
+    };
+    const restart = () => { window.clearInterval(timer); start(); };
+
+    slider.querySelector('[data-ad-prev]')?.addEventListener('click', () => { show(current - 1); restart(); });
+    slider.querySelector('[data-ad-next]')?.addEventListener('click', () => { show(current + 1); restart(); });
+    dots.forEach((dot, index) => dot.addEventListener('click', () => { show(index); restart(); }));
+    slider.addEventListener('mouseenter', () => window.clearInterval(timer));
+    slider.addEventListener('mouseleave', restart);
+    slider.addEventListener('focusin', () => window.clearInterval(timer));
+    slider.addEventListener('focusout', (event) => { if (!slider.contains(event.relatedTarget)) restart(); });
+    show(0);
+    start();
 })();
 </script>
 @endpush

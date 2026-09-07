@@ -6,7 +6,6 @@ use App\Mail\MarketplaceProviderAssigned;
 use App\Mail\ProviderPayoutPaid;
 use App\Models\Booking;
 use App\Models\CleanerApplication;
-use App\Models\CleanerApplicationDocument;
 use App\Models\ProviderPayoutTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -179,6 +178,9 @@ class AdminBookingManagementPageTest extends TestCase
             'id' => $booking->id,
             'cleaner_application_id' => $provider->id,
             'provider_assignment_status' => 'pending',
+        ]);
+        $this->assertDatabaseHas('booking_payouts', [
+            'booking_id' => $booking->id,
             'provider_gross_amount' => 1200,
             'platform_commission_rate' => 0.15,
             'platform_commission_amount' => 180,
@@ -214,6 +216,9 @@ class AdminBookingManagementPageTest extends TestCase
         $this->assertDatabaseHas('bookings', [
             'id' => $booking->id,
             'cleaner_application_id' => null,
+        ]);
+        $this->assertDatabaseHas('booking_payouts', [
+            'booking_id' => $booking->id,
             'provider_gross_amount' => null,
             'platform_commission_rate' => null,
             'platform_commission_amount' => null,
@@ -498,6 +503,9 @@ class AdminBookingManagementPageTest extends TestCase
 
         $this->assertDatabaseHas('bookings', [
             'id' => $booking->id,
+        ]);
+        $this->assertDatabaseHas('booking_payouts', [
+            'booking_id' => $booking->id,
             'provider_payout_status' => 'ready',
         ]);
         $this->assertDatabaseHas('booking_activity_logs', [
@@ -533,7 +541,7 @@ class AdminBookingManagementPageTest extends TestCase
         $booking->refresh();
 
         $this->assertSame('paid', $booking->provider_commission_status);
-        $this->assertSame('paid', $booking->payment_status);
+        $this->assertSame('pending', $booking->payment_status);
         $this->assertSame('CASH-COMMISSION-001', $booking->provider_commission_reference);
         $this->assertSame($admin->id, $booking->provider_commission_collected_by);
         $this->assertSame('2026-06-10 10:30:00', $booking->provider_commission_paid_at->format('Y-m-d H:i:s'));

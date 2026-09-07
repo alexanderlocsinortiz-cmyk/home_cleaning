@@ -75,5 +75,23 @@ class HomePagePricingTest extends TestCase
         $response->assertSee('quote_source', false);
         $response->assertSee('Get your instant quote', false);
         $response->assertSee('Trusted home cleaning for Valencia City.', false);
+        $response->assertSee('Each is charged once per booking.', false);
+    }
+
+    public function test_home_page_instant_quote_uses_the_active_database_rate_and_canonical_service_slug(): void
+    {
+        Service::updateOrCreate(['slug' => 'basic'], [
+            'name' => 'Basic Clean',
+            'description' => 'Routine cleaning',
+            'price' => 47,
+            'duration_minutes' => 60,
+            'is_active' => true,
+        ]);
+
+        $html = $this->get(route('home'))->getContent();
+
+        $this->assertStringContainsString('"slug":"basic"', $html);
+        $this->assertStringContainsString('"area_rate":47', $html);
+        $this->assertStringNotContainsString('"slug":"basic-clean"', $html);
     }
 }

@@ -250,10 +250,10 @@
                                     <td class="px-6 py-4 align-top">
                                         <span class="font-semibold text-slate-900">&#8369;{{ number_format($booking->price, 0) }}</span>
                                         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                                            <span class="rounded-full px-2.5 py-1 font-semibold {{ $paymentStatusClasses[$booking->payment_status] ?? 'border border-slate-200 bg-slate-50 text-slate-600' }}">
-                                                {{ \App\Models\Booking::paymentStatusLabel($booking->payment_status) }}
+                                            <span class="rounded-full px-2.5 py-1 font-semibold {{ $paymentStatusClasses[$booking->payment?->status ?? 'pending'] ?? 'border border-slate-200 bg-slate-50 text-slate-600' }}">
+                                                {{ \App\Models\Booking::paymentStatusLabel($booking->payment?->status ?? 'pending') }}
                                             </span>
-                                            <span class="text-slate-500">{{ \App\Models\Booking::paymentMethodLabel($booking->payment_method) }}</span>
+                                            <span class="text-slate-500">{{ \App\Models\Booking::paymentMethodLabel($booking->payment?->method ?? 'on_site_cash') }}</span>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 align-top">

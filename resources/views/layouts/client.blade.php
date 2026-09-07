@@ -30,7 +30,7 @@
                 <span class="text-lg font-bold text-slate-900 hidden sm:block">{{ $siteSettings->website_name }}</span>
             </a>
 
-            <div class="hidden items-center gap-8 md:flex">
+            <div class="hidden items-center gap-8 lg:flex">
                 <nav class="flex items-center gap-6">
                     <a href="{{ route('client.dashboard') }}" class="border-b-2 pb-1 text-sm {{ $dashboardActive ? 'border-blue-600 font-semibold text-blue-700' : 'border-transparent font-medium text-gray-600 hover:text-gray-900' }}">Dashboard</a>
                     <a href="{{ route('bookings.index') }}" class="border-b-2 pb-1 text-sm {{ $bookingsActive ? 'border-blue-600 font-semibold text-blue-700' : 'border-transparent font-medium text-gray-600 hover:text-gray-900' }}">My Bookings</a>
@@ -94,7 +94,7 @@
                 </div>
             </div>
 
-            <div class="flex items-center gap-2 md:hidden">
+            <div class="flex items-center gap-2 lg:hidden">
                 <div class="relative" data-client-topbar-menu>
                     <button type="button" class="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-blue-900 transition hover:bg-blue-50 hover:text-blue-700" aria-label="Booking notifications" aria-expanded="false" data-client-topbar-toggle="client-mobile-notifications-menu">
                         <i class="fas fa-bell text-base"></i>
@@ -147,7 +147,7 @@
             </div>
         </div>
 
-        <div id="mobile-menu" class="hidden border-t border-slate-100 bg-white px-6 py-4 md:hidden">
+        <div id="mobile-menu" class="hidden border-t border-slate-100 bg-white px-6 py-4 lg:hidden">
             <a href="{{ route('client.profile') }}" class="mb-4 flex items-center gap-3 rounded-2xl border px-4 py-3 no-underline transition hover:border-blue-200 hover:bg-blue-50 focus:outline-none focus:ring-4 focus:ring-blue-100 {{ $profileActive ? 'border-blue-200 bg-blue-50' : 'border-slate-200 bg-slate-50' }}" aria-label="Open my profile">
                 <div class="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">
                     {{ $clientInitials }}

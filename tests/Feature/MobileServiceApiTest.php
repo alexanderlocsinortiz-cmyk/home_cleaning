@@ -35,7 +35,7 @@ class MobileServiceApiTest extends TestCase
 
         $token = $this->mobileToken();
 
-        $this->withHeader('Authorization', 'Bearer '.$token)
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/mobile/services')
             ->assertOk()
             ->assertJsonFragment([
@@ -65,6 +65,8 @@ class MobileServiceApiTest extends TestCase
                 'subscription_frequencies',
                 'pricing',
             ]);
+
+        $response->assertJsonPath('add_ons.0.pricing_unit', 'per booking');
     }
 
     public function test_mobile_user_can_calculate_price_from_backend(): void
@@ -78,15 +80,35 @@ class MobileServiceApiTest extends TestCase
         $token = $this->mobileToken();
 
         $this->postJson('/api/mobile/calculate-price', [
-                'service_type' => 'deep',
-                'property_type' => 'house',
-                'floor_area' => 30,
-                'add_ons' => [],
-            ])
+            'service_type' => 'deep',
+            'property_type' => 'house',
+            'floor_area' => 30,
+            'add_ons' => [],
+        ])
             ->assertOk()
             ->assertJsonPath('pricing.floor_area_fee', 2850)
             ->assertJsonPath('pricing.total', 2850)
             ->assertJsonPath('formatted_total', 'P2,850');
+    }
+
+    public function test_mobile_price_calculation_rejects_incompatible_service_and_property_type(): void
+    {
+        Service::updateOrCreate(['slug' => 'deep'], [
+            'name' => 'Deep Clean',
+            'price' => 95,
+            'is_active' => true,
+        ]);
+
+        $this->mobileToken();
+
+        $this->postJson('/api/mobile/calculate-price', [
+            'service_type' => 'deep',
+            'property_type' => 'office',
+            'floor_area' => 30,
+            'add_ons' => [],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('service_type');
     }
 
     private function mobileToken(): string

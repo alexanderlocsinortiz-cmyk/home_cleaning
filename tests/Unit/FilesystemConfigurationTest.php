@@ -10,9 +10,12 @@ class FilesystemConfigurationTest extends TestCase
     {
         $privateDisk = config('filesystems.disks.s3');
         $publicDisk = config('filesystems.disks.s3_public');
+        $proofDisk = config('filesystems.disks.s3_proof');
 
         $this->assertSame('s3', $privateDisk['driver']);
-        $this->assertArrayNotHasKey('visibility', $privateDisk);
+        $this->assertSame('private', $privateDisk['visibility']);
+        $this->assertSame('s3', $proofDisk['driver']);
+        $this->assertSame('private', $proofDisk['visibility']);
         $this->assertSame('s3', $publicDisk['driver']);
         $this->assertSame('public', $publicDisk['visibility']);
     }

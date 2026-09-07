@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\User;
+
 return [
 
     /*
@@ -62,7 +64,7 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', App\Models\User::class),
+            'model' => env('AUTH_MODEL', User::class),
         ],
 
         // 'users' => [
@@ -101,6 +103,10 @@ return [
 
     'verification' => [
         'expire' => env('AUTH_VERIFICATION_CODE_EXPIRE', 15),
+    ],
+
+    'mobile' => [
+        'max_active_tokens' => max(1, (int) env('MOBILE_MAX_ACTIVE_TOKENS', 5)),
     ],
 
     /*

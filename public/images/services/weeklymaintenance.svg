@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" role="img" aria-labelledby="title desc">
+  <title id="title">General and regular cleaning illustration</title><desc id="desc">A home, calendar, and repeat-cleaning symbol for regular upkeep.</desc>
+  <rect width="800" height="420" rx="32" fill="#effaf5"/><circle cx="660" cy="84" r="55" fill="#cdf0df"/><path d="M82 326h635" stroke="#b3dcc9" stroke-width="12" stroke-linecap="round"/>
+  <path d="M155 326V193l91-76 91 76v133z" fill="#fff" stroke="#258b70" stroke-width="10" stroke-linejoin="round"/><path d="M215 326v-75h62v75M198 205h32v32h-32zM262 205h32v32h-32z" fill="#a8e2c9" stroke="#258b70" stroke-width="7"/><path d="M404 326V174h185v152z" fill="#fff" stroke="#258b70" stroke-width="10"/><path d="M404 215h185M446 147v48M548 147v48" stroke="#258b70" stroke-width="10" stroke-linecap="round"/><circle cx="449" cy="256" r="13" fill="#55b895"/><circle cx="497" cy="256" r="13" fill="#55b895"/><circle cx="545" cy="256" r="13" fill="#55b895"/><path d="M449 295h96" stroke="#8dd2b4" stroke-width="9" stroke-linecap="round"/><path d="M638 265c-10-28-2-52 24-65M662 200l1 22 19-11M638 265c14 22 35 31 61 21M699 286l-19-11" fill="none" stroke="#258b70" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <g stroke="#176b58" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="365" cy="177" r="24" fill="#f2bd91"/><path d="M341 207h51l18 65h-69z" fill="#3aaf88"/><path d="M351 272l-20 54M382 272l24 54" fill="none"/><path d="M331 326h-28M406 326h28" fill="none"/><path d="M391 224l40 42" fill="none"/><path d="M431 266l35-37" fill="none"/><path d="M461 223l15 13-13 17-16-13z" fill="#f3c35d"/>
+  </g>
+</svg>

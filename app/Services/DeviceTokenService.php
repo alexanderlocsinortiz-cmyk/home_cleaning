@@ -57,7 +57,7 @@ class DeviceTokenService
     /**
      * Validate request signature using HMAC-SHA256
      */
-    public function validateSignature(Device $device, string $timestamp, string $signature, string $body): bool
+    public function validateSignature(Device $device, string $timestamp, string $nonce, string $signature, string $body): bool
     {
         // Check timestamp is recent (within 5 minutes) to prevent replay attacks
         $requestTime = intval($timestamp);
@@ -68,7 +68,7 @@ class DeviceTokenService
         }
 
         // Recreate signature using device's secret key
-        $dataToSign = $timestamp.$body;
+        $dataToSign = $timestamp.$nonce.$body;
         $expectedSignature = hash_hmac('sha256', $dataToSign, $device->secret_key);
 
         // Constant-time comparison (prevents timing attacks)

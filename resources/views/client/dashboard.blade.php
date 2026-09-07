@@ -210,10 +210,10 @@
                                 </div>
                                 <div class="text-sm text-slate-500">{{ ucfirst($booking->barangay) }}</div>
                                 <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                                    <span class="rounded-full px-2.5 py-1 font-semibold {{ $paymentStatusClasses[$booking->payment_status] ?? 'bg-slate-100 text-slate-600' }}">
-                                        {{ \App\Models\Booking::paymentStatusLabel($booking->payment_status) }}
+                                    <span class="rounded-full px-2.5 py-1 font-semibold {{ $paymentStatusClasses[$booking->payment?->status ?? 'pending'] ?? 'bg-slate-100 text-slate-600' }}">
+                                        {{ \App\Models\Booking::paymentStatusLabel($booking->payment?->status ?? 'pending') }}
                                     </span>
-                                    <span class="text-slate-500">{{ \App\Models\Booking::paymentMethodLabel($booking->payment_method) }}</span>
+                                    <span class="text-slate-500">{{ \App\Models\Booking::paymentMethodLabel($booking->payment?->method ?? 'on_site_cash') }}</span>
                                     @if($booking->isSubscription())
                                     <span class="text-slate-500">{{ $booking->subscriptionSummary() }}</span>
                                     @endif

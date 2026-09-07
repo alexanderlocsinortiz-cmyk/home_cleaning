@@ -152,7 +152,7 @@
                             <td class="px-5 py-4 text-right font-bold text-blue-700">&#8369;{{ number_format((float) $booking->platform_commission_amount, 2) }}</td>
                             <td class="px-5 py-4 text-right font-bold text-emerald-700">&#8369;{{ number_format((float) $booking->provider_payout_amount, 2) }}</td>
                             <td class="px-5 py-4">
-                                @if($booking->payment_method === 'on_site_cash')
+                                @if($booking->payment?->method === 'on_site_cash')
                                     <span class="inline-flex rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-700">
                                         {{ \App\Models\Booking::providerCommissionStatusLabel($booking->provider_commission_status) }}
                                     </span>

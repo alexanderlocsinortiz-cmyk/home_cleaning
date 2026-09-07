@@ -13,7 +13,7 @@
 
 <section class="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4">
     <div class="text-sm font-extrabold text-slate-900">Service Scope Definition</div>
-    <p class="mt-1 text-xs leading-5 text-slate-600">Write the actual package boundary here. These fields are customer-facing through the booking flow and are separate from the measurable area limit. Keep Scope Status provisional until the owner approves the wording and real job evidence exists.</p>
+    <p class="mt-1 text-xs leading-5 text-slate-600">Write the actual package boundary here. These fields are customer-facing through the booking flow and are separate from the measurable area limit. Approval requires every field to be complete; keep Scope Status provisional until the owner approves the wording and real job evidence exists.</p>
     <div class="mt-4 grid gap-4 md:grid-cols-2">
         @foreach($scopeFields as $field => [$label, $help])
             <div class="{{ in_array($field, ['scope_included_tasks', 'scope_excluded_tasks', 'scope_extra_work_policy', 'scope_acceptance_criteria'], true) ? 'md:col-span-2' : '' }}">

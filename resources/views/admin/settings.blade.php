@@ -190,6 +190,7 @@
             <div class="space-y-4">
                 <div class="rounded-2xl border border-slate-100 bg-white p-4">
                     <div class="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Contact info</div>
+                    <p class="mt-2 text-xs leading-5 text-slate-500">These values are shown publicly. Enter the real business email, phone, address, and office hours before launch; blank values are shown as unavailable instead of being replaced with placeholders.</p>
                     <div class="mt-4 grid gap-3 sm:grid-cols-2">
                         <label class="block">
                             <span class="text-sm font-bold text-slate-700">Contact email</span>

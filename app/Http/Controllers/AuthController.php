@@ -7,20 +7,25 @@ use App\Notifications\ResetPasswordOtp;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class AuthController extends Controller
 {
     private const LOGIN_MAX_ATTEMPTS = 5;
+
     private const LOGIN_ATTEMPT_DECAY_SECONDS = 86400;
+
     private const LOGIN_BASE_LOCKOUT_SECONDS = 60;
+
     private const LOGIN_ESCALATED_LOCKOUT_STEP_SECONDS = 300;
+
     private const LOGIN_MAX_LOCKOUT_SECONDS = 3600;
 
     public function showRegister()
@@ -30,7 +35,9 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        $minimumBirthDate = now()->subYears(18)->toDateString();
+        $minimumBirthDate = now(config('cleanflow.attendance_timezone', config('app.timezone')))
+            ->subYears(18)
+            ->toDateString();
 
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'min:2'],
@@ -38,7 +45,7 @@ class AuthController extends Controller
             'email' => ['required', 'email', 'unique:users,email'],
             'phone' => ['required', 'regex:/^[0-9]{11}$/'],
             'date_of_birth' => ['required', 'date', 'before_or_equal:'.$minimumBirthDate],
-            'password' => ['required', 'confirmed', 'min:8'],
+            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
         ], [
             'date_of_birth.before_or_equal' => 'Clients must be at least 18 years old to register.',
             'phone.regex' => 'Phone number must contain exactly 11 digits.',
@@ -57,7 +64,7 @@ class AuthController extends Controller
         // ✅ Proper email error handling
         try {
             $user->sendEmailVerificationNotification();
-        } catch (\Symfony\Component\Mailer\Exception\TransportExceptionInterface $e) {
+        } catch (TransportExceptionInterface $e) {
             // Network/SMTP transport error - temporary issue
             Log::warning('Email transport failed during registration', [
                 'user_id' => $user->id,
@@ -170,7 +177,7 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'code' => ['required', 'digits:6'],
-            'password' => ['required', 'confirmed', Password::min(8)],
+            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
         ]);
 
         $user = User::whereRaw('LOWER(email) = ?', [strtolower($sessionEmail)])->first();

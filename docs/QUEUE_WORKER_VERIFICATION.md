@@ -43,6 +43,8 @@ The local `php artisan queue:failed` check reported no failed jobs. This is only
 6. Run `php artisan queue:failed` and investigate every unexpected failed job.
 7. Confirm the queue worker can read the same object-storage paths when queued jobs access uploaded files.
 
+For a repeatable non-secret readiness check, run `php artisan cleanflow:verify --probe`. It checks the database connection, queue/mail/cache/session drivers, failed-job count, and temporary object-storage access.
+
 ## Decision
 
 Static configuration is ready for dashboard verification. “Verify the Render worker is running with shared production secrets” remains open until all acceptance checks pass in the production environment.

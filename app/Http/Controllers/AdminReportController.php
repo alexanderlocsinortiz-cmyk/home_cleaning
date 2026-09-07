@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Booking;
 use App\Models\CleanerApplication;
 use App\Models\Rating;
-use App\Models\Service;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -37,7 +36,7 @@ class AdminReportController extends Controller
         $unassignedActiveBookings = $bookingScope(Booking::whereIn('status', ['pending', 'confirmed', 'in_progress'])->whereNull('staff_id'))->count();
 
         $revenueByType = $bookingScope(Booking::query())
-            ->join('services', 'services.slug', '=', 'bookings.service_type')
+            ->join('services', 'services.id', '=', 'bookings.service_id')
             ->where('bookings.status', 'completed')
             ->where('services.is_active', true)
             ->selectRaw('services.slug as service_type, services.name as service_name, COUNT(bookings.id) as total, SUM(bookings.price) as revenue')
@@ -46,7 +45,7 @@ class AdminReportController extends Controller
             ->get();
 
         $bookingsByType = $bookingScope(Booking::query())
-            ->join('services', 'services.slug', '=', 'bookings.service_type')
+            ->join('services', 'services.id', '=', 'bookings.service_id')
             ->where('services.is_active', true)
             ->selectRaw('services.slug as service_type, services.name as service_name, COUNT(bookings.id) as total')
             ->groupBy('services.slug', 'services.name')
@@ -62,7 +61,7 @@ class AdminReportController extends Controller
         ];
 
         $invalidServiceBookings = Booking::query()
-            ->whereNotIn('service_type', Service::query()->pluck('slug'))
+            ->whereNull('service_id')
             ->count();
 
         $advancedAnalytics = $this->buildAdvancedAnalytics();
@@ -114,16 +113,7 @@ class AdminReportController extends Controller
     {
         [$filters, $baseQuery] = $this->providerPayoutQuery($request);
 
-        $summaryRows = (clone $baseQuery)->get([
-            'provider_gross_amount',
-            'platform_commission_amount',
-            'provider_payout_amount',
-            'provider_payout_status',
-            'payment_method',
-            'cash_collected_amount',
-            'provider_commission_due',
-            'provider_commission_status',
-        ]);
+        $summaryRows = (clone $baseQuery)->with(['payment', 'payout'])->get(['id']);
 
         $payoutSummary = [
             'gross' => round((float) $summaryRows->sum('provider_gross_amount'), 2),
@@ -205,7 +195,7 @@ class AdminReportController extends Controller
                             number_format((float) $booking->provider_payout_amount, 2, '.', ''),
                             $booking->provider_payout_reference,
                             $booking->provider_payout_paid_at?->format('Y-m-d H:i:s'),
-                            $booking->payment_method === 'on_site_cash' ? 'Cash commission collection' : 'Provider payout',
+                            $booking->payment?->method === 'on_site_cash' ? 'Cash commission collection' : 'Provider payout',
                             number_format((float) $booking->cash_collected_amount, 2, '.', ''),
                             Booking::providerCommissionStatusLabel($booking->provider_commission_status),
                             $booking->provider_commission_reference,
@@ -332,11 +322,11 @@ class AdminReportController extends Controller
         }
 
         $query = Booking::query()
-            ->with(['user', 'cleanerApplication', 'service', 'providerPayoutTransactions.processor'])
+            ->with(['user', 'cleanerApplication', 'service', 'payment', 'payout', 'providerPayoutTransactions.processor'])
             ->whereNotNull('cleaner_application_id')
-            ->whereNotNull('provider_gross_amount')
+            ->whereHas('payout')
             ->when($filters['provider_id'] > 0, fn (Builder $query) => $query->where('cleaner_application_id', $filters['provider_id']))
-            ->when($filters['payout_status'] !== '', fn (Builder $query) => $query->where('provider_payout_status', $filters['payout_status']))
+            ->when($filters['payout_status'] !== '', fn (Builder $query) => $query->whereHas('payout', fn (Builder $payout) => $payout->where('provider_payout_status', $filters['payout_status'])))
             ->when($dateFrom, fn (Builder $query) => $query->whereDate('scheduled_date', '>=', $dateFrom->toDateString()))
             ->when($dateTo, fn (Builder $query) => $query->whereDate('scheduled_date', '<=', $dateTo->toDateString()));
 
@@ -450,7 +440,7 @@ class AdminReportController extends Controller
         }
 
         $revenueByType = $bookingScope(Booking::query())
-            ->join('services', 'services.slug', '=', 'bookings.service_type')
+            ->join('services', 'services.id', '=', 'bookings.service_id')
             ->where('bookings.status', 'completed')
             ->where('services.is_active', true)
             ->selectRaw('services.name as service_name, COUNT(bookings.id) as total, SUM(bookings.price) as revenue')
@@ -517,7 +507,7 @@ class AdminReportController extends Controller
             $content .= 'ET';
             $contentId = $nextObjectId++;
             $pageId = $nextObjectId++;
-            $objects[$contentId] = "<< /Length ".strlen($content)." >>\nstream\n{$content}\nendstream";
+            $objects[$contentId] = '<< /Length '.strlen($content)." >>\nstream\n{$content}\nendstream";
             $objects[$pageId] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents {$contentId} 0 R >>";
             $pageRefs[] = "{$pageId} 0 R";
         }

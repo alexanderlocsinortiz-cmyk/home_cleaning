@@ -19,11 +19,18 @@ return [
 
     'public_uploads_disk' => env('FILESYSTEM_PUBLIC_DISK', 'public'),
 
+    // Booking proof media contains private details about a customer's home.
+    'proof_uploads_disk' => env('FILESYSTEM_PROOF_DISK', env('FILESYSTEM_PRIVATE_DISK', env('FILESYSTEM_DISK', 'local'))),
+
     'database_backup_disk' => env('DATABASE_BACKUP_DISK', env('FILESYSTEM_PRIVATE_DISK', 'local')),
 
     'database_backup_prefix' => trim((string) env('DATABASE_BACKUP_PREFIX', 'database-backups'), '/'),
 
     'database_backup_retention_count' => max(1, (int) env('DATABASE_BACKUP_RETENTION_COUNT', 30)),
+
+    'database_backup_pg_dump_path' => env('DB_BACKUP_PG_DUMP_PATH'),
+
+    'database_backup_mysqldump_path' => env('DB_BACKUP_MYSQLDUMP_PATH'),
 
     /*
     |--------------------------------------------------------------------------
@@ -70,6 +77,25 @@ return [
             'http' => [
                 'verify' => env('AWS_CA_BUNDLE', true),
             ],
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        's3_proof' => [
+            'driver' => 's3',
+            'prefix' => env('FILESYSTEM_PROOF_PREFIX', 'proofs'),
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('AWS_PRIVATE_BUCKET', env('AWS_BUCKET')),
+            'url' => env('AWS_PRIVATE_URL'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'http' => [
+                'verify' => env('AWS_CA_BUNDLE', true),
+            ],
+            'visibility' => 'private',
             'throw' => false,
             'report' => false,
         ],

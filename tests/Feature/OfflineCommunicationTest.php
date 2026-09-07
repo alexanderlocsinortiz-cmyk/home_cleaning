@@ -34,4 +34,23 @@ class OfflineCommunicationTest extends TestCase
         $response->assertSee('Call/SMS fallback is not configured yet', false);
         $response->assertDontSee('tel:', false);
     }
+
+    public function test_public_footer_does_not_show_placeholder_contact_details_when_unconfigured(): void
+    {
+        SiteSetting::current()->update([
+            'contact_email' => null,
+            'contact_address' => null,
+            'office_hours' => null,
+        ]);
+
+        $response = $this->get(route('home'));
+
+        $response->assertOk();
+        $response->assertSee('Email contact not configured', false);
+        $response->assertSee('Office address not configured', false);
+        $response->assertSee('Office hours not configured', false);
+        $response->assertSee('In-person visit fallback is not configured yet', false);
+        $response->assertDontSee('support@homecleaningservice.local', false);
+        $response->assertDontSee('Visit the office during the hours listed above', false);
+    }
 }

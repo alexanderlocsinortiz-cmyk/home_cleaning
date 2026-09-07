@@ -65,6 +65,17 @@
                 </div>
             @endif
 
+            @if(session('tracking_token'))
+                <div class="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-900">
+                    <div class="font-black">Save your private tracking link</div>
+                    <p class="mt-1 leading-6">Use it to check your application status without creating an account. Anyone with this link can view the application status, so keep it private.</p>
+                    <a href="{{ route('cleaner-applications.status', ['token' => session('tracking_token')]) }}" class="mt-3 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-black text-white hover:bg-blue-700">
+                        <i class="fas fa-arrow-up-right-from-square"></i>
+                        View application status
+                    </a>
+                </div>
+            @endif
+
             @if($errors->any())
                 <div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
                     Please fix the highlighted fields before submitting.
@@ -73,27 +84,19 @@
 
             @php
                 $initialStep = 1;
+                $stepOneFields = ['applicant_type', 'individual_name', 'date_of_birth', 'individual_current_address', 'profile_photo', 'team_business_name', 'contact_person', 'business_address', 'team_size', 'business_logo', 'email', 'phone'];
                 $stepTwoFields = ['coverage_mode', 'coverage_barangays', 'years_experience', 'services_offered', 'available_days', 'max_daily_bookings'];
                 $stepThreeFields = ['government_id_type', 'government_id_number', 'government_id_document', 'nbi_clearance_number', 'nbi_clearance_document', 'selfie_with_id', 'worked_as_cleaner_before', 'worked_for_cleaning_company_before', 'has_cleaning_certifications', 'owns_cleaning_equipment', 'verification_notes'];
                 $stepFourFields = ['terms_certify_accurate', 'terms_agree_verification', 'terms_approval_not_guaranteed', 'terms_service_standards'];
 
-                foreach ($stepTwoFields as $field) {
-                    if ($errors->has($field)) {
-                        $initialStep = 2;
-                        break;
-                    }
-                }
-
-                foreach ($stepThreeFields as $field) {
-                    if ($errors->has($field)) {
-                        $initialStep = 3;
-                        break;
-                    }
-                }
-
-                foreach ($stepFourFields as $field) {
-                    if ($errors->has($field)) {
-                        $initialStep = 4;
+                foreach ([
+                    1 => $stepOneFields,
+                    2 => $stepTwoFields,
+                    3 => $stepThreeFields,
+                    4 => $stepFourFields,
+                ] as $step => $fields) {
+                    if (collect($fields)->contains(fn (string $field): bool => $errors->has($field))) {
+                        $initialStep = $step;
                         break;
                     }
                 }
@@ -102,8 +105,13 @@
             <form action="{{ route('cleaner-applications.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6" data-multi-step-form data-initial-step="{{ $initialStep }}">
                 @csrf
 
-                <div data-form-warning class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
+                <div data-form-warning role="alert" aria-live="polite" tabindex="-1" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
                     Fix the red warning fields before submitting.
+                </div>
+
+                <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+                    <i class="fas fa-lock mr-1 text-slate-500"></i>
+                    Your progress saves locally so you can move between steps. Personal contact and identity details are never saved in the browser draft.
                 </div>
 
                 <div class="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -179,7 +187,7 @@
                             </div>
                             <div>
                                 <label for="date_of_birth" class="block text-sm font-bold text-slate-800">Date of Birth *</label>
-                                <input id="date_of_birth" type="date" name="date_of_birth" value="{{ old('date_of_birth') }}" class="cleaner-apply-input mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                                <input id="date_of_birth" type="date" name="date_of_birth" value="{{ old('date_of_birth') }}" max="{{ now(config('cleanflow.attendance_timezone', config('app.timezone')))->subYears(18)->toDateString() }}" title="Individual cleaners must be at least 18 years old" class="cleaner-apply-input mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                                 @error('date_of_birth')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
                             </div>
                             <div class="sm:col-span-2">
@@ -234,7 +242,7 @@
                         </div>
                         <div>
                             <label for="phone" class="block text-sm font-bold text-slate-800">Mobile Number *</label>
-                            <input id="phone" name="phone" value="{{ old('phone') }}" inputmode="numeric" pattern="[0-9]*" autocomplete="tel" required data-digits-only class="cleaner-apply-input mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                            <input id="phone" name="phone" value="{{ old('phone') }}" inputmode="numeric" pattern="09[0-9]{9}" maxlength="11" autocomplete="tel" placeholder="09XXXXXXXXX" title="Enter an 11-digit Philippine mobile number starting with 09" required data-digits-only class="cleaner-apply-input mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                             @error('phone')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
                         </div>
                     </div>
@@ -270,9 +278,35 @@
                         @error('coverage_barangays')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
 
                         <div data-coverage-list class="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                            <label for="coverage_barangays" class="text-xs font-bold uppercase text-slate-500">Bukidnon city/municipality</label>
-                            <select id="coverage_barangays" name="coverage_barangays[]" class="cleaner-apply-input mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
-                                <option value="">Choose a city or municipality</option>
+                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                <label for="coverage_barangays" class="text-xs font-bold uppercase text-slate-500">Bukidnon city/municipality</label>
+                                <button type="button" data-coverage-picker-toggle aria-expanded="false" aria-controls="coverage-picker-panel" class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-black text-blue-700 transition hover:border-blue-400 hover:bg-blue-50">
+                                    <i class="fas fa-location-dot"></i>
+                                    <span data-coverage-picker-label>Select areas</span>
+                                </button>
+                            </div>
+                            <div id="coverage-picker-panel" data-coverage-picker-panel hidden class="mt-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <p id="coverage-help" class="text-xs leading-5 text-slate-500">Choose every city or municipality where you accept jobs.</p>
+                                    <button type="button" data-coverage-select-all class="text-xs font-black text-blue-700 hover:text-blue-900">Select all</button>
+                                </div>
+                                <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                                    @foreach($coverageAreas as $areaValue => $areaLabel)
+                                        <label class="cleaner-apply-choice flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50">
+                                            <input type="checkbox" name="coverage_picker[]" value="{{ $areaValue }}" data-coverage-option class="h-4 w-4 rounded text-blue-600" {{ in_array($areaValue, old('coverage_barangays', []), true) ? 'checked' : '' }}>
+                                            <span>{{ $areaLabel }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                                <div class="mt-3 flex justify-end border-t border-slate-100 pt-3">
+                                    <button type="button" data-coverage-picker-confirm class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-black text-white transition hover:bg-blue-700">
+                                        <i class="fas fa-check"></i>
+                                        Confirm selection
+                                    </button>
+                                </div>
+                            </div>
+                            <p id="coverage-selection-count" data-coverage-selection-count class="mt-2 text-xs font-bold text-blue-700" aria-live="polite">No areas selected</p>
+                            <select id="coverage_barangays" name="coverage_barangays[]" multiple class="cleaner-apply-input mt-3 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                                 @foreach($coverageAreas as $areaValue => $areaLabel)
                                     <option value="{{ $areaValue }}" {{ in_array($areaValue, old('coverage_barangays', []), true) ? 'selected' : '' }}>{{ $areaLabel }}</option>
                                 @endforeach
@@ -280,7 +314,11 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-slate-800">Services Offered *</label>
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <label class="block text-sm font-bold text-slate-800">Services Offered *</label>
+                            <span data-service-count class="text-xs font-bold text-slate-500" aria-live="polite">0 selected</span>
+                        </div>
+                        <p class="mt-1 text-xs text-slate-500">Select at least one service you can reliably provide.</p>
                         <div class="mt-2 grid gap-3 sm:grid-cols-2">
                             @foreach($serviceOfferings as $value => $label)
                                 <label class="cleaner-apply-choice flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50">
@@ -300,7 +338,11 @@
                         <h2 class="mt-1 text-xl font-black text-slate-950">Work Schedule</h2>
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-slate-800">Available Days *</label>
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <label class="block text-sm font-bold text-slate-800">Available Days *</label>
+                            <span data-day-count class="text-xs font-bold text-slate-500" aria-live="polite">0 selected</span>
+                        </div>
+                        <p class="mt-1 text-xs text-slate-500">Select at least one day when you can accept bookings.</p>
                         <div class="mt-2 grid gap-3 sm:grid-cols-2">
                             @foreach($availableDays as $value => $label)
                                 <label class="cleaner-apply-choice flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50">
@@ -316,7 +358,7 @@
                         <label for="max_daily_bookings" class="block text-sm font-bold text-slate-800">Maximum Bookings Per Day *</label>
                         <select id="max_daily_bookings" name="max_daily_bookings" required class="cleaner-apply-input mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                             @foreach([1, 2, 3, 4, 5] as $capacity)
-                                <option value="{{ $capacity }}" {{ (string) old('max_daily_bookings', 2) === (string) $capacity ? 'selected' : '' }}>{{ $capacity === 5 ? '5+' : $capacity }}</option>
+                                <option value="{{ $capacity }}" {{ (string) old('max_daily_bookings', 2) === (string) $capacity ? 'selected' : '' }}>{{ $capacity }}</option>
                             @endforeach
                         </select>
                         @error('max_daily_bookings')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
@@ -329,6 +371,9 @@
                     <div>
                         <div class="text-xs font-black uppercase tracking-[0.16em] text-blue-700">Step 3</div>
                         <h2 class="mt-1 text-xl font-black text-slate-950">Verification</h2>
+                        <p class="mt-2 text-sm leading-6 text-slate-500">
+                            Your ID, selfie, date of birth, and optional clearance details are collected only for cleaner verification and are restricted by role-based access. See our <a href="{{ route('legal.privacy') }}" class="font-bold text-blue-700 underline decoration-blue-300 underline-offset-2 hover:text-blue-900">Privacy Policy</a> for details.
+                        </p>
                     </div>
                     <div class="grid gap-5 sm:grid-cols-2">
                         <div>
@@ -343,12 +388,13 @@
                         </div>
                         <div>
                             <label for="government_id_number" class="block text-sm font-bold text-slate-800">Government ID Number *</label>
-                            <input id="government_id_number" name="government_id_number" value="{{ old('government_id_number') }}" inputmode="numeric" pattern="[0-9]*" autocomplete="off" required data-digits-only class="cleaner-apply-input mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                            <input id="government_id_number" name="government_id_number" value="{{ old('government_id_number') }}" pattern="[A-Za-z0-9][A-Za-z0-9 -]{0,99}" maxlength="100" autocomplete="off" title="Use letters, numbers, spaces, and hyphens only" required class="cleaner-apply-input mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                             @error('government_id_number')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
                         </div>
                         <div class="sm:col-span-2">
                             <label for="government_id_document" class="block text-sm font-bold text-slate-800">Upload ID *</label>
                             <input id="government_id_document" type="file" name="government_id_document" accept=".jpg,.jpeg,.png,.pdf" required class="mt-2 w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-bold file:text-blue-700">
+                            <p class="mt-1 text-xs font-semibold text-slate-500">JPG, PNG, or PDF. Maximum 5 MB.</p>
                             @error('government_id_document')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
                         </div>
                         <div>
@@ -359,11 +405,13 @@
                         <div>
                             <label for="nbi_clearance_document" class="block text-sm font-bold text-slate-800">Upload Clearance</label>
                             <input id="nbi_clearance_document" type="file" name="nbi_clearance_document" accept=".jpg,.jpeg,.png,.pdf" class="mt-2 w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-bold file:text-blue-700">
+                            <p class="mt-1 text-xs font-semibold text-slate-500">Optional. JPG, PNG, or PDF up to 5 MB.</p>
                             @error('nbi_clearance_document')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
                         </div>
                         <div class="sm:col-span-2">
                             <label for="selfie_with_id" class="block text-sm font-bold text-slate-800">Upload Selfie Holding ID *</label>
                             <input id="selfie_with_id" type="file" name="selfie_with_id" accept="image/*" required class="mt-2 w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-bold file:text-blue-700">
+                            <p class="mt-1 text-xs font-semibold text-slate-500">Use a clear JPG or PNG image. Maximum 5 MB.</p>
                             @error('selfie_with_id')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
                         </div>
                     </div>
@@ -388,11 +436,11 @@
                                 <div class="text-sm font-bold text-slate-800">{{ $question }}</div>
                                 <div class="mt-3 flex gap-3">
                                     <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
-                                        <input type="radio" name="{{ $name }}" value="1" class="h-4 w-4 text-blue-600" {{ old($name) === '1' ? 'checked' : '' }}>
+                                        <input type="radio" name="{{ $name }}" value="1" required class="h-4 w-4 text-blue-600" {{ old($name) === '1' ? 'checked' : '' }}>
                                         Yes
                                     </label>
                                     <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
-                                        <input type="radio" name="{{ $name }}" value="0" class="h-4 w-4 text-blue-600" {{ old($name, '0') === '0' ? 'checked' : '' }}>
+                                        <input type="radio" name="{{ $name }}" value="0" class="h-4 w-4 text-blue-600" {{ old($name) === '0' ? 'checked' : '' }}>
                                         No
                                     </label>
                                 </div>
@@ -418,6 +466,18 @@
                     <div class="rounded-lg border border-blue-100 bg-blue-50/70 p-4 text-sm leading-6 text-slate-700">
                         <div class="font-black text-blue-900">Before you submit</div>
                         <div class="mt-1">Your application includes personal details, services and coverage, ID files, selfie verification, background answers, availability, and agreement to platform standards.</div>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <div class="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Final review</div>
+                        <dl class="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+                            <div><dt class="font-bold text-slate-500">Applicant</dt><dd data-summary-value="applicant" class="mt-1 font-semibold text-slate-900">—</dd></div>
+                            <div><dt class="font-bold text-slate-500">Email</dt><dd data-summary-value="email" class="mt-1 break-words font-semibold text-slate-900">—</dd></div>
+                            <div><dt class="font-bold text-slate-500">Coverage</dt><dd data-summary-value="coverage" class="mt-1 font-semibold text-slate-900">—</dd></div>
+                            <div><dt class="font-bold text-slate-500">Services</dt><dd data-summary-value="services" class="mt-1 font-semibold text-slate-900">—</dd></div>
+                            <div><dt class="font-bold text-slate-500">Available days</dt><dd data-summary-value="days" class="mt-1 font-semibold text-slate-900">—</dd></div>
+                            <div><dt class="font-bold text-slate-500">Daily capacity</dt><dd data-summary-value="capacity" class="mt-1 font-semibold text-slate-900">—</dd></div>
+                            <div class="sm:col-span-2"><dt class="font-bold text-slate-500">Files</dt><dd data-summary-value="files" class="mt-1 font-semibold text-slate-900">—</dd></div>
+                        </dl>
                     </div>
                     <div class="space-y-3">
                         @foreach([
@@ -477,14 +537,47 @@ document.addEventListener('DOMContentLoaded', function() {
     const coverageInputs = document.querySelectorAll('input[name="coverage_mode"]');
     const coverageList = document.querySelector('[data-coverage-list]');
     const coverageSelect = document.getElementById('coverage_barangays');
+    const coverageOptions = document.querySelectorAll('[data-coverage-option]');
+    const coveragePickerPanel = document.querySelector('[data-coverage-picker-panel]');
+    const coveragePickerToggle = document.querySelector('[data-coverage-picker-toggle]');
+    const coveragePickerConfirm = document.querySelector('[data-coverage-picker-confirm]');
+    const coveragePickerSelectAll = document.querySelector('[data-coverage-select-all]');
+    const coveragePickerLabel = document.querySelector('[data-coverage-picker-label]');
+    const coverageSelectionCount = document.querySelector('[data-coverage-selection-count]');
+    const serviceInputs = document.querySelectorAll('input[name="services_offered[]"]');
+    const dayInputs = document.querySelectorAll('input[name="available_days[]"]');
+    const serviceCount = document.querySelector('[data-service-count]');
+    const dayCount = document.querySelector('[data-day-count]');
     const digitsOnlyFields = document.querySelectorAll('[data-digits-only]');
+    const uploadInputs = document.querySelectorAll('input[type="file"]');
+    const summaryValues = document.querySelectorAll('[data-summary-value]');
 
     const individualRequired = ['individual_name', 'date_of_birth', 'individual_current_address'];
     const teamRequired = ['team_business_name', 'contact_person', 'business_address', 'team_size'];
+    const individualFieldIds = [...individualRequired, 'profile_photo'];
+    const teamFieldIds = [...teamRequired, 'business_logo'];
     const serverErrorFields = @json($errors->keys());
     const shouldClearDraft = @json(session()->has('success'));
     const hasServerOldInput = @json(session()->has('_old_input'));
     const draftKey = `cleanflow:cleaner-application-draft:${window.location.pathname}`;
+    const draftExcludedFields = new Set([
+        'individual_name',
+        'date_of_birth',
+        'individual_current_address',
+        'team_business_name',
+        'contact_person',
+        'email',
+        'phone',
+        'business_address',
+        'government_id_type',
+        'government_id_number',
+        'nbi_clearance_number',
+        'worked_as_cleaner_before',
+        'worked_for_cleaning_company_before',
+        'has_cleaning_certifications',
+        'owns_cleaning_equipment',
+        'verification_notes',
+    ]);
     const stepLabels = {
         1: 'Information',
         2: 'Services',
@@ -499,9 +592,23 @@ document.addEventListener('DOMContentLoaded', function() {
         form.noValidate = true;
     }
 
+    if (coverageSelect) {
+        coverageSelect.classList.add('sr-only');
+        coverageSelect.setAttribute('aria-hidden', 'true');
+        coverageSelect.tabIndex = -1;
+    }
+
     function draftableFields() {
         return Array.from(form?.querySelectorAll('input, select, textarea') || [])
-            .filter((field) => field.name && field.type !== 'file' && field.type !== 'hidden' && field.name !== '_token');
+            .filter((field) => {
+                const fieldName = field.name?.replace(/\[\]$/, '');
+
+                return field.name
+                    && !draftExcludedFields.has(fieldName)
+                    && field.type !== 'file'
+                    && field.type !== 'hidden'
+                    && field.name !== '_token';
+            });
     }
 
     function saveDraft() {
@@ -565,7 +672,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        if (!form || hasServerOldInput) {
+        if (!form) {
             return;
         }
 
@@ -594,7 +701,22 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const values = draft.values || {};
+        const savedValues = draft && typeof draft === 'object' && draft.values && typeof draft.values === 'object'
+            ? draft.values
+            : {};
+        const values = Object.fromEntries(
+            Object.entries(savedValues).filter(([name]) => !draftExcludedFields.has(name.replace(/\[\]$/, '')))
+        );
+
+        try {
+            localStorage.setItem(draftKey, JSON.stringify({ ...draft, values }));
+        } catch (error) {
+            // Ignore blocked localStorage.
+        }
+
+        if (hasServerOldInput) {
+            return;
+        }
 
         draftableFields().forEach((field) => {
             if (!Object.prototype.hasOwnProperty.call(values, field.name)) {
@@ -647,6 +769,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    function setDisabled(ids, disabled) {
+        ids.forEach((id) => {
+            const field = document.getElementById(id);
+            if (field) {
+                field.disabled = disabled;
+            }
+        });
+    }
+
     function syncApplicantFields() {
         const isTeam = currentType() === 'team';
 
@@ -654,6 +785,8 @@ document.addEventListener('DOMContentLoaded', function() {
         teamFields.forEach((field) => field.classList.toggle('hidden', !isTeam));
         setRequired(individualRequired, !isTeam);
         setRequired(teamRequired, isTeam);
+        setDisabled(individualFieldIds, isTeam);
+        setDisabled(teamFieldIds, !isTeam);
         emailLabel.textContent = isTeam ? 'Business Email *' : 'Email Address *';
     }
 
@@ -662,7 +795,130 @@ document.addEventListener('DOMContentLoaded', function() {
 
         coverageList.classList.toggle('hidden', !isSpecific);
         coverageSelect.disabled = !isSpecific;
-        coverageSelect.required = isSpecific;
+        coverageOptions.forEach((option) => {
+            option.disabled = !isSpecific;
+        });
+        if (!isSpecific) {
+            setCoveragePickerOpen(false);
+        }
+        syncCoverageSelectFromOptions();
+        updateSelectionCounts();
+    }
+
+    function syncCoverageSelectFromOptions() {
+        if (!coverageSelect) {
+            return;
+        }
+
+        const selectedValues = new Set(
+            Array.from(coverageOptions)
+                .filter((option) => option.checked)
+                .map((option) => option.value)
+        );
+
+        Array.from(coverageSelect.options).forEach((option) => {
+            option.selected = selectedValues.has(option.value);
+        });
+    }
+
+    function setCoveragePickerOpen(open) {
+        if (!coveragePickerPanel || !coveragePickerToggle) {
+            return;
+        }
+
+        coveragePickerPanel.hidden = !open;
+        coveragePickerToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    function updateSelectionCounts() {
+        const isSpecific = document.querySelector('input[name="coverage_mode"]:checked')?.value === 'specific';
+
+        if (coverageSelectionCount) {
+            if (!isSpecific) {
+                coverageSelectionCount.textContent = 'All areas selected';
+                coverageSelectionCount.classList.remove('text-red-600');
+                coverageSelectionCount.classList.add('text-blue-700');
+                if (coveragePickerLabel) {
+                    coveragePickerLabel.textContent = 'Select areas';
+                }
+            } else {
+                const count = Array.from(coverageOptions).filter((option) => option.checked).length;
+                coverageSelectionCount.textContent = count === 0
+                    ? 'No areas selected'
+                    : `${count} area${count === 1 ? '' : 's'} selected`;
+                coverageSelectionCount.classList.toggle('text-red-600', count === 0);
+                coverageSelectionCount.classList.toggle('text-blue-700', count > 0);
+                if (coveragePickerLabel) {
+                    coveragePickerLabel.textContent = count === 0 ? 'Select areas' : 'Change selection';
+                }
+            }
+        }
+
+        if (serviceCount) {
+            const count = Array.from(serviceInputs).filter((input) => input.checked).length;
+            serviceCount.textContent = `${count} selected`;
+            serviceCount.classList.toggle('text-blue-700', count > 0);
+            serviceCount.classList.toggle('text-slate-500', count === 0);
+        }
+
+        if (dayCount) {
+            const count = Array.from(dayInputs).filter((input) => input.checked).length;
+            dayCount.textContent = `${count} selected`;
+            dayCount.classList.toggle('text-blue-700', count > 0);
+            dayCount.classList.toggle('text-slate-500', count === 0);
+        }
+    }
+
+    function fileSizeLabel(bytes) {
+        return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    }
+
+    function updateUploadPreview(input) {
+        let preview = input.parentElement.querySelector('[data-upload-preview]');
+
+        if (!preview) {
+            preview = document.createElement('p');
+            preview.dataset.uploadPreview = 'true';
+            preview.className = 'mt-2 text-xs font-bold text-slate-600';
+            input.insertAdjacentElement('afterend', preview);
+        }
+
+        const file = input.files?.[0];
+
+        if (!file) {
+            preview.textContent = '';
+            return;
+        }
+
+        preview.textContent = `Selected: ${file.name} (${fileSizeLabel(file.size)})`;
+        preview.classList.toggle('text-red-600', file.size > 5 * 1024 * 1024);
+        preview.classList.toggle('text-slate-600', file.size <= 5 * 1024 * 1024);
+    }
+
+    function updateFinalSummary() {
+        const isTeam = currentType() === 'team';
+        const individualName = document.getElementById('individual_name')?.value.trim();
+        const teamName = document.getElementById('team_business_name')?.value.trim();
+        const coverageMode = document.querySelector('input[name="coverage_mode"]:checked')?.value;
+        const coverage = coverageMode === 'all'
+            ? 'All Bukidnon cities and municipalities'
+            : Array.from(coverageOptions).filter((option) => option.checked).map((option) => option.closest('label')?.textContent.trim()).filter(Boolean).join(', ') || 'No areas selected';
+        const selectedServices = Array.from(document.querySelectorAll('input[name="services_offered[]"]:checked')).map((field) => field.closest('label')?.textContent.trim()).filter(Boolean);
+        const selectedDays = Array.from(document.querySelectorAll('input[name="available_days[]"]:checked')).map((field) => field.closest('label')?.textContent.trim()).filter(Boolean);
+        const selectedFiles = Array.from(uploadInputs).filter((input) => input.files?.length).map((input) => input.files[0].name);
+        const summary = {
+            applicant: isTeam ? (teamName || 'Not provided') : (individualName || 'Not provided'),
+            email: document.getElementById('email')?.value.trim() || 'Not provided',
+            coverage,
+            services: selectedServices.join(', ') || 'None selected',
+            days: selectedDays.join(', ') || 'None selected',
+            capacity: `${document.getElementById('max_daily_bookings')?.value || '—'} booking(s) per day`,
+            files: selectedFiles.join(', ') || 'No files selected',
+        };
+
+        summaryValues.forEach((element) => {
+            element.textContent = summary[element.dataset.summaryValue] || '—';
+        });
     }
 
     function clearValidationState(scope = form) {
@@ -675,8 +931,14 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        const wasHidden = formWarning.classList.contains('hidden');
         formWarning.textContent = message;
         formWarning.classList.remove('hidden');
+
+        if (wasHidden) {
+            formWarning.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            formWarning.focus({ preventScroll: true });
+        }
     }
 
     function hideFormWarning() {
@@ -701,8 +963,16 @@ document.addEventListener('DOMContentLoaded', function() {
             return 'Enter a valid email address.';
         }
 
+        if (field.validity.patternMismatch && field.name === 'phone') {
+            return 'Enter an 11-digit Philippine mobile number starting with 09.';
+        }
+
+        if (field.validity.patternMismatch && field.name === 'government_id_number') {
+            return 'Use letters, numbers, spaces, and hyphens only.';
+        }
+
         if (field.validity.patternMismatch) {
-            return `${label} must contain numbers only.`;
+            return `${label} contains an unsupported format.`;
         }
 
         if (field.validity.rangeUnderflow) {
@@ -783,6 +1053,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (step === 2) {
+            const isSpecificCoverage = document.querySelector('input[name="coverage_mode"]:checked')?.value === 'specific';
+
+            if (isSpecificCoverage && !Array.from(coverageOptions).some((option) => option.checked)) {
+                if (showWarnings) {
+                    showGroupError(panel, 'coverage_picker[]', 'Choose at least one city or municipality.');
+                    showFormWarning('Choose at least one city or municipality before continuing.');
+                }
+                return false;
+            }
+
             if (!validateCheckedGroup(panel, 'services_offered[]', 'Choose at least one service.')) {
                 if (showWarnings) {
                     showFormWarning('Choose at least one service before continuing.');
@@ -813,6 +1093,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (showWarnings) {
                         showFieldError(field, 'This agreement is required before submitting.');
                         showFormWarning('Check every agreement before submitting.');
+                    }
+                    return false;
+                }
+            }
+        }
+
+        if (step === 3) {
+            for (const input of uploadInputs) {
+                const file = input.files?.[0];
+
+                if (file && file.size > 5 * 1024 * 1024) {
+                    if (showWarnings) {
+                        showFieldError(input, 'Each file must be 5 MB or smaller.');
+                        showFormWarning('Remove files larger than 5 MB before continuing.');
                     }
                     return false;
                 }
@@ -929,6 +1223,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (nextLabel && currentStep < 4) {
             nextLabel.textContent = `Continue to ${stepLabels[currentStep + 1]}`;
         }
+
+        if (currentStep === 4) {
+            updateFinalSummary();
+        }
     }
 
     function goToStep(targetStep) {
@@ -954,6 +1252,36 @@ document.addEventListener('DOMContentLoaded', function() {
         syncCoverageFields();
         saveDraft();
     }));
+    coveragePickerToggle?.addEventListener('click', () => {
+        setCoveragePickerOpen(coveragePickerPanel?.hidden === true);
+    });
+    coveragePickerConfirm?.addEventListener('click', () => {
+        syncCoverageSelectFromOptions();
+        updateSelectionCounts();
+        setCoveragePickerOpen(false);
+        saveDraft();
+    });
+    coveragePickerSelectAll?.addEventListener('click', () => {
+        coverageOptions.forEach((option) => {
+            option.checked = true;
+        });
+        syncCoverageSelectFromOptions();
+        updateSelectionCounts();
+        saveDraft();
+    });
+    coverageOptions.forEach((option) => option.addEventListener('change', () => {
+        syncCoverageSelectFromOptions();
+        updateSelectionCounts();
+        saveDraft();
+    }));
+    coverageSelect?.addEventListener('change', () => {
+        updateSelectionCounts();
+        saveDraft();
+    });
+    [...serviceInputs, ...dayInputs].forEach((input) => input.addEventListener('change', () => {
+        updateSelectionCounts();
+        saveDraft();
+    }));
     digitsOnlyFields.forEach((field) => {
         field.addEventListener('input', () => {
             field.value = field.value.replace(/\D/g, '');
@@ -964,6 +1292,10 @@ document.addEventListener('DOMContentLoaded', function() {
         field.addEventListener('input', saveDraft);
         field.addEventListener('change', saveDraft);
     });
+    uploadInputs.forEach((input) => input.addEventListener('change', () => {
+        updateUploadPreview(input);
+        updateFinalSummary();
+    }));
     stepButtons.forEach((button) => button.addEventListener('click', () => goToStep(Number(button.dataset.stepTarget))));
     prevButton?.addEventListener('click', () => goToStep(currentStep - 1));
     nextButton?.addEventListener('click', () => goToStep(currentStep + 1));
@@ -975,6 +1307,7 @@ document.addEventListener('DOMContentLoaded', function() {
     restoreDraft();
     syncApplicantFields();
     syncCoverageFields();
+    updateSelectionCounts();
     showStep(currentStep);
     showServerErrors();
 });

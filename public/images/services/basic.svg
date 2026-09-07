@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" role="img" aria-labelledby="title desc">
+  <title id="title">Basic cleaning illustration</title><desc id="desc">A broom, spray bottle, and clean home for routine cleaning.</desc>
+  <rect width="800" height="420" rx="32" fill="#eaf5ff"/><circle cx="650" cy="85" r="54" fill="#c9e8ff"/><path d="M90 326h620" stroke="#b5d9ee" stroke-width="12" stroke-linecap="round"/>
+  <path d="M545 326V190h110v136M520 190l80-68 80 68" fill="#fff" stroke="#1b78b8" stroke-width="10" stroke-linejoin="round"/><path d="M592 326v-65h18v65M570 222h24v28h-24zM612 222h24v28h-24z" fill="#8fd3f4" stroke="#1b78b8" stroke-width="7"/>
+  <path d="M215 302l78-164" stroke="#8b5e3c" stroke-width="13" stroke-linecap="round"/><path d="M270 138l52 24-36 40-48-27z" fill="#63c7a5" stroke="#176b69" stroke-width="8"/><path d="M216 302l-34 27h87l-34-27z" fill="#f3b545" stroke="#a86c00" stroke-width="8"/>
+  <path d="M390 300V180h62l22 30v90z" fill="#fff" stroke="#2066b1" stroke-width="9"/><path d="M390 180h44l12-25h30l-13 25" fill="#9bd9ff" stroke="#2066b1" stroke-width="9" stroke-linejoin="round"/><path d="M420 218h26M420 244h38" stroke="#63a7d8" stroke-width="8" stroke-linecap="round"/><path d="M475 212c25-8 30-30 20-46M490 235c35-11 41-39 26-61" fill="none" stroke="#54bda0" stroke-width="8" stroke-linecap="round"/>
+  <g stroke="#173b63" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="365" cy="176" r="25" fill="#f2bd91"/><path d="M340 208h55l18 67h-72z" fill="#287fbd"/><path d="M350 275l-20 51M385 275l24 51" fill="none"/><path d="M347 326h-29M409 326h28" fill="none"/><path d="M397 224l43 37" fill="none"/><path d="M437 261l42-25" fill="none"/><path d="M479 236l17 12-12 20-18-13z" fill="#63c7a5"/>
+  </g>
+</svg>

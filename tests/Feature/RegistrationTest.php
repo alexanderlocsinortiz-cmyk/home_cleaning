@@ -65,4 +65,39 @@ class RegistrationTest extends TestCase
         $response->assertSessionHasErrors('date_of_birth');
         $this->assertDatabaseMissing('users', ['email' => 'young@example.com']);
     }
+
+    public function test_weak_password_is_rejected_during_registration(): void
+    {
+        $response = $this->from(route('register'))->post(route('register.store'), [
+            'first_name' => 'Weak',
+            'last_name' => 'Password',
+            'email' => 'weak-password@example.com',
+            'phone' => '09171234569',
+            'date_of_birth' => '2000-01-01',
+            'password' => '1234567',
+            'password_confirmation' => '1234567',
+        ]);
+
+        $response->assertRedirect(route('register'));
+        $response->assertSessionHasErrors('password');
+        $this->assertDatabaseMissing('users', ['email' => 'weak-password@example.com']);
+    }
+
+    public function test_password_with_letters_numbers_and_symbols_is_accepted(): void
+    {
+        Notification::fake();
+
+        $response = $this->post(route('register.store'), [
+            'first_name' => 'Strong',
+            'last_name' => 'Password',
+            'email' => 'strong-password@example.com',
+            'phone' => '09171234570',
+            'date_of_birth' => '2000-01-01',
+            'password' => '@Carla123hsne',
+            'password_confirmation' => '@Carla123hsne',
+        ]);
+
+        $response->assertRedirect(route('verification.notice'));
+        $this->assertDatabaseHas('users', ['email' => 'strong-password@example.com']);
+    }
 }

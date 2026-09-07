@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Service;
 use App\Models\Booking;
+use App\Models\Service;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -15,14 +15,6 @@ class CalculatePriceRequest extends FormRequest
         return true;
     }
 
-    protected function prepareForValidation(): void
-    {
-        $this->merge([
-            'rooms' => 1,
-            'bathrooms' => 1,
-        ]);
-    }
-
     public function rules(): array
     {
         $validSlugs = Service::where('is_active', true)->pluck('slug')->toArray();
@@ -32,6 +24,8 @@ class CalculatePriceRequest extends FormRequest
         return [
             'service_type' => ['required', Rule::in($validSlugs)],
             'property_type' => ['required', Rule::in($propertyTypes)],
+            // Public quote previews may omit these because they do not affect
+            // the current per-square-meter price.
             'rooms' => 'nullable|integer|min:1|max:20',
             'bathrooms' => 'nullable|integer|min:1|max:10',
             'floor_area' => 'required|integer|min:10|max:1000',
@@ -43,6 +37,19 @@ class CalculatePriceRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            if (
+                $this->filled(['service_type', 'property_type'])
+                && ! Service::supportsPropertyType(
+                    (string) $this->input('service_type'),
+                    (string) $this->input('property_type')
+                )
+            ) {
+                $validator->errors()->add(
+                    'service_type',
+                    'Please choose a service that matches the selected property type.'
+                );
+            }
+
             $service = Service::where('slug', $this->input('service_type'))
                 ->where('is_active', true)
                 ->first();

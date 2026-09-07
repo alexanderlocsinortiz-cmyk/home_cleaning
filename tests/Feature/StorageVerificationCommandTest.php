@@ -11,6 +11,34 @@ class StorageVerificationCommandTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_cleanflow_verification_passes_for_shared_runtime_profile(): void
+    {
+        Config::set([
+            'queue.default' => 'database',
+            'mail.default' => 'smtp',
+            'cache.default' => 'database',
+            'session.driver' => 'database',
+        ]);
+
+        $this->artisan('cleanflow:verify')
+            ->assertExitCode(0)
+            ->expectsOutputToContain('CleanFlow verification passed.');
+    }
+
+    public function test_cleanflow_verification_fails_when_queue_is_not_durable(): void
+    {
+        Config::set([
+            'queue.default' => 'sync',
+            'mail.default' => 'smtp',
+            'cache.default' => 'database',
+            'session.driver' => 'database',
+        ]);
+
+        $this->artisan('cleanflow:verify')
+            ->assertExitCode(1)
+            ->expectsOutputToContain('CleanFlow verification found 1 failure(s).');
+    }
+
     public function test_storage_verification_probes_private_and_public_disks(): void
     {
         Config::set('filesystems.disks.verification-private', [
@@ -33,4 +61,3 @@ class StorageVerificationCommandTest extends TestCase
             ->expectsOutputToContain('Probe passed: public uploads');
     }
 }
-

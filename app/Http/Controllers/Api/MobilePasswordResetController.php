@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\MobileApiToken;
+use App\Models\SecurityEvent;
 use App\Models\User;
 use App\Notifications\ResetPasswordOtp;
 use Carbon\Carbon;
@@ -107,7 +109,7 @@ class MobilePasswordResetController extends Controller
     public function resetPassword(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'password' => ['required', 'confirmed', Password::min(8)],
+            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
             'reset_token' => ['required', 'string', 'size:64'],
         ]);
 
@@ -125,6 +127,11 @@ class MobilePasswordResetController extends Controller
             'password' => Hash::make($validated['password']),
             'remember_token' => null,
         ])->save();
+
+        // A password reset is a security boundary: invalidate every existing
+        // mobile session so a previously stolen bearer token cannot survive it.
+        MobileApiToken::where('user_id', $user->id)->delete();
+        SecurityEvent::record('mobile_password_reset', $user);
 
         DB::table('password_reset_tokens')->where('email', $user->email)->delete();
         Cache::forget($this->resetTokenKey($validated['reset_token']));

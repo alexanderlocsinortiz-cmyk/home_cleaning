@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Rating;
 use App\Models\Service;
 use Carbon\Carbon;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -31,15 +32,10 @@ class MobileBookingController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $this->assertVerifiedClient($request, 'view mobile bookings');
         $user = $request->user();
 
-        if ($user->role !== 'client') {
-            return response()->json([
-                'message' => 'Only client accounts can view mobile bookings.',
-            ], 403);
-        }
-
-        $bookings = Booking::with(['service', 'cleanerApplication'])
+        $bookings = Booking::with(['service', 'cleanerApplication', 'payment'])
             ->where('user_id', $user->id)
             ->latest()
             ->limit(50)
@@ -54,13 +50,8 @@ class MobileBookingController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->assertVerifiedClient($request, 'create mobile bookings');
         $user = $request->user();
-
-        if ($user->role !== 'client') {
-            return response()->json([
-                'message' => 'Only client accounts can create mobile bookings.',
-            ], 403);
-        }
 
         $validated = $this->validateBookingRequest($request);
         $service = Service::where('slug', $validated['service_type'])
@@ -71,8 +62,8 @@ class MobileBookingController extends Controller
         $pricing = Booking::calculatePrice(
             $validated['service_type'],
             $validated['property_type'],
-            1,
-            1,
+            $validated['rooms'],
+            $validated['bathrooms'],
             $validated['floor_area'],
             $validated['add_ons'] ?? []
         );
@@ -87,6 +78,10 @@ class MobileBookingController extends Controller
 
         if ($service->requiresScopeManualReview((int) $validated['floor_area'])) {
             $riskReasons[] = 'Requested floor area exceeds the provisional measurable limit for this service.';
+        }
+
+        if (Booking::staffingRequiresManualReview((int) $pricing['required_cleaners'])) {
+            $riskReasons[] = Booking::staffingManualReviewReason((int) $pricing['required_cleaners']);
         }
 
         $manualReviewStatus = empty($riskReasons) ? 'not_required' : 'pending';
@@ -130,9 +125,10 @@ class MobileBookingController extends Controller
                         'service_id' => $service->id,
                         'service_type' => $validated['service_type'],
                         'property_type' => $validated['property_type'],
-                        'rooms' => 1,
-                        'bathrooms' => 1,
+                        'rooms' => $validated['rooms'],
+                        'bathrooms' => $validated['bathrooms'],
                         'floor_area' => $validated['floor_area'],
+                        'required_cleaners' => $pricing['required_cleaners'],
                         'add_ons' => $pricing['add_ons'],
                         'barangay' => $validated['barangay'],
                         'street_address' => $validated['street_address'],
@@ -167,7 +163,7 @@ class MobileBookingController extends Controller
             ], 423);
         }
 
-        $booking->load(['service', 'cleanerApplication']);
+        $booking->load(['service', 'cleanerApplication', 'payment']);
 
         return response()->json([
             'message' => $manualReviewStatus === 'pending'
@@ -192,7 +188,7 @@ class MobileBookingController extends Controller
             'from_status' => 'pending', 'to_status' => 'cancelled',
         ]);
 
-        return response()->json(['message' => 'Your booking request has been cancelled.', 'booking' => $this->bookingPayload($booking->fresh('service'))]);
+        return response()->json(['message' => 'Your booking request has been cancelled.', 'booking' => $this->bookingPayload($booking->fresh(['service', 'payment']))]);
     }
 
     public function reschedule(Request $request, Booking $booking): JsonResponse
@@ -219,7 +215,7 @@ class MobileBookingController extends Controller
         $booking->update($validated);
         $booking->logActivity($request->user(), 'rescheduled', 'Client rescheduled the booking.', $validated);
 
-        return response()->json(['message' => 'Your booking has been rescheduled successfully.', 'booking' => $this->bookingPayload($booking->fresh('service'))]);
+        return response()->json(['message' => 'Your booking has been rescheduled successfully.', 'booking' => $this->bookingPayload($booking->fresh(['service', 'payment']))]);
     }
 
     public function rate(Request $request, Booking $booking): JsonResponse
@@ -234,7 +230,7 @@ class MobileBookingController extends Controller
             return response()->json(['message' => 'This booking is not eligible for a new rating.'], 422);
         }
 
-        \App\Models\Rating::create([
+        Rating::create([
             'booking_id' => $booking->id,
             'client_id' => $request->user()->id,
             'staff_id' => $booking->staff_id,
@@ -242,7 +238,7 @@ class MobileBookingController extends Controller
             'comment' => $validated['comment'] ?? null,
         ]);
 
-        return response()->json(['message' => 'Thanks for sharing your feedback.', 'booking' => $this->bookingPayload($booking->fresh('service'))]);
+        return response()->json(['message' => 'Thanks for sharing your feedback.', 'booking' => $this->bookingPayload($booking->fresh(['service', 'payment']))]);
     }
 
     public function dispute(Request $request, Booking $booking): JsonResponse
@@ -265,13 +261,31 @@ class MobileBookingController extends Controller
         ])->save();
         $booking->logActivity($request->user(), 'dispute_opened', 'Client opened a booking dispute.', $validated);
 
-        return response()->json(['message' => 'Your dispute has been submitted.', 'booking' => $this->bookingPayload($booking->fresh('service'))]);
+        return response()->json(['message' => 'Your dispute has been submitted.', 'booking' => $this->bookingPayload($booking->fresh(['service', 'payment']))]);
     }
 
     private function assertClientOwns(Request $request, Booking $booking): void
     {
-        abort_if($request->user()->role !== 'client', 403);
+        $this->assertVerifiedClient($request, 'manage mobile bookings');
         abort_if((int) $booking->user_id !== (int) $request->user()->id, 403);
+    }
+
+    private function assertVerifiedClient(Request $request, string $action): void
+    {
+        $user = $request->user();
+
+        if ($user->role !== 'client') {
+            abort(response()->json([
+                'message' => 'Only client accounts can '.$action.'.',
+            ], 403));
+        }
+
+        if (! $user->hasVerifiedEmail()) {
+            abort(response()->json([
+                'message' => 'Please verify your email before you '.$action.'.',
+                'requires_email_verification' => true,
+            ], 403));
+        }
     }
 
     private function validateBookingRequest(Request $request): array
@@ -282,6 +296,8 @@ class MobileBookingController extends Controller
                 Rule::exists('services', 'slug')->where(fn ($query) => $query->where('is_active', true)),
             ],
             'property_type' => ['required', Rule::in(array_keys(Booking::propertyTypeLabels()))],
+            'rooms' => ['nullable', 'integer', 'min:1', 'max:20'],
+            'bathrooms' => ['nullable', 'integer', 'min:1', 'max:10'],
             'floor_area' => ['required', 'integer', 'min:10', 'max:1000'],
             'add_ons' => ['nullable', 'array'],
             'add_ons.*' => ['string', Rule::in(array_keys(Booking::addOnCatalog()))],
@@ -309,6 +325,14 @@ class MobileBookingController extends Controller
         }
 
         $validated['add_ons'] = $validated['add_ons'] ?? [];
+        $validated['rooms'] = (int) ($validated['rooms'] ?? 1);
+        $validated['bathrooms'] = (int) ($validated['bathrooms'] ?? 1);
+
+        if (! Service::supportsPropertyType($validated['service_type'], $validated['property_type'])) {
+            throw ValidationException::withMessages([
+                'service_type' => ['Please choose a service that matches the selected property type.'],
+            ]);
+        }
 
         $service = Service::where('slug', $validated['service_type'])
             ->where('is_active', true)
@@ -355,6 +379,8 @@ class MobileBookingController extends Controller
             'schedule_label' => trim(($date ?? 'Unscheduled').' '.($time ?? '')),
             'barangay' => $booking->barangay,
             'street_address' => $booking->street_address,
+            'rooms' => (int) $booking->rooms,
+            'bathrooms' => (int) $booking->bathrooms,
             'manual_review_status' => $booking->manual_review_status,
             'risk_reasons' => $booking->risk_reasons ?? [],
             'dispute_status' => $booking->dispute_status,

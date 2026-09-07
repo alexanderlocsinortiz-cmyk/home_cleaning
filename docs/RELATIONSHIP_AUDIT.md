@@ -1,21 +1,21 @@
 # Parent/Child Relationship Audit
 
-Audit date: 2026-08-26.
+Audit date: 2026-08-31.
 
 ## Result
 
-The booking graph has no orphaned child records in the inspected database. The application and migrations consistently use `bookings` as the parent for service proofs, activity logs, messages, locations, ratings, and provider payout transactions. Those child rows use foreign keys with cascade deletion because they have no meaning without the booking.
+The booking graph has no orphaned child records in the inspected database. The application and migrations consistently use `bookings` as the parent for payments, service proofs, activity logs, messages, locations, ratings, and provider payout transactions. Those child rows use foreign keys with cascade deletion because they have no meaning without the booking.
 
 The following checks returned zero orphaned rows:
 
 - booking users
 - non-null booking services, staff, preferred staff, and marketplace providers
-- service proofs, messages, locations, ratings, and payout transactions without bookings
+- payments, service proofs, messages, locations, ratings, and payout transactions without bookings
 - cleaner application documents without applications
 - notifications without users or referenced bookings
 - cleaner applications with missing linked users
 
-There are 10 legacy bookings with no `service_id`. They all have a valid historical `service_type`, so this is an intentional compatibility case rather than an orphan. New catalog-backed bookings should populate both fields.
+All inspected bookings now have a canonical `service_id`. Historical or custom labels are retained in `service_label` when they cannot be resolved to the active service catalog. Payment records are linked through `payments.booking_id` and are not duplicated on the booking row.
 
 ## Integrity fixes
 

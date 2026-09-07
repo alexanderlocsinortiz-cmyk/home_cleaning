@@ -8,9 +8,9 @@ use App\Models\Rating;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class MobileStaffBookingApiTest extends TestCase
@@ -166,11 +166,13 @@ class MobileStaffBookingApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('booking.status', 'completed')
             ->assertJsonPath('booking.after_photo_count', 1)
-            ->assertJsonPath('booking.payment_status', 'paid');
+            ->assertJsonPath('booking.payment_status', 'pending');
 
         $completedBooking = $booking->fresh();
         $this->assertSame('completed', $completedBooking->status);
-        $this->assertSame('paid', $completedBooking->payment_status);
+        $this->assertSame('pending', $completedBooking->payment_status);
+        $this->assertNull($completedBooking->payment_reference);
+        $this->assertNull($completedBooking->paid_at);
         $this->assertDatabaseHas('booking_service_proofs', [
             'booking_id' => $booking->id,
             'uploaded_by' => $staff->id,

@@ -30,75 +30,80 @@
             </div>
         @endif
 
-        <section class="relative overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-blue-50 p-6 shadow-sm">
-            <div class="relative z-10 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
+        <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-950 via-blue-900 to-blue-700 p-6 text-white shadow-xl shadow-blue-950/15 sm:p-8">
+            <div class="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl"></div>
+            <div class="pointer-events-none absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-cyan-300/10 blur-3xl"></div>
+            <div class="relative z-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
                 <div>
                     <div class="flex items-center gap-4">
-                        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-2xl text-amber-500">
+                        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/12 text-2xl text-amber-300 ring-1 ring-white/15">
                             <i class="fas fa-hand-sparkles"></i>
                         </div>
                         <div>
-                            <p class="text-lg font-black text-slate-900">Welcome back,</p>
-                            <h1 class="text-4xl font-black tracking-tight text-slate-950">{{ $cleanerName }}!</h1>
+                            <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-100">Cleaner workspace</p>
+                            <h1 class="mt-1 text-3xl font-black tracking-tight text-white sm:text-4xl">Welcome back, {{ $cleanerName }}!</h1>
                         </div>
                     </div>
-                    <p class="mt-4 max-w-2xl text-sm leading-7 text-slate-600">Here is what is happening with your cleaner account today.</p>
-                    <div class="mt-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black {{ $application?->availabilityBadgeClass() ?? 'bg-slate-100 text-slate-600' }}">
+                    <p class="mt-4 max-w-2xl text-sm leading-7 text-blue-100">Stay on top of assignments, keep your availability current, and finish payout verification when it is due.</p>
+                    <div class="mt-5 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-black text-white ring-1 ring-white/15">
                         <span class="h-2 w-2 rounded-full bg-current"></span>
                         {{ $application?->availabilityLabel() ?? 'Availability not set' }} for new assignments
                     </div>
                 </div>
-                <div class="relative hidden min-h-[150px] lg:block">
-                    <div class="absolute bottom-0 right-6 h-28 w-28 rounded-full bg-blue-100"></div>
-                    <div class="absolute bottom-0 right-20 h-24 w-20 rounded-t-full bg-blue-700 shadow-lg"></div>
-                    <div class="absolute right-24 top-8 h-12 w-12 rounded-full bg-orange-100 ring-4 ring-white"></div>
-                    <div class="absolute right-28 top-4 h-8 w-16 rounded-t-full bg-blue-800"></div>
-                    <div class="absolute bottom-2 right-36 h-11 w-28 rounded-xl bg-blue-600/90"></div>
-                    <div class="absolute bottom-10 right-44 h-12 w-12 rounded-xl bg-amber-100"></div>
-                    <div class="absolute bottom-0 right-4 h-24 w-10 rounded-t-full bg-blue-100"></div>
-                    <div class="absolute bottom-0 left-2 h-16 w-40 rounded-t-2xl bg-blue-100/70"></div>
-                    <div class="absolute right-56 top-2 grid grid-cols-2 gap-1 opacity-60">
-                        <span class="h-9 w-9 border-4 border-blue-100"></span>
-                        <span class="h-9 w-9 border-4 border-blue-100"></span>
-                        <span class="h-9 w-9 border-4 border-blue-100"></span>
-                        <span class="h-9 w-9 border-4 border-blue-100"></span>
+                <div class="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-sm">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="text-xs font-black uppercase tracking-[0.14em] text-blue-100">Next assignment</div>
+                        <i class="fas fa-calendar-day text-blue-200"></i>
                     </div>
+                    @if($currentBooking)
+                        <div class="mt-4 text-2xl font-black text-white">{{ $currentBooking->scheduled_date->format('M d, Y') }}</div>
+                        <div class="mt-1 text-sm font-semibold text-blue-100">{{ \Carbon\Carbon::parse($currentBooking->scheduled_time)->format('h:i A') }} · {{ $currentBooking->service_label }}</div>
+                        <a href="{{ route('provider.bookings.show', $currentBooking) }}" class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-black text-blue-800 transition hover:bg-blue-50">
+                            Open assignment <i class="fas fa-arrow-right"></i>
+                        </a>
+                    @else
+                        <div class="mt-4 text-lg font-black text-white">No active assignment</div>
+                        <p class="mt-1 text-sm leading-6 text-blue-100">Your next booking will appear here once it is assigned.</p>
+                        <a href="{{ route('provider.bookings') }}" class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white/12 px-4 py-2.5 text-sm font-black text-white ring-1 ring-white/20 transition hover:bg-white/20">
+                            View bookings <i class="fas fa-arrow-right"></i>
+                        </a>
+                    @endif
                 </div>
             </div>
         </section>
 
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <a href="{{ route('provider.bookings') }}" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <a href="{{ route('provider.bookings') }}" class="group rounded-2xl border-t-4 border-blue-500 border-x border-b border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                 <div class="flex items-center gap-4">
                     <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-xl text-blue-700"><i class="fas fa-clipboard-list"></i></span>
                     <div>
                         <div class="text-sm font-semibold text-slate-600">Assigned Bookings</div>
                         <div class="mt-1 text-3xl font-black text-slate-950">{{ number_format($bookingStats['assigned']) }}</div>
-                        <div class="mt-2 text-xs font-bold text-blue-700">View all bookings <i class="fas fa-arrow-right ml-1"></i></div>
+                        <div class="mt-2 text-xs font-bold text-blue-700">View all bookings <i class="fas fa-arrow-right ml-1 transition-transform group-hover:translate-x-1"></i></div>
                     </div>
                 </div>
             </a>
-            <a href="{{ route('provider.bookings', ['status' => 'active']) }}" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <a href="{{ route('provider.bookings', ['status' => 'active']) }}" class="group rounded-2xl border-t-4 border-cyan-500 border-x border-b border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                 <div class="flex items-center gap-4">
                     <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-xl text-blue-700"><i class="fas fa-person-running"></i></span>
                     <div>
                         <div class="text-sm font-semibold text-slate-600">Active Bookings</div>
                         <div class="mt-1 text-3xl font-black text-slate-950">{{ number_format($bookingStats['active']) }}</div>
-                        <div class="mt-2 text-xs font-bold text-blue-700">View active <i class="fas fa-arrow-right ml-1"></i></div>
+                        <div class="mt-2 text-xs font-bold text-blue-700">View active <i class="fas fa-arrow-right ml-1 transition-transform group-hover:translate-x-1"></i></div>
                     </div>
                 </div>
             </a>
-            <a href="{{ route('provider.bookings', ['status' => 'completed']) }}" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <a href="{{ route('provider.bookings', ['status' => 'completed']) }}" class="group rounded-2xl border-t-4 border-emerald-500 border-x border-b border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                 <div class="flex items-center gap-4">
                     <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-xl text-emerald-700"><i class="fas fa-circle-check"></i></span>
                     <div>
                         <div class="text-sm font-semibold text-slate-600">Completed Jobs</div>
                         <div class="mt-1 text-3xl font-black text-slate-950">{{ number_format($bookingStats['completed']) }}</div>
-                        <div class="mt-2 text-xs font-bold text-blue-700">View history <i class="fas fa-arrow-right ml-1"></i></div>
+                        <div class="mt-2 text-xs font-bold text-blue-700">View history <i class="fas fa-arrow-right ml-1 transition-transform group-hover:translate-x-1"></i></div>
                     </div>
                 </div>
             </a>
-            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="rounded-2xl border-t-4 border-purple-500 border-x border-b border-slate-200 bg-white p-5 shadow-sm">
                 <div class="flex items-center gap-4">
                     <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-xl text-purple-700"><i class="fas fa-star"></i></span>
                     <div>
@@ -257,12 +262,21 @@
                     <form action="{{ route('provider.availability.update') }}" method="POST" class="mt-5 space-y-3">
                         @csrf
                         @method('PATCH')
-                        <select name="availability_status" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden">
-                            <option value="available" {{ old('availability_status', $application->availability_status ?: 'available') === 'available' ? 'selected' : '' }}>Available</option>
-                            <option value="paused" {{ old('availability_status', $application->availability_status) === 'paused' ? 'selected' : '' }}>Paused</option>
-                        </select>
-                        <input name="availability_notes" value="{{ old('availability_notes', $application->availability_notes) }}" placeholder="Example: Fully booked this weekend" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden">
-                        <input type="number" min="1" max="20" name="max_daily_bookings" value="{{ old('max_daily_bookings', $application->max_daily_bookings) }}" placeholder="Daily booking limit" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden">
+                        <div>
+                            <label for="availability_status" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Assignment status</label>
+                            <select id="availability_status" name="availability_status" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-semibold focus:border-blue-500 focus:outline-hidden">
+                                <option value="available" {{ old('availability_status', $application->availability_status ?: 'available') === 'available' ? 'selected' : '' }}>Available</option>
+                                <option value="paused" {{ old('availability_status', $application->availability_status) === 'paused' ? 'selected' : '' }}>Paused</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="availability_notes" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Note for admin</label>
+                            <input id="availability_notes" name="availability_notes" value="{{ old('availability_notes', $application->availability_notes) }}" placeholder="Example: Fully booked this weekend" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-hidden">
+                        </div>
+                        <div>
+                            <label for="max_daily_bookings" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Daily booking limit</label>
+                            <input id="max_daily_bookings" type="number" min="1" max="20" name="max_daily_bookings" value="{{ old('max_daily_bookings', $application->max_daily_bookings) }}" placeholder="No limit" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-hidden">
+                        </div>
                         <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-black text-blue-700 transition hover:bg-blue-100">
                             <i class="fas fa-calendar-check"></i>
                             Update Availability
@@ -298,21 +312,42 @@
                         @csrf
                         @method('PATCH')
                         <div class="grid gap-3 sm:grid-cols-3">
-                            <select name="payout_method" class="rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden">
-                                @foreach(\App\Models\CleanerApplication::PAYOUT_METHOD_LABELS as $method => $label)
-                                    <option value="{{ $method }}" {{ old('payout_method', $application->payout_method) === $method ? 'selected' : '' }}>{{ $label }}</option>
-                                @endforeach
-                            </select>
-                            <input name="payout_account_name" value="{{ old('payout_account_name', $application->payout_account_name) }}" placeholder="Account name" class="rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden">
-                            <input name="payout_account_number" value="{{ old('payout_account_number', $application->payout_account_number) }}" placeholder="Account number" class="rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden">
+                            <div>
+                                <label for="payout_method" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Payout method</label>
+                                <select id="payout_method" name="payout_method" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-semibold focus:border-blue-500 focus:outline-hidden">
+                                    @foreach(\App\Models\CleanerApplication::PAYOUT_METHOD_LABELS as $method => $label)
+                                        <option value="{{ $method }}" {{ old('payout_method', $application->payout_method) === $method ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label for="payout_account_name" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Account name</label>
+                                <input id="payout_account_name" name="payout_account_name" value="{{ old('payout_account_name', $application->payout_account_name) }}" placeholder="Name on account" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-hidden">
+                            </div>
+                            <div>
+                                <label for="payout_account_number" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Account number</label>
+                                <input id="payout_account_number" name="payout_account_number" value="{{ old('payout_account_number', $application->payout_account_number) }}" placeholder="Account or mobile number" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-hidden">
+                            </div>
                         </div>
                         <div class="grid gap-3 sm:grid-cols-3">
-                            <input type="file" name="valid_id_front_document" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
-                            <input type="file" name="valid_id_back_document" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
-                            <input type="file" name="payout_account_proof_document" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
+                            <div>
+                                <label for="valid_id_front_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Valid ID · front</label>
+                                <input id="valid_id_front_document" type="file" name="valid_id_front_document" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
+                            </div>
+                            <div>
+                                <label for="valid_id_back_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Valid ID · back</label>
+                                <input id="valid_id_back_document" type="file" name="valid_id_back_document" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
+                            </div>
+                            <div>
+                                <label for="payout_account_proof_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Account proof</label>
+                                <input id="payout_account_proof_document" type="file" name="payout_account_proof_document" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
+                            </div>
                         </div>
                         @if($application->isTeam())
-                            <input type="file" name="business_permit_document" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
+                            <div>
+                                <label for="business_permit_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Business permit</label>
+                                <input id="business_permit_document" type="file" name="business_permit_document" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
+                            </div>
                         @endif
                         <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-700">
                             <i class="fas fa-cloud-arrow-up"></i>

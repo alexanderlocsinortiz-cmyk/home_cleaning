@@ -22,6 +22,7 @@ class SendCleanerApplicationDecisionEmail implements ShouldQueue
     public function __construct(
         public int $applicationId,
         public ?string $activationToken = null,
+        public ?string $trackingToken = null,
     ) {
         $this->queue = 'emails';
         $this->backoff = [10, 30, 60];
@@ -35,6 +36,6 @@ class SendCleanerApplicationDecisionEmail implements ShouldQueue
             return;
         }
 
-        Mail::to($application->email)->send(new CleanerApplicationDecision($application, $this->activationToken));
+        Mail::to($application->email)->send(new CleanerApplicationDecision($application, $this->activationToken, $this->trackingToken));
     }
 }

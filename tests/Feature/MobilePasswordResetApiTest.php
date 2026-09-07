@@ -72,4 +72,46 @@ class MobilePasswordResetApiTest extends TestCase
         Notification::assertNothingSent();
         $this->assertSame(0, DB::table('password_reset_tokens')->count());
     }
+
+    public function test_password_reset_revokes_existing_mobile_tokens(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create([
+            'email' => 'reset-sessions@example.com',
+            'password' => Hash::make('old-password-123'),
+        ]);
+
+        $oldToken = $this->postJson('/api/mobile/login', [
+            'email' => $user->email,
+            'password' => 'old-password-123',
+        ])->json('token');
+
+        $this->postJson('/api/mobile/password/request-code', [
+            'email' => $user->email,
+        ])->assertOk();
+
+        $code = null;
+        Notification::assertSentTo($user, ResetPasswordOtp::class, function (ResetPasswordOtp $notification) use (&$code): bool {
+            $code = $notification->code;
+
+            return true;
+        });
+
+        $resetToken = $this->postJson('/api/mobile/password/verify-code', [
+            'email' => $user->email,
+            'code' => $code,
+        ])->json('reset_token');
+
+        $this->postJson('/api/mobile/password/reset', [
+            'reset_token' => $resetToken,
+            'password' => 'new-password-123',
+            'password_confirmation' => 'new-password-123',
+        ])->assertOk();
+
+        $this->withHeader('Authorization', 'Bearer '.$oldToken)
+            ->getJson('/api/mobile/me')
+            ->assertUnauthorized();
+
+        $this->assertDatabaseCount('mobile_api_tokens', 0);
+    }
 }

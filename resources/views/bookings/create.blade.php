@@ -28,6 +28,7 @@
     $servicePlans = $servicePlans ?? \App\Models\Booking::servicePlans();
     $subscriptionFrequencies = $subscriptionFrequencies ?? \App\Models\Booking::subscriptionFrequencyLabels();
     $selectedAddOns = old('add_ons', []);
+    $selectedServiceType = old('service_type', request()->query('service'));
     $selectedPaymentMethod = old('payment_method', 'on_site_cash');
     $selectedServicePlan = old('service_plan', 'one_time');
     $selectedSubscriptionFrequency = old('subscription_frequency', 'weekly');
@@ -70,7 +71,7 @@
                         <div class="mt-1 text-xs leading-5 text-white/75">Request a cleaner and we'll honor it when the slot is open.</div>
                     </div>
                     <div class="rounded-2xl border border-white/15 bg-white/10 px-4 py-4 backdrop-blur-sm">
-                        <div class="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">Ready To Pay</div>
+                        <div class="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">Payment choice</div>
                         <div class="mt-2 text-sm font-semibold text-white">Cash or digital</div>
                         <div class="mt-1 text-xs leading-5 text-white/75">Choose one-time or recurring service with the payment option you prefer.</div>
                     </div>
@@ -93,36 +94,44 @@
         <form action="{{ route('bookings.store') }}" method="POST" id="booking-form" class="space-y-6" onsubmit="this.querySelector('button[type=submit]').disabled=true;this.querySelector('button[type=submit]').innerHTML='<i class=\'fas fa-circle-notch fa-spin\'></i> Processing...';">
             @csrf
 
-            <div class="booking-progress flex gap-2 overflow-x-auto pb-1 sm:flex-wrap">
-                <span class="inline-flex min-w-max items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur">
-                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 text-[11px] text-white">1</span>
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <div class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Build your booking</div>
+                    <p class="mt-1 text-sm text-slate-500">Choose each option in order. You can jump back to any step before submitting.</p>
+                </div>
+                <div class="text-xs font-semibold text-slate-500">Required unless marked optional</div>
+            </div>
+
+            <nav class="booking-progress flex gap-2 overflow-x-auto pb-1" aria-label="Booking steps">
+                <a href="#booking-step-1" data-booking-progress-step="1" aria-current="step" class="booking-progress-step is-active inline-flex min-w-max items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-sm backdrop-blur">
+                    <span class="booking-progress-number flex h-6 w-6 items-center justify-center rounded-full text-[11px] text-white">1</span>
                     Property
-                </span>
-                <span class="inline-flex min-w-max items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur">
-                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[11px] text-white">2</span>
+                </a>
+                <a href="#booking-step-2" data-booking-progress-step="2" class="booking-progress-step inline-flex min-w-max items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-sm backdrop-blur">
+                    <span class="booking-progress-number flex h-6 w-6 items-center justify-center rounded-full text-[11px] text-white">2</span>
                     Service
-                </span>
-                <span class="inline-flex min-w-max items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur">
-                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-600 text-[11px] text-white">3</span>
+                </a>
+                <a href="#booking-step-3" data-booking-progress-step="3" class="booking-progress-step inline-flex min-w-max items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-sm backdrop-blur">
+                    <span class="booking-progress-number flex h-6 w-6 items-center justify-center rounded-full text-[11px] text-white">3</span>
                     Details
-                </span>
-                <span class="inline-flex min-w-max items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur">
-                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[11px] text-white">4</span>
+                </a>
+                <a href="#booking-step-4" data-booking-progress-step="4" class="booking-progress-step inline-flex min-w-max items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-sm backdrop-blur">
+                    <span class="booking-progress-number flex h-6 w-6 items-center justify-center rounded-full text-[11px] text-white">4</span>
                     Schedule
-                </span>
-                <span class="inline-flex min-w-max items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur">
-                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-700 text-[11px] text-white">5</span>
+                </a>
+                <a href="#booking-step-5" data-booking-progress-step="5" class="booking-progress-step inline-flex min-w-max items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-sm backdrop-blur">
+                    <span class="booking-progress-number flex h-6 w-6 items-center justify-center rounded-full text-[11px] text-white">5</span>
                     Cleaner
-                </span>
-                <span class="inline-flex min-w-max items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur">
-                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-slate-700 text-[11px] text-white">6</span>
+                </a>
+                <a href="#booking-step-6" data-booking-progress-step="6" class="booking-progress-step inline-flex min-w-max items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-sm backdrop-blur">
+                    <span class="booking-progress-number flex h-6 w-6 items-center justify-center rounded-full text-[11px] text-white">6</span>
                     Payment
-                </span>
+                </a>
             </div>
 
             <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_23rem]">
                 <div class="space-y-5">
-            <section class="cleanflow-panel p-6 md:p-7">
+            <section id="booking-step-1" data-booking-step="1" class="cleanflow-panel scroll-mt-28 p-6 md:p-7">
                 <div class="mb-6 flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-start gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">1</div>
@@ -136,7 +145,7 @@
 
                 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <label class="block cursor-pointer">
-                        <input type="radio" name="property_type" value="house" class="hidden" {{ old('property_type') == 'house' ? 'checked' : '' }}>
+                        <input type="radio" name="property_type" value="house" class="sr-only" {{ old('property_type') == 'house' ? 'checked' : '' }}>
                         <div class="property-card selection-card {{ old('property_type') == 'house' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="house">
                             <div class="text-3xl text-blue-600"><i class="fas fa-house"></i></div>
                             <div class="mt-3 text-base font-semibold text-slate-900">House</div>
@@ -145,7 +154,7 @@
                     </label>
 
                     <label class="block cursor-pointer">
-                        <input type="radio" name="property_type" value="apartment" class="hidden" {{ old('property_type') == 'apartment' ? 'checked' : '' }}>
+                        <input type="radio" name="property_type" value="apartment" class="sr-only" {{ old('property_type') == 'apartment' ? 'checked' : '' }}>
                         <div class="property-card selection-card {{ old('property_type') == 'apartment' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="apartment">
                             <div class="text-3xl text-blue-600"><i class="fas fa-building"></i></div>
                             <div class="mt-3 text-base font-semibold text-slate-900">Apartment</div>
@@ -154,7 +163,7 @@
                     </label>
 
                     <label class="block cursor-pointer">
-                        <input type="radio" name="property_type" value="boarding_house" class="hidden" {{ old('property_type') == 'boarding_house' ? 'checked' : '' }}>
+                        <input type="radio" name="property_type" value="boarding_house" class="sr-only" {{ old('property_type') == 'boarding_house' ? 'checked' : '' }}>
                         <div class="property-card selection-card {{ old('property_type') == 'boarding_house' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="boarding_house">
                             <div class="text-3xl text-blue-600"><i class="fas fa-bed"></i></div>
                             <div class="mt-3 text-base font-semibold text-slate-900">Boarding House</div>
@@ -163,7 +172,7 @@
                     </label>
 
                     <label class="block cursor-pointer">
-                        <input type="radio" name="property_type" value="office" class="hidden" {{ old('property_type') == 'office' ? 'checked' : '' }}>
+                        <input type="radio" name="property_type" value="office" class="sr-only" {{ old('property_type') == 'office' ? 'checked' : '' }}>
                         <div class="property-card selection-card {{ old('property_type') == 'office' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="office">
                             <div class="text-3xl text-blue-600"><i class="fas fa-briefcase"></i></div>
                             <div class="mt-3 text-base font-semibold text-slate-900">Office</div>
@@ -201,7 +210,7 @@
                 </div>
             </section>
 
-            <section class="cleanflow-panel p-6 md:p-7">
+            <section id="booking-step-2" data-booking-step="2" class="cleanflow-panel scroll-mt-28 p-6 md:p-7">
                 <div class="mb-6 flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-start gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">2</div>
@@ -220,15 +229,16 @@
                         $serviceFeatures = $package['features'] ?? [];
                         $scopeDefinition = $service->scopeDefinition();
                     @endphp
-                    <label class="block cursor-pointer">
-                        <input type="radio" name="service_type" value="{{ $service->slug }}" class="hidden" {{ old('service_type') == $service->slug ? 'checked' : '' }}>
-                        <div class="service-card selection-card {{ old('service_type') == $service->slug ? 'selected-card' : '' }} h-full p-5 text-left" data-value="{{ $service->slug }}">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-2xl text-blue-600">
+                    <label class="service-option block cursor-pointer" data-property-group="{{ in_array($service->slug, \App\Models\Service::OFFICE_SERVICE_SLUGS, true) ? 'office' : 'residential' }}">
+                        <input type="radio" name="service_type" value="{{ $service->slug }}" class="sr-only" {{ $selectedServiceType == $service->slug ? 'checked' : '' }}>
+                        <div class="service-card selection-card {{ $selectedServiceType == $service->slug ? 'selected-card' : '' }} h-full p-5 text-left" data-value="{{ $service->slug }}">
+                            <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                                <img src="{{ $service->image_url }}" alt="{{ $service->image_alt }}" loading="lazy" decoding="async" class="h-32 w-full object-cover">
+                                <div class="absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/90 text-xl text-blue-600 shadow-sm backdrop-blur">
                                     <i class="fas {{ $package['icon'] ?? 'fa-broom' }}"></i>
                                 </div>
                                 @if(!empty($package['badge']))
-                                <span class="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700">
+                                <span class="absolute right-3 top-3 rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-700 shadow-sm backdrop-blur">
                                     {{ $package['badge'] }}
                                 </span>
                                 @endif
@@ -285,7 +295,7 @@
                 @enderror
             </section>
 
-            <section class="cleanflow-panel p-6 md:p-7">
+            <section id="booking-step-3" data-booking-step="3" class="cleanflow-panel scroll-mt-28 p-6 md:p-7">
                 <div class="mb-6 flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-start gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">3</div>
@@ -297,41 +307,69 @@
                     <span class="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Required</span>
                 </div>
 
-                <input type="hidden" name="rooms" value="1">
-                <input type="hidden" name="bathrooms" value="1">
-
-                <div class="grid gap-4 md:grid-cols-2">
+                <div>
                     <div>
-                        <label class="mb-2 block text-sm font-semibold text-slate-700">Floor Area (sqm)</label>
+                        <label class="mb-2 block text-sm font-semibold text-slate-700">Total Cleanable Floor Area (sqm)</label>
                         <input type="number" name="floor_area" value="{{ old('floor_area', $includedFloorArea) }}" min="10" max="1000" step="1" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                        <div class="mt-2 text-xs text-slate-500">Enter the total size of the property to be cleaned.</div>
+                        <div class="mt-2 text-xs leading-5 text-slate-500">Enter the total floor area of all indoor spaces to be cleaned (e.g., bedrooms, living areas, kitchen, CR/bathrooms).</div>
+                        <div class="text-xs leading-5 text-slate-500">Do not include lot area or outdoor areas unless they are part of the cleaning service.</div>
                         <div class="mt-1 text-xs font-semibold text-amber-700" id="scope-limit-note">Select a service to see its measurable scope limit.</div>
+                        <div class="mt-1 text-xs font-semibold text-blue-700" id="cleaner-count-note">Select a service and floor area to estimate the required cleaners.</div>
                         @error('floor_area')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+
+                <div class="mt-5 grid gap-4 md:grid-cols-2">
+                    <div>
+                        <label class="mb-2 block text-sm font-semibold text-slate-700">Number of Rooms</label>
+                        <div class="booking-property-stepper-shell flex h-14 items-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                            <div class="pointer-events-none flex w-14 shrink-0 items-center justify-center border-r border-gray-200 text-lg text-slate-700" aria-hidden="true">
+                                <i class="fas fa-bed"></i>
+                            </div>
+                            <button type="button" class="booking-property-stepper-button" data-stepper-action="decrement" data-stepper-target="rooms-input" aria-label="Decrease number of rooms"><i class="fas fa-minus" aria-hidden="true"></i></button>
+                            <input id="rooms-input" type="number" name="rooms" value="{{ old('rooms', 1) }}" min="1" max="20" step="1" required inputmode="numeric" class="booking-property-stepper-input" aria-label="Number of rooms">
+                            <button type="button" class="booking-property-stepper-button" data-stepper-action="increment" data-stepper-target="rooms-input" aria-label="Increase number of rooms"><i class="fas fa-plus" aria-hidden="true"></i></button>
+                        </div>
+                        <div class="mt-2 text-xs text-slate-500">e.g., bedrooms, guest rooms, etc.</div>
+                        @error('rooms')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="mb-2 block text-sm font-semibold text-slate-700">Number of Bathrooms / CRs</label>
+                        <div class="booking-property-stepper-shell flex h-14 items-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                            <div class="pointer-events-none flex w-14 shrink-0 items-center justify-center border-r border-gray-200 text-lg text-slate-700" aria-hidden="true">
+                                <i class="fas fa-bath"></i>
+                            </div>
+                            <button type="button" class="booking-property-stepper-button" data-stepper-action="decrement" data-stepper-target="bathrooms-input" aria-label="Decrease number of bathrooms"><i class="fas fa-minus" aria-hidden="true"></i></button>
+                            <input id="bathrooms-input" type="number" name="bathrooms" value="{{ old('bathrooms', 1) }}" min="1" max="10" step="1" required inputmode="numeric" class="booking-property-stepper-input" aria-label="Number of bathrooms or CRs">
+                            <button type="button" class="booking-property-stepper-button" data-stepper-action="increment" data-stepper-target="bathrooms-input" aria-label="Increase number of bathrooms"><i class="fas fa-plus" aria-hidden="true"></i></button>
+                        </div>
+                        <div class="mt-2 text-xs text-slate-500">Include all bathrooms/CRs to be cleaned.</div>
+                        @error('bathrooms')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
 
                 <div class="mt-5 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-slate-600">
                     <div class="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">Pricing Basis</div>
-                    <div class="mt-2 leading-6" id="floor-area-rule">Floor area is billed per sqm based on the cleaning service you choose.</div>
+                    <div class="mt-2 leading-6" id="floor-area-rule">Total cleanable floor area is billed per sqm based on the cleaning service you choose. Rooms and bathrooms/CRs describe the property and are not separate charges.</div>
                 </div>
 
                 <div class="mt-5">
                     <div class="mb-3">
                         <h3 class="text-sm font-semibold text-slate-900">Add-ons (optional)</h3>
-                        <p class="mt-1 text-xs text-slate-500">Select only the extra cleaning tasks you want included in the quotation.</p>
+                        <p class="mt-1 text-xs text-slate-500">Select only the extra cleaning tasks you want included in the quotation. Each selected add-on is charged once per booking.</p>
                     </div>
 
                     <div class="grid gap-4 md:grid-cols-2">
                         @foreach($addOnCatalog as $key => $addOn)
                         <label class="block cursor-pointer">
-                            <input type="checkbox" name="add_ons[]" value="{{ $key }}" class="hidden" {{ in_array($key, $selectedAddOns, true) ? 'checked' : '' }}>
+                            <input type="checkbox" name="add_ons[]" value="{{ $key }}" class="sr-only" {{ in_array($key, $selectedAddOns, true) ? 'checked' : '' }}>
                             <div class="addon-card selection-card {{ in_array($key, $selectedAddOns, true) ? 'selected-card' : '' }} h-full p-4" data-value="{{ $key }}">
                                 <div class="flex items-start justify-between gap-3">
                                     <div>
                                         <div class="text-sm font-semibold text-slate-900">{{ $addOn['label'] }}</div>
                                         <div class="mt-1 text-xs leading-5 text-slate-500">{{ $addOn['description'] }}</div>
                                     </div>
-                                    <div class="text-sm font-semibold text-blue-600">+&#8369;{{ number_format($addOn['price'], 0) }}</div>
+                                    <div class="text-right text-sm font-semibold text-blue-600">+&#8369;{{ number_format($addOn['price'], 0) }}<div class="text-[11px] font-medium text-slate-500">{{ $addOn['pricing_unit'] ?? \App\Models\Booking::ADD_ON_PRICING_UNIT }}</div></div>
                                 </div>
                             </div>
                         </label>
@@ -342,7 +380,7 @@
                 </div>
             </section>
 
-            <section class="cleanflow-panel p-6 md:p-7">
+            <section id="booking-step-4" data-booking-step="4" class="cleanflow-panel scroll-mt-28 p-6 md:p-7">
                 <div class="mb-6 flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-start gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">4</div>
@@ -439,7 +477,7 @@
                 </div>
             </section>
 
-            <section class="cleanflow-panel p-6 md:p-7">
+            <section id="booking-step-5" data-booking-step="5" class="cleanflow-panel scroll-mt-28 p-6 md:p-7">
                 <div class="mb-6 flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-start gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">5</div>
@@ -466,7 +504,7 @@
                 </div>
             </section>
 
-            <section class="cleanflow-panel p-6 md:p-7">
+            <section id="booking-step-6" data-booking-step="6" class="cleanflow-panel scroll-mt-28 p-6 md:p-7">
                 <div class="mb-6 flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                     <div class="flex items-start gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-700 text-sm font-bold text-white shadow-sm">6</div>
@@ -482,12 +520,12 @@
                     <div>
                         <div class="mb-3">
                             <h3 class="text-sm font-semibold text-slate-900">Payment Method</h3>
-                            <p class="mt-1 text-xs text-slate-500">Digital payments are recorded immediately with a reference number. Cash stays pending until the service is completed.</p>
+                            <p class="mt-1 text-xs text-slate-500">Digital payments are recorded immediately with a reference number. Cash stays pending until the service is completed and confirmed by admin.</p>
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             @foreach($paymentMethods as $methodKey => $paymentLabel)
                             <label class="block cursor-pointer">
-                                <input type="radio" name="payment_method" value="{{ $methodKey }}" class="hidden" {{ $selectedPaymentMethod === $methodKey ? 'checked' : '' }}>
+                                <input type="radio" name="payment_method" value="{{ $methodKey }}" class="sr-only" {{ $selectedPaymentMethod === $methodKey ? 'checked' : '' }}>
                                 <div class="payment-card selection-card {{ $selectedPaymentMethod === $methodKey ? 'selected-card' : '' }} h-full p-4 text-left" data-value="{{ $methodKey }}">
                                     <div class="text-sm font-semibold text-slate-900">{{ $paymentLabel }}</div>
                                     <div class="mt-2 text-xs leading-5 text-slate-500">
@@ -512,7 +550,7 @@
                         <div class="grid gap-4 md:grid-cols-2">
                             @foreach($servicePlans as $planKey => $planLabel)
                             <label class="block cursor-pointer">
-                                <input type="radio" name="service_plan" value="{{ $planKey }}" class="hidden" {{ $selectedServicePlan === $planKey ? 'checked' : '' }}>
+                                <input type="radio" name="service_plan" value="{{ $planKey }}" class="sr-only" {{ $selectedServicePlan === $planKey ? 'checked' : '' }}>
                                 <div class="service-plan-card selection-card {{ $selectedServicePlan === $planKey ? 'selected-card' : '' }} h-full p-4 text-left" data-value="{{ $planKey }}">
                                     <div class="text-sm font-semibold text-slate-900">{{ $planLabel }}</div>
                                     <div class="mt-2 text-xs leading-5 text-slate-500">
@@ -631,7 +669,7 @@
                         </div>
 
                         <div class="mt-4 rounded-xl bg-blue-100/70 px-4 py-3 text-xs font-medium text-blue-700" id="payment-summary-note">
-                            The total is based on the service type, property type, floor area, and any selected add-ons. Cash payments stay pending until the service is completed.
+                            The total is based on the service type, property type, floor area, and any selected add-ons. Cash payments stay pending until the service is completed and confirmed by admin.
                         </div>
                         <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800" id="estimate-disclaimer">
                             Estimate only: the current calculator adds no travel, tax, discount, or manual-adjustment charges. Any re-quote or scope change must be confirmed before payment.
@@ -1580,7 +1618,9 @@ function updatePrice() {
     const isFlatRateRange = Boolean(flatRateRange);
     const basePrice = isPerSquareMeter
         ? 0
-        : Number(flatRateRange?.min || basePrices[serviceType] || 0);
+        : isFlatRateRange
+        ? Number(basePrices[serviceType] || flatRateRange?.min || 0)
+        : Number(basePrices[serviceType] || 0);
     const propertyFee = isFlatRateRange ? 0 : (propertyFees[propertyType] || 0);
     const floorAreaRate = floorAreaRates[serviceType] || 0;
     const billableFloorArea = isFlatRateRange ? 0 : isPerSquareMeter ? Math.max(0, floorArea) : Math.max(0, floorArea - includedFloorArea);
@@ -1641,12 +1681,26 @@ function updatePrice() {
             : 'Select a service to see its measurable scope limit.';
     }
 
+    const cleanerCountNote = document.getElementById('cleaner-count-note');
+    if (cleanerCountNote) {
+        const cleanerCapacity = Number(scope?.capacity_sqm_per_cleaner || 0);
+        const requiredCleaners = cleanerCapacity > 0 && floorArea > 0
+            ? Math.ceil(floorArea / cleanerCapacity)
+            : 0;
+        const maxCleaners = {{ (int) config('cleanflow.staffing.max_cleaners_per_booking', 20) }};
+
+        cleanerCountNote.textContent = scope && requiredCleaners > 0
+            ? `${requiredCleaners} cleaner${requiredCleaners === 1 ? '' : 's'} recommended for ${floorArea} sqm (${cleanerCapacity} sqm per cleaner).`
+                + (requiredCleaners > maxCleaners ? ` More than ${maxCleaners} cleaners requires manual review.` : '')
+            : 'Select a service and floor area to estimate the required cleaners.';
+    }
+
     if (floorAreaRule) {
         floorAreaRule.textContent = serviceType
             ? isFlatRateRange
                 ? `${serviceLabels[serviceType]} is quoted as a ${formatCurrency(flatRateRange.min)}-${formatCurrency(flatRateRange.max)} flat rate for a standard 2-3 bedroom home.`
                 : isPerSquareMeter
-                ? `${serviceLabels[serviceType]} is billed at ${formatCurrency(floorAreaRate)}/sqm. This charge uses the full submitted floor area.`
+                ? `${serviceLabels[serviceType]} is billed at ${formatCurrency(floorAreaRate)}/sqm using the full cleanable floor area across all floors. Rooms and bathrooms/CRs are recorded for planning and are not separate charges.`
                 : `The first ${includedFloorArea} sqm are included in ${serviceLabels[serviceType]}. Excess floor area is billed at ${formatCurrency(floorAreaRate)}/sqm.`
             : `Floor area is billed per sqm based on the selected service.`;
     }
@@ -1654,7 +1708,7 @@ function updatePrice() {
     const paymentSummaryNote = document.getElementById('payment-summary-note');
     if (paymentSummaryNote) {
         paymentSummaryNote.textContent = paymentMethod === 'on_site_cash'
-            ? 'This estimate includes the selected service, floor area, and add-ons. Cash payments stay pending until the service is completed.'
+            ? 'This estimate includes the selected service, floor area, and add-ons. Cash payments stay pending until the service is completed and confirmed by admin.'
             : `This estimate includes the selected service, floor area, and add-ons. ${paymentMethodLabels[paymentMethod] || 'Digital payment'} is recorded immediately with a payment reference.`;
     }
 
@@ -1665,6 +1719,54 @@ function updatePrice() {
             : 'This is currently set as a one-time booking.';
     }
 }
+
+function updateBookingSteppers() {
+    document.querySelectorAll('[data-stepper-target]').forEach((button) => {
+        const input = document.getElementById(button.dataset.stepperTarget);
+        if (!input) {
+            return;
+        }
+
+        const value = Number(input.value || input.min || 1);
+        const minimum = Number(input.min || 1);
+        const maximum = Number(input.max || 999);
+        button.disabled = button.dataset.stepperAction === 'decrement'
+            ? value <= minimum
+            : value >= maximum;
+    });
+}
+
+document.querySelectorAll('[data-stepper-action]').forEach((button) => {
+    button.addEventListener('click', () => {
+        const input = document.getElementById(button.dataset.stepperTarget);
+        if (!input) {
+            return;
+        }
+
+        const currentValue = Number(input.value || input.min || 1);
+        const minimum = Number(input.min || 1);
+        const maximum = Number(input.max || 999);
+        const nextValue = button.dataset.stepperAction === 'increment'
+            ? Math.min(maximum, currentValue + 1)
+            : Math.max(minimum, currentValue - 1);
+
+        input.value = String(nextValue);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        updateBookingSteppers();
+    });
+});
+
+document.querySelectorAll('.booking-property-stepper-input').forEach((input) => {
+    input.addEventListener('input', () => {
+        const minimum = Number(input.min || 1);
+        const maximum = Number(input.max || 999);
+        const value = Number(input.value || minimum);
+        input.value = String(Math.min(maximum, Math.max(minimum, value)));
+        updateBookingSteppers();
+    });
+});
+
+updateBookingSteppers();
 
 function syncSelectedCards(groupName, cardSelector) {
     const selectedValue = document.querySelector(`input[name="${groupName}"]:checked`)?.value;
@@ -1679,6 +1781,49 @@ function syncAddOnCards() {
         card.classList.toggle('selected-card', Boolean(checkbox?.checked));
     });
 }
+
+const bookingProgressLinks = Array.from(document.querySelectorAll('[data-booking-progress-step]'));
+const bookingStepSections = Array.from(document.querySelectorAll('[data-booking-step]'));
+
+function updateBookingProgress() {
+    if (!bookingProgressLinks.length || !bookingStepSections.length) {
+        return;
+    }
+
+    const marker = Math.min(window.innerHeight * 0.32, 280);
+    let activeStep = 1;
+
+    bookingStepSections.forEach((section) => {
+        if (section.getBoundingClientRect().top <= marker) {
+            activeStep = Number(section.dataset.bookingStep);
+        }
+    });
+
+    if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4) {
+        activeStep = Number(bookingStepSections.at(-1).dataset.bookingStep);
+    }
+
+    bookingProgressLinks.forEach((link) => {
+        const step = Number(link.dataset.bookingProgressStep);
+        const isActive = step === activeStep;
+        link.classList.toggle('is-active', isActive);
+
+        if (isActive) {
+            link.setAttribute('aria-current', 'step');
+        } else {
+            link.removeAttribute('aria-current');
+        }
+    });
+}
+
+bookingProgressLinks.forEach((link) => {
+    link.addEventListener('click', () => {
+        window.setTimeout(updateBookingProgress, 350);
+    });
+});
+
+window.addEventListener('scroll', updateBookingProgress, { passive: true });
+window.addEventListener('resize', updateBookingProgress);
 
 function toggleSubscriptionFields() {
     const servicePlan = document.querySelector('input[name="service_plan"]:checked')?.value || 'one_time';
@@ -1698,10 +1843,41 @@ function toggleOfficeRatePanel() {
     }
 }
 
+function filterServicesForProperty() {
+    const propertyType = document.querySelector('input[name="property_type"]:checked')?.value;
+    const requiredGroup = propertyType === 'office' ? 'office' : 'residential';
+    const options = Array.from(document.querySelectorAll('.service-option'));
+
+    options.forEach((option) => {
+        const input = option.querySelector('input[name="service_type"]');
+        const matches = option.dataset.propertyGroup === requiredGroup;
+
+        option.classList.toggle('hidden', !matches);
+        if (input) {
+            input.disabled = !matches;
+            if (!matches) {
+                input.checked = false;
+            }
+        }
+    });
+
+    let selectedService = document.querySelector('input[name="service_type"]:checked:not(:disabled)');
+    if (!selectedService) {
+        selectedService = document.querySelector('input[name="service_type"]:not(:disabled)');
+        if (selectedService) {
+            selectedService.checked = true;
+        }
+    }
+
+    syncSelectedCards('service_type', '.service-card');
+    refreshPreferredCleaners();
+}
+
 document.querySelectorAll('input[name="property_type"]').forEach((input) => {
     input.addEventListener('change', function () {
         syncSelectedCards('property_type', '.property-card');
         toggleOfficeRatePanel();
+        filterServicesForProperty();
         updatePrice();
     });
 });
@@ -1787,6 +1963,7 @@ syncSelectedCards('service_plan', '.service-plan-card');
 syncAddOnCards();
 toggleSubscriptionFields();
 toggleOfficeRatePanel();
+filterServicesForProperty();
 refreshScheduleDependentFields();
 window.setInterval(refreshScheduleDependentFields, 60000);
 updatePrice();

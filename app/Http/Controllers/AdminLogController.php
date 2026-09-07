@@ -6,6 +6,7 @@ use App\Models\AccessRestrictionHistory;
 use App\Models\AttendanceLog;
 use App\Models\Booking;
 use App\Models\BookingActivityLog;
+use App\Models\SecurityEvent;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -24,6 +25,7 @@ class AdminLogController extends Controller
         $bookingLogsQuery = $this->bookingLogsQuery($filters);
         $attendanceLogsQuery = $this->attendanceLogsQuery($filters);
         $adminLogsQuery = $this->adminLogsQuery($filters);
+        $securityLogsQuery = $this->securityLogsQuery($filters);
 
         $bookingLogs = (clone $bookingLogsQuery)
             ->latest()
@@ -41,21 +43,26 @@ class AdminLogController extends Controller
             ->paginate($filters['source'] === 'admin' ? 15 : 5, ['*'], 'admin_page')
             ->withQueryString();
 
+        $securityLogs = (clone $securityLogsQuery)
+            ->latest()
+            ->paginate($filters['source'] === 'admin' ? 15 : 5, ['*'], 'security_page')
+            ->withQueryString();
+
         $stats = [
-            'total' => BookingActivityLog::count() + AttendanceLog::count() + AccessRestrictionHistory::count(),
+            'total' => BookingActivityLog::count() + AttendanceLog::count() + AccessRestrictionHistory::count() + SecurityEvent::count(),
             'attendance_today' => AttendanceLog::where('punch_type', 'in')->whereBetween('logged_at', [$todayStartUtc, $todayEndUtc])->count(),
             'late_arrivals' => AttendanceLog::where('punch_type', 'in')->where('status', 'late')->count(),
             'cancelled_bookings' => Booking::where('status', 'cancelled')->whereMonth('updated_at', now()->month)->whereYear('updated_at', now()->year)->count(),
             'completed_bookings' => Booking::where('status', 'completed')->whereMonth('updated_at', now()->month)->whereYear('updated_at', now()->year)->count(),
             'booking_filtered' => (clone $bookingLogsQuery)->count(),
             'attendance_filtered' => (clone $attendanceLogsQuery)->count(),
-            'admin_filtered' => (clone $adminLogsQuery)->count(),
+            'admin_filtered' => (clone $adminLogsQuery)->count() + (clone $securityLogsQuery)->count(),
         ];
 
         $actions = $this->actionOptions();
         $staff = User::where('role', 'staff')->orderBy('first_name')->orderBy('last_name')->get(['id', 'first_name', 'last_name']);
 
-        return view('admin.logs', compact('bookingLogs', 'attendanceLogs', 'adminLogs', 'actions', 'staff', 'filters', 'stats'));
+        return view('admin.logs', compact('bookingLogs', 'attendanceLogs', 'adminLogs', 'securityLogs', 'actions', 'staff', 'filters', 'stats'));
     }
 
     public function export(Request $request, string $source, string $format)
@@ -170,11 +177,33 @@ class AdminLogController extends Controller
             }));
     }
 
+    private function securityLogsQuery(array $filters): Builder
+    {
+        return SecurityEvent::query()
+            ->with('user')
+            ->when($filters['search'] !== '', function ($query) use ($filters) {
+                $search = $filters['search'];
+
+                $query->where(function ($query) use ($search) {
+                    $query->where('event', 'like', "%{$search}%")
+                        ->orWhere('ip_address', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($userQuery) use ($search) {
+                            $userQuery->where('first_name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->when($filters['action'] !== '', fn ($query) => $query->where('event', $filters['action']))
+            ->when($filters['staff_id'] > 0, fn ($query) => $query->where('user_id', $filters['staff_id']));
+    }
+
     private function actionOptions(): Collection
     {
         return collect()
             ->merge(BookingActivityLog::query()->select('action')->whereNotNull('action')->distinct()->pluck('action'))
             ->merge(AccessRestrictionHistory::query()->select('action')->whereNotNull('action')->distinct()->pluck('action'))
+            ->merge(SecurityEvent::query()->select('event')->whereNotNull('event')->distinct()->pluck('event'))
             ->merge(['time_in', 'time_out', 'present', 'late'])
             ->unique()
             ->sort()
@@ -214,7 +243,15 @@ class AdminLogController extends Controller
                 'Target Role' => ucfirst($log->target_role),
                 'Actor' => $log->actorUser?->display_name ?? 'System',
                 'Reason' => $log->reason,
-            ])->all(),
+            ])->concat($this->securityLogsQuery($filters)->latest()->limit(5000)->get()->map(fn ($log) => [
+                'Date' => optional($log->created_at)->format('Y-m-d H:i:s'),
+                'Action' => str($log->event)->replace('_', ' ')->title(),
+                'Target' => $log->user?->display_name ?? 'System / Device',
+                'Target Email' => $log->user?->email,
+                'Target Role' => $log->user?->role ? ucfirst($log->user->role) : '-',
+                'Actor' => $log->user?->display_name ?? 'System',
+                'Reason' => collect($log->metadata ?? [])->map(fn ($value, $key) => $key.': '.$value)->implode(', '),
+            ]))->sortByDesc('Date')->values()->all(),
         };
     }
 
@@ -253,7 +290,7 @@ class AdminLogController extends Controller
             $content .= 'ET';
             $contentId = $nextObjectId++;
             $pageId = $nextObjectId++;
-            $objects[$contentId] = "<< /Length ".strlen($content)." >>\nstream\n{$content}\nendstream";
+            $objects[$contentId] = '<< /Length '.strlen($content)." >>\nstream\n{$content}\nendstream";
             $objects[$pageId] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents {$contentId} 0 R >>";
             $pageRefs[] = "{$pageId} 0 R";
         }

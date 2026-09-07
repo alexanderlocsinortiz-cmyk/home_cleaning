@@ -10,7 +10,7 @@ Audit date: 2026-08-26.
 | Email | Booking, provider, application, verification, and password-reset emails are queued; worker health remains unverified | High | Verify the production worker and failed-job monitoring |
 | Payments | PayMongo checkout creation must run during the booking request to return the checkout URL; the service now bounds timeouts and retries provider failures | Medium | Monitor provider latency and failed checkout attempts |
 | File storage | Upload paths are now configurable as private/public S3-compatible disks; production bucket configuration and migration remain unverified | High | Configure the bucket and migrate any existing local files; see `OBJECT_STORAGE.md` |
-| Sessions/cache | Render uses file drivers, which are local to a container instance | Medium | Use shared Redis/database-backed sessions and cache before horizontal scaling |
+| Sessions/cache | Session and cache state must survive container restarts and be shared across instances | Medium | Render is configured for database-backed sessions/cache; use shared Redis if scale requires it |
 | Routing | Browser views call the public OSRM router directly | Medium | Add a service boundary or managed routing provider if reliability/privacy matters |
 | Deployment | The image must use the runtime `APP_KEY`; generating one during build would invalidate encrypted state | High | Supply a stable production secret through deployment configuration |
 
@@ -22,7 +22,7 @@ Audit date: 2026-08-26.
 
 ## Priority order
 
-1. Production `APP_KEY` is now supplied at runtime; confirm the deployment secret is stable.
+1. Set one stable production `APP_KEY` manually on both Render services. Never generate separate keys for the web and worker.
 2. Verify the Render queue worker before relying on queued notifications. The worker configuration is present; deployment verification remains.
 3. Keep all email delivery behind queued jobs and monitor failed jobs.
 4. Configure the production S3-compatible bucket and migrate existing proof/application files.

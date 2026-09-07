@@ -6,6 +6,8 @@ CleanFlow now supports two backup paths:
 - **`php artisan database:backup-cloud`** runs the upload path without the browser and is suitable for a daily cron, Render Cron Job, or external scheduler.
 - **Upload database to private cloud storage** creates the backup, uploads it to the configured private storage disk under `DATABASE_BACKUP_PREFIX`, confirms the object exists, removes the temporary local copy, and prunes older backup files beyond `DATABASE_BACKUP_RETENTION_COUNT`.
 
+The production Docker image includes PostgreSQL client tools, so PostgreSQL backups use the standard `pg_dump` custom format. The application-level SQL generator remains an emergency fallback when the dump binary is unavailable; it should not replace a restore drill.
+
 ## Production configuration
 
 Configure these values on the web service:
@@ -14,9 +16,14 @@ Configure these values on the web service:
 DATABASE_BACKUP_DISK=s3
 DATABASE_BACKUP_PREFIX=database-backups
 DATABASE_BACKUP_RETENTION_COUNT=30
+# Optional absolute paths when dump tools are not available on PATH.
+# DB_BACKUP_PG_DUMP_PATH=/usr/bin/pg_dump
+# DB_BACKUP_MYSQLDUMP_PATH=/usr/bin/mysqldump
 ```
 
 The backup disk must point to the private bucket. With the R2 setup, `s3` uses `AWS_PRIVATE_BUCKET`, while `s3_public` must never be used for database backups. Enable provider-side encryption at rest and restrict the storage credentials to the private bucket/prefix. Do not put backup credentials or passwords in source control.
+
+PostgreSQL uses `pg_dump` custom format when the executable is available. The SQL exporter is an emergency fallback only when `pg_dump` cannot be found. If the executable runs but fails, the backup fails instead of silently producing a weaker artifact.
 
 ## Verification procedure
 
@@ -29,6 +36,6 @@ The backup disk must point to the private bucket. With the R2 setup, `s3` uses `
 7. Verify users, bookings, services, payments, messages, and migrations in the restored database.
 8. Record the restore duration and define the acceptable recovery point (RPO) and recovery time (RTO).
 
-The application now defines `php artisan database:backup-cloud` to run daily at 02:00 and prevents overlapping runs for 30 minutes. Laravel still needs a scheduler process to execute it. For local testing, run `php artisan schedule:work`; in production, use the platform's cron/scheduler or a continuously running `php artisan schedule:work` process. The task only works when the production database and private-storage secrets are configured.
+The application schedules `php artisan database:backup-cloud` daily at 02:00 and prevents overlapping runs for 30 minutes. The Render blueprint now includes a dedicated cron service for this command; Render cron schedules use UTC. For local testing, run `php artisan schedule:work`. The task only works when the production database and private-storage secrets are configured, and the cron service must use the same `APP_KEY` and storage/database credentials as the web service.
 
 The application tests prove that the upload path writes to the configured disk, confirms the object, and cleans up the temporary local file. They cannot prove production credentials, provider access policy, scheduled execution, or a successful restore of your production database.

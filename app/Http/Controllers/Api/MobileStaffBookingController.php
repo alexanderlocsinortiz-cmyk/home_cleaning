@@ -8,8 +8,8 @@ use App\Models\Notification;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -140,7 +140,7 @@ class MobileStaffBookingController extends Controller
             if ($request->hasFile('completion_video')) {
                 /** @var UploadedFile $video */
                 $video = $request->file('completion_video');
-                $videoPath = $video->store('booking-proofs/after', config('filesystems.public_uploads_disk'));
+                $videoPath = $video->store('booking-proofs/after', config('filesystems.proof_uploads_disk'));
 
                 $booking->serviceProofs()->create([
                     'uploaded_by' => $staff->id,
@@ -160,12 +160,6 @@ class MobileStaffBookingController extends Controller
             $fromStatus = $booking->status;
             $booking->status = 'completed';
             $booking->markServiceCompleted();
-
-            if ($booking->payment_method === 'on_site_cash' && $booking->payment_status !== 'paid') {
-                $booking->payment_status = 'paid';
-                $booking->payment_reference = $booking->payment_reference ?: Booking::generatePaymentReference('on_site_cash');
-                $booking->paid_at = now();
-            }
 
             $booking->save();
 
@@ -188,7 +182,7 @@ class MobileStaffBookingController extends Controller
 
     private function assignedBookingQuery(int $staffId)
     {
-        return Booking::with(['user', 'rating', 'service'])
+        return Booking::with(['user', 'rating', 'service', 'payment'])
             ->withCount([
                 'serviceProofs as before_photo_count' => fn ($proofs) => $proofs
                     ->where('stage', 'before')
@@ -275,7 +269,7 @@ class MobileStaffBookingController extends Controller
                 continue;
             }
 
-            $path = $file->store('booking-proofs/'.$stage, config('filesystems.public_uploads_disk'));
+            $path = $file->store('booking-proofs/'.$stage, config('filesystems.proof_uploads_disk'));
 
             $booking->serviceProofs()->create([
                 'uploaded_by' => $uploadedBy,

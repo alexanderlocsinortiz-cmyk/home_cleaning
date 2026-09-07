@@ -33,10 +33,10 @@ class SiteSetting extends Model
     {
         return [
             'website_name' => 'Home Cleaning Services',
-            'contact_email' => 'support@homecleaningservice.local',
+            'contact_email' => null,
             'contact_phone' => null,
-            'contact_address' => 'Valencia City, Bukidnon, Philippines',
-            'office_hours' => 'Monday - Saturday, 8:00 AM - 5:00 PM',
+            'contact_address' => null,
+            'office_hours' => null,
             'admin_name' => 'Admin Team',
             'admin_email' => null,
             'admin_phone' => null,

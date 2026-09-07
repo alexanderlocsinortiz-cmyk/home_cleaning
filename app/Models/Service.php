@@ -4,10 +4,20 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Service extends Model
 {
+    public const OFFICE_SERVICE_SLUGS = ['office-basic', 'commercial', 'office-deep'];
+
+    public static function supportsPropertyType(string $serviceSlug, string $propertyType): bool
+    {
+        $isOfficeService = in_array($serviceSlug, self::OFFICE_SERVICE_SLUGS, true);
+
+        return $propertyType === 'office' ? $isOfficeService : ! $isOfficeService;
+    }
+
     use HasFactory;
 
     public const DEFAULT_DURATION_MINUTES = 60;
@@ -16,8 +26,10 @@ class Service extends Model
         'name',
         'slug',
         'description',
+        'image_path',
         'price',
         'duration_minutes',
+        'sort_order',
         'scope_max_floor_area',
         'scope_cleaner_count',
         'scope_status',
@@ -38,6 +50,7 @@ class Service extends Model
         return [
             'price' => 'float',
             'duration_minutes' => 'integer',
+            'sort_order' => 'integer',
             'scope_max_floor_area' => 'integer',
             'scope_cleaner_count' => 'integer',
             'scope_manual_review_above_limit' => 'boolean',
@@ -52,7 +65,7 @@ class Service extends Model
 
     public function scopeIsApproved(): bool
     {
-        return $this->scope_status === 'approved';
+        return $this->scope_status === 'approved' && $this->scopeApprovalIsComplete();
     }
 
     public function scopeSummary(): array
@@ -60,9 +73,63 @@ class Service extends Model
         return [
             'max_floor_area' => $this->scope_max_floor_area,
             'cleaner_count' => (int) ($this->scope_cleaner_count ?: 1),
-            'status' => $this->scope_status ?: 'provisional',
+            'capacity_sqm_per_cleaner' => self::cleanerCapacityForSlug($this->slug),
+            'status' => $this->scopeIsApproved() ? 'approved' : 'provisional',
             'manual_review_above_limit' => (bool) $this->scope_manual_review_above_limit,
         ];
+    }
+
+    public static function cleanerCapacityForSlug(?string $slug): int
+    {
+        $catalogSlug = self::catalogSlug($slug);
+        $configuredCapacity = config('cleanflow.staffing.capacity_sqm_per_cleaner', []);
+
+        return max(1, (int) ($configuredCapacity[$catalogSlug] ?? config('cleanflow.staffing.default_capacity_sqm_per_cleaner', 40)));
+    }
+
+    public static function requiredCleanerCountForSlug(?string $slug, ?int $floorArea): int
+    {
+        $floorArea = max(0, (int) $floorArea);
+
+        if ($floorArea === 0) {
+            return 1;
+        }
+
+        return (int) ceil($floorArea / self::cleanerCapacityForSlug($slug));
+    }
+
+    public function getImageUrlAttribute(): string
+    {
+        if (filled($this->image_path)) {
+            return Storage::disk(config('filesystems.public_uploads_disk'))->url($this->image_path);
+        }
+
+        return asset(self::defaultImagePathForSlug($this->slug));
+    }
+
+    public function getImageAltAttribute(): string
+    {
+        return $this->name.' service';
+    }
+
+    public static function defaultImagePathForSlug(?string $slug): string
+    {
+        $catalogSlug = self::catalogSlug($slug);
+        $catalogSlug = $catalogSlug && array_key_exists($catalogSlug, self::PACKAGE_CATALOG) ? $catalogSlug : 'custom';
+
+        $defaultImages = [
+            'basic' => 'basic.jpg',
+            'deep' => 'deep.jpg',
+            'moveinout' => 'moveinout.jpg',
+            'postconstruction' => 'postconstruction.jpg',
+            'commercial' => 'commercial.jpg',
+            'office-basic' => 'office-basic.jpg',
+            'office-deep' => 'office-deep.jpg',
+            'weeklymaintenance' => 'weeklymaintenance.jpg',
+            'custom' => 'custom.jpg',
+        ];
+
+        return 'images/services/'.($defaultImages[$catalogSlug] ?? 'custom.jpg');
     }
 
     public function scopeDefinition(): array
@@ -82,6 +149,17 @@ class Service extends Model
     public function scopeDefinitionIsComplete(): bool
     {
         return collect($this->scopeDefinition())->every(fn ($value) => filled($value));
+    }
+
+    public function scopeApprovalIsComplete(): bool
+    {
+        return $this->scopeDefinitionIsComplete()
+            && $this->scope_max_floor_area !== null
+            && (int) $this->scope_max_floor_area >= 10
+            && (int) $this->scope_max_floor_area <= 1000
+            && $this->scope_cleaner_count !== null
+            && (int) $this->scope_cleaner_count >= 1
+            && (int) $this->scope_cleaner_count <= 20;
     }
 
     public function exceedsScopeLimit(?int $floorArea): bool

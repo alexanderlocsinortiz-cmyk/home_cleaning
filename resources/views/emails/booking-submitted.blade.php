@@ -14,8 +14,8 @@
         ['label' => 'Scheduled Date', 'value' => e(\Carbon\Carbon::parse($booking->scheduled_date)->format('F d, Y'))],
         ['label' => 'Scheduled Time', 'value' => e(\Carbon\Carbon::parse($booking->scheduled_time)->format('h:i A'))],
         ['label' => 'Price', 'value' => '&#8369;' . number_format($booking->price, 2)],
-        ['label' => 'Payment Method', 'value' => e(\App\Models\Booking::paymentMethodLabel($booking->payment_method))],
-        ['label' => 'Payment Status', 'value' => e(\App\Models\Booking::paymentStatusLabel($booking->payment_status))],
+        ['label' => 'Payment Method', 'value' => e(\App\Models\Booking::paymentMethodLabel($booking->payment?->method ?? 'on_site_cash'))],
+        ['label' => 'Payment Status', 'value' => e(\App\Models\Booking::paymentStatusLabel($booking->payment?->status ?? 'pending'))],
         ['label' => 'Service Plan', 'value' => e(\App\Models\Booking::servicePlanLabel($booking->service_plan))],
     ];
 
@@ -26,8 +26,8 @@
         ]]);
     }
 
-    if ($booking->payment_reference) {
-        $rows[] = ['label' => 'Payment Reference', 'value' => e($booking->payment_reference)];
+    if ($booking->payment?->reference) {
+        $rows[] = ['label' => 'Payment Reference', 'value' => e($booking->payment->reference)];
     }
 
     if ($booking->isSubscription()) {
@@ -61,10 +61,10 @@
 @endif
 
 <p class="muted-note">
-    @if($booking->payment_method === 'on_site_cash')
-        Cash payment stays pending until the visit is completed and recorded by the admin team.
+    @if($booking->payment?->method === 'on_site_cash')
+        Cash payment stays pending until the visit is completed, receipt proof is reviewed, and the amount is confirmed by the admin team.
     @else
-        Your digital payment has been recorded{{ $booking->payment_reference ? ' under reference ' . $booking->payment_reference : '' }}.
+        Your digital payment has been recorded{{ $booking->payment?->reference ? ' under reference ' . $booking->payment->reference : '' }}.
     @endif
 </p>
 

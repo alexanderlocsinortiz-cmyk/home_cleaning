@@ -7,6 +7,7 @@ use App\Models\DeviceEnrollmentRequest;
 use App\Models\Notification;
 use App\Models\Rating;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,7 @@ class StaffPortalController extends Controller
         $user = Auth::user();
 
         // ✅ Eager load to avoid N+1 queries
-        $assignedBookings = Booking::with(['user', 'rating', 'service'])
+        $assignedBookings = Booking::with(['user', 'rating', 'service', 'payment'])
             ->select([
                 'id',
                 'user_id',
@@ -173,7 +174,7 @@ class StaffPortalController extends Controller
 
             $videoUploaded = false;
             if ($request->hasFile('completion_video')) {
-                $videoPath = $request->file('completion_video')->store('booking-proofs/after', config('filesystems.public_uploads_disk'));
+                $videoPath = $request->file('completion_video')->store('booking-proofs/after', config('filesystems.proof_uploads_disk'));
 
                 $booking->serviceProofs()->create([
                     'uploaded_by' => $actor->id,
@@ -188,12 +189,6 @@ class StaffPortalController extends Controller
 
             $booking->status = 'completed';
             $booking->markServiceCompleted();
-
-            if ($booking->payment_method === 'on_site_cash' && $booking->payment_status !== 'paid') {
-                $booking->payment_status = 'paid';
-                $booking->payment_reference = $booking->payment_reference ?: Booking::generatePaymentReference('on_site_cash');
-                $booking->paid_at = now();
-            }
 
             $booking->save();
 
@@ -228,7 +223,7 @@ class StaffPortalController extends Controller
                 [
                     'from_status' => 'in_progress',
                     'to_status' => 'completed',
-                    'payment_status' => $booking->payment_status,
+                    'payment_status' => $booking->payment?->status ?? 'pending',
                     'on_time_status' => $booking->on_time_status,
                     'started_late_minutes' => $booking->started_late_minutes,
                     'completed_late_minutes' => $booking->completed_late_minutes,
@@ -273,7 +268,7 @@ class StaffPortalController extends Controller
         $user = Auth::user();
         $status = $request->get('status', 'all');
 
-        $query = Booking::with(['user', 'rating', 'service', 'serviceProofs'])
+        $query = Booking::with(['user', 'rating', 'service', 'payment', 'serviceProofs'])
             ->withCount([
                 'serviceProofs as before_photo_count' => fn ($proofs) => $proofs
                     ->where('stage', 'before')
@@ -310,7 +305,7 @@ class StaffPortalController extends Controller
         $user = Auth::user();
 
         // All completed bookings with ratings
-        $completedBookings = Booking::with(['rating', 'service', 'user'])
+        $completedBookings = Booking::with(['rating', 'service', 'user', 'payment'])
             ->where('staff_id', $user->id)
             ->where('status', 'completed')
             ->orderBy('updated_at', 'desc')
@@ -363,7 +358,7 @@ class StaffPortalController extends Controller
     {
         $user = Auth::user();
 
-        $bookings = Booking::with(['user', 'service'])
+        $bookings = Booking::with(['user', 'service', 'payment'])
             ->where('staff_id', $user->id)
             ->whereIn('status', ['confirmed', 'in_progress'])
             ->whereDate('scheduled_date', '>=', now()->startOfMonth())
@@ -374,7 +369,7 @@ class StaffPortalController extends Controller
 
         // Group bookings by date
         $bookingsByDate = $bookings->groupBy(function ($booking) {
-            return \Carbon\Carbon::parse($booking->scheduled_date)->format('Y-m-d');
+            return Carbon::parse($booking->scheduled_date)->format('Y-m-d');
         });
 
         $currentMonth = now()->format('Y-m');
@@ -489,7 +484,7 @@ class StaffPortalController extends Controller
         int $uploadedBy
     ): int {
         foreach ($files as $file) {
-            $path = $file->store('booking-proofs/'.$stage, config('filesystems.public_uploads_disk'));
+            $path = $file->store('booking-proofs/'.$stage, config('filesystems.proof_uploads_disk'));
 
             $booking->serviceProofs()->create([
                 'uploaded_by' => $uploadedBy,

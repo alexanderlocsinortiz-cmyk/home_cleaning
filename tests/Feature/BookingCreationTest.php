@@ -176,7 +176,79 @@ class BookingCreationTest extends TestCase
         $this->assertSame(0.0, (float) $booking->bathrooms_fee);
         $this->assertSame(1575.0, (float) $booking->floor_area_fee);
         $this->assertSame(550.0, (float) $booking->add_ons_fee);
+        $this->assertSame(2, $booking->required_cleaners);
         $this->assertSame(['window_glass', 'refrigerator'], $booking->add_ons);
+    }
+
+    public function test_inactive_service_cannot_be_booked(): void
+    {
+        $service = $this->canonicalService([
+            'slug' => 'basic',
+            'name' => 'Basic Clean',
+            'is_active' => true,
+        ]);
+        $service->update(['is_active' => false]);
+
+        $client = $this->createVerifiedUser([
+            'email' => 'inactive-service-client@example.com',
+            'username' => 'inactiveserviceclient',
+        ]);
+
+        $response = $this->actingAs($client)
+            ->from(route('bookings.create'))
+            ->post(route('bookings.store'), [
+                'service_type' => 'basic',
+                'property_type' => 'house',
+                'floor_area' => 30,
+                'barangay' => 'Poblacion',
+                'street_address' => '123 Rizal Street',
+                'scheduled_date' => now()->addDays(3)->toDateString(),
+                'scheduled_time' => '09:00',
+                'payment_method' => 'on_site_cash',
+                'service_plan' => 'one_time',
+            ]);
+
+        $response->assertRedirect(route('bookings.create'));
+        $response->assertSessionHasErrors('service_type');
+        $this->assertDatabaseCount('bookings', 0);
+    }
+
+    public function test_booking_requiring_more_than_the_staffing_limit_is_pending_review(): void
+    {
+        $this->canonicalService([
+            'slug' => 'basic',
+            'name' => 'Basic Clean',
+            'is_active' => true,
+        ]);
+
+        $client = $this->createVerifiedUser([
+            'email' => 'large-booking-client@example.com',
+            'username' => 'largebookingclient',
+        ]);
+
+        $response = $this->actingAs($client)->post(route('bookings.store'), [
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'floor_area' => 1000,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Rizal Street',
+            'scheduled_date' => now()->addDays(3)->toDateString(),
+            'scheduled_time' => '09:00',
+            'payment_method' => 'on_site_cash',
+            'service_plan' => 'one_time',
+        ]);
+
+        $response->assertRedirect(route('bookings.index'));
+
+        $booking = Booking::where('user_id', $client->id)->latest('id')->first();
+
+        $this->assertNotNull($booking);
+        $this->assertSame(25, $booking->required_cleaners);
+        $this->assertSame('pending', $booking->manual_review_status);
+        $this->assertContains(
+            'This booking requires 25 cleaners, exceeding the automatic staffing limit of 20.',
+            $booking->risk_reasons ?? []
+        );
     }
 
     public function test_booking_is_rejected_above_an_approved_service_area_limit(): void
@@ -271,7 +343,7 @@ class BookingCreationTest extends TestCase
 
         $this->assertDatabaseHas('bookings', [
             'user_id' => $user->id,
-            'service_type' => 'office-basic',
+            'service_id' => Service::where('slug', 'office-basic')->value('id'),
             'property_type' => 'office',
             'floor_area' => 100,
             'price' => 3000,
@@ -398,6 +470,23 @@ class BookingCreationTest extends TestCase
 
         $this->assertSame(500.0, $largerSessionPricing['base_price']);
         $this->assertSame(500.0, $largerSessionPricing['total']);
+    }
+
+    public function test_flat_rate_quote_uses_the_persisted_current_session_price(): void
+    {
+        Service::updateOrCreate(['slug' => 'weeklymaintenance'], [
+            'name' => 'General/Regular Cleaning',
+            'description' => 'General or regular cleaning session',
+            'price' => 650,
+            'duration_minutes' => 240,
+            'is_active' => true,
+        ]);
+
+        $pricing = Booking::calculatePrice('weeklymaintenance', 'house', 2, 1, 80, []);
+
+        $this->assertSame(650.0, $pricing['base_price']);
+        $this->assertSame(650.0, $pricing['total']);
+        $this->assertSame(0.0, $pricing['floor_area_fee']);
     }
 
     public function test_add_on_catalog_uses_final_suggested_prices(): void

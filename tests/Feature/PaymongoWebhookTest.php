@@ -90,6 +90,7 @@ class PaymongoWebhookTest extends TestCase
             ->assertOk()
             ->assertJson(['status' => 'already_processed']);
 
+        $this->assertSame(1, $booking->payments()->count());
         $this->assertSame(1, Notification::where('booking_id', $booking->id)->count());
     }
 

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" role="img" aria-labelledby="title desc">
+  <title id="title">Move-in and move-out cleaning illustration</title><desc id="desc">Moving boxes and a delivery truck ready for a property handover.</desc>
+  <rect width="800" height="420" rx="32" fill="#fff5e8"/><circle cx="660" cy="85" r="56" fill="#ffe0ae"/><path d="M82 326h635" stroke="#edc993" stroke-width="12" stroke-linecap="round"/>
+  <path d="M490 326V192h145l73 56v78z" fill="#fff" stroke="#cf7b32" stroke-width="10" stroke-linejoin="round"/><path d="M635 192v56h73" fill="#ffd18b" stroke="#cf7b32" stroke-width="10"/><circle cx="535" cy="329" r="27" fill="#334155"/><circle cx="656" cy="329" r="27" fill="#334155"/><circle cx="535" cy="329" r="10" fill="#fff"/><circle cx="656" cy="329" r="10" fill="#fff"/>
+  <path d="M150 326V235h105v91zM260 326v-72h90v72zM178 235v-38h50v38" fill="#eab16a" stroke="#a85d2d" stroke-width="9"/><path d="M202 197v129M150 270h105M260 290h90" stroke="#a85d2d" stroke-width="7"/><path d="M380 300h58" stroke="#5b8bc9" stroke-width="10" stroke-linecap="round"/><path d="M382 273l34-30 34 30M416 243v57" fill="none" stroke="#5b8bc9" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path d="M390 126h80M430 102v48" stroke="#5b8bc9" stroke-width="8" stroke-linecap="round"/><path d="M430 102l-18 18M430 102l18 18" stroke="#5b8bc9" stroke-width="8" stroke-linecap="round"/>
+  <g stroke="#613b25" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="410" cy="176" r="25" fill="#f2bd91"/><path d="M385 206h53l21 68-69 13-25-43z" fill="#e77c46"/><path d="M402 287l-20 39M431 287l25 39" fill="none"/><path d="M382 326h-28M456 326h27" fill="none"/><path d="M390 222l-45 31M435 224l35 23" fill="none"/><path d="M325 239h57v48h-57z" fill="#eab16a"/><path d="M325 263h57M353 239v48" fill="none"/>
+  </g>
+</svg>

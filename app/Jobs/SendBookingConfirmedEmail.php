@@ -28,7 +28,7 @@ class SendBookingConfirmedEmail implements ShouldQueue
     public function handle(): void
     {
         try {
-            $booking = Booking::with(['user', 'staff', 'service', 'preferredStaff'])->find($this->bookingId);
+            $booking = Booking::with(['user', 'staff', 'service', 'preferredStaff', 'payment'])->find($this->bookingId);
 
             if (! $booking) {
                 Log::warning('Booking not found for SendBookingConfirmedEmail', ['booking_id' => $this->bookingId]);

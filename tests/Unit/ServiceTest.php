@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Service;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 class ServiceTest extends TestCase
@@ -83,6 +84,14 @@ class ServiceTest extends TestCase
         $this->assertTrue(Service::usesPerSquareMeterPricing('postconstruction'));
     }
 
+    public function test_cleaner_requirement_rounds_up_from_the_configured_service_capacity()
+    {
+        $this->assertSame(3, Service::requiredCleanerCountForSlug('basic', 100));
+        $this->assertSame(4, Service::requiredCleanerCountForSlug('deep', 100));
+        $this->assertSame(2, Service::requiredCleanerCountForSlug('office-basic', 100));
+        $this->assertSame(1, Service::requiredCleanerCountForSlug('basic-clean', 40));
+    }
+
     public function test_service_packages_have_recommended_prices()
     {
         foreach (Service::PACKAGE_CATALOG as $package) {
@@ -106,6 +115,20 @@ class ServiceTest extends TestCase
             $this->assertArrayHasKey('features', $package);
             $this->assertIsArray($package['features']);
             $this->assertGreaterThan(0, count($package['features']));
+        }
+    }
+
+    public function test_every_catalog_service_has_a_real_raster_default_image()
+    {
+        foreach (array_keys(Service::PACKAGE_CATALOG) as $slug) {
+            $relativePath = Service::defaultImagePathForSlug($slug);
+            $absolutePath = public_path($relativePath);
+
+            $this->assertFileExists($absolutePath, "Missing service image for {$slug}.");
+            $this->assertTrue(
+                in_array(File::mimeType($absolutePath), ['image/jpeg', 'image/png', 'image/webp'], true),
+                "Service image for {$slug} must be a raster image."
+            );
         }
     }
 

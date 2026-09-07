@@ -42,6 +42,9 @@
             <a href="{{ route('admin.customers') }}" class="mx-3 flex items-center gap-3 rounded-lg border-l-4 border-transparent px-3 py-3 text-slate-300 transition-all hover:bg-slate-700/50 hover:text-white hover:border-blue-500 {{ request()->routeIs('admin.customers*') ? 'border-blue-500 bg-blue-500/15 text-blue-200' : '' }}">
                 <i class="fas fa-users w-5 text-center"></i> Customers
             </a>
+            <a href="{{ route('admin.providers') }}" class="mx-3 flex items-center gap-3 rounded-lg border-l-4 border-transparent px-3 py-3 text-slate-300 transition-all hover:bg-slate-700/50 hover:text-white hover:border-blue-500 {{ request()->routeIs('admin.providers*') ? 'border-blue-500 bg-blue-500/15 text-blue-200' : '' }}">
+                <i class="fas fa-user-shield w-5 text-center"></i> Providers
+            </a>
             <a href="{{ route('admin.cleaner-applications.index') }}" class="mx-3 flex items-center gap-3 rounded-lg border-l-4 border-transparent px-3 py-3 text-slate-300 transition-all hover:bg-slate-700/50 hover:text-white hover:border-blue-500 {{ request()->routeIs('admin.cleaner-applications.*') ? 'border-blue-500 bg-blue-500/15 text-blue-200' : '' }}">
                 <i class="fas fa-clipboard-check w-5 text-center"></i> Cleaner Applications
             </a>
@@ -170,9 +173,9 @@
                     <div class="relative" data-topbar-menu>
                         <button type="button" class="relative flex h-10 w-10 items-center justify-center rounded-full text-blue-900 transition hover:bg-blue-50 hover:text-blue-700" aria-label="Booking notifications" aria-expanded="false" data-topbar-toggle="booking-notifications-menu">
                             <i class="fas fa-bell text-lg"></i>
-                            @if($pendingBookingsCount)
+                            @if($pendingBookingsCount || $adminUnreadNotificationsCount)
                                 <span class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-white">
-                                    <span class="sr-only">{{ $pendingBookingsCount > 9 ? '9+' : $pendingBookingsCount }} pending bookings</span>
+                                    <span class="sr-only">{{ $adminUnreadNotificationsCount + $pendingBookingsCount }} admin notifications</span>
                                 </span>
                             @endif
                         </button>
@@ -180,13 +183,24 @@
                             <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                                 <div>
                                     <div class="text-sm font-bold text-slate-900">Booking notifications</div>
-                                    <div class="text-xs text-slate-500">{{ number_format($pendingBookingsCount) }} pending booking{{ $pendingBookingsCount === 1 ? '' : 's' }}</div>
+                                    <div class="text-xs text-slate-500">{{ number_format($adminUnreadNotificationsCount) }} unread alert{{ $adminUnreadNotificationsCount === 1 ? '' : 's' }} · {{ number_format($pendingBookingsCount) }} pending booking{{ $pendingBookingsCount === 1 ? '' : 's' }}</div>
                                 </div>
-                                @if($pendingBookingsCount)
-                                    <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">{{ $pendingBookingsCount > 9 ? '9+' : $pendingBookingsCount }}</span>
+                                @if($pendingBookingsCount || $adminUnreadNotificationsCount)
+                                    <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">{{ ($pendingBookingsCount + $adminUnreadNotificationsCount) > 9 ? '9+' : $pendingBookingsCount + $adminUnreadNotificationsCount }}</span>
                                 @endif
                             </div>
                             <div class="max-h-80 overflow-y-auto p-2">
+                                @foreach($adminNotificationsPreview as $notification)
+                                    <a href="{{ $notification->link ?: route('admin.bookings') }}" class="block rounded-lg border-b border-slate-100 px-3 py-3 transition hover:bg-amber-50">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <div class="truncate text-sm font-bold text-slate-900">{{ $notification->title }}</div>
+                                                <div class="mt-1 text-xs leading-5 text-slate-500">{{ $notification->message }}</div>
+                                            </div>
+                                            <span class="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-[11px] font-bold text-amber-700">Review</span>
+                                        </div>
+                                    </a>
+                                @endforeach
                                 @forelse($pendingBookingsPreview as $booking)
                                     <a href="{{ route('admin.bookings', ['tab' => 'active']) }}" class="block rounded-lg px-3 py-3 transition hover:bg-blue-50">
                                         <div class="flex items-start justify-between gap-3">
@@ -201,9 +215,11 @@
                                         </div>
                                     </a>
                                 @empty
+                                    @if($adminNotificationsPreview->isEmpty())
                                     <div class="px-3 py-8 text-center text-sm text-slate-500">
                                         No pending bookings right now.
                                     </div>
+                                    @endif
                                 @endforelse
                             </div>
                             <div class="border-t border-slate-100 p-3">

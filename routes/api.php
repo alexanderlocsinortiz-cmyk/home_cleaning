@@ -1,60 +1,71 @@
 <?php
 
+use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\MobileAuthController;
+use App\Http\Controllers\Api\MobileBookingController;
+use App\Http\Controllers\Api\MobileNotificationController;
+use App\Http\Controllers\Api\MobilePasswordResetController;
+use App\Http\Controllers\Api\MobileServiceController;
+use App\Http\Controllers\Api\MobileStaffBookingController;
+use App\Http\Controllers\Api\MobileStaffPerformanceController;
+use App\Http\Controllers\Api\PaymongoWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('mobile')->group(function () {
     // The catalog is public so visitors can see current services and pricing before sign-in.
-    Route::get('/services', [App\Http\Controllers\Api\MobileServiceController::class, 'index']);
-    Route::post('/calculate-price', [App\Http\Controllers\Api\MobileServiceController::class, 'calculate']);
-    Route::post('/register', [App\Http\Controllers\Api\MobileAuthController::class, 'register'])
+    Route::get('/services', [MobileServiceController::class, 'index']);
+    Route::post('/calculate-price', [MobileServiceController::class, 'calculate']);
+    Route::post('/register', [MobileAuthController::class, 'register'])
         ->middleware('throttle:6,1');
-    Route::post('/login', [App\Http\Controllers\Api\MobileAuthController::class, 'login'])
+    Route::post('/login', [MobileAuthController::class, 'login'])
         ->middleware('throttle:10,1');
-    Route::post('/password/request-code', [App\Http\Controllers\Api\MobilePasswordResetController::class, 'requestCode'])
+    Route::post('/password/request-code', [MobilePasswordResetController::class, 'requestCode'])
         ->middleware('throttle:6,1');
-    Route::post('/password/verify-code', [App\Http\Controllers\Api\MobilePasswordResetController::class, 'verifyCode'])
+    Route::post('/password/verify-code', [MobilePasswordResetController::class, 'verifyCode'])
         ->middleware('throttle:10,1');
-    Route::post('/password/reset', [App\Http\Controllers\Api\MobilePasswordResetController::class, 'resetPassword'])
+    Route::post('/password/reset', [MobilePasswordResetController::class, 'resetPassword'])
         ->middleware('throttle:6,1');
 
     // Protect authenticated mobile traffic from accidental loops and abuse.
     // The operation-specific limits below are stricter where writes are costly.
     Route::middleware(['auth.mobile', 'throttle:60,1'])->group(function () {
-        Route::get('/me', [App\Http\Controllers\Api\MobileAuthController::class, 'me']);
-        Route::post('/logout', [App\Http\Controllers\Api\MobileAuthController::class, 'logout']);
-        Route::get('/notifications', [App\Http\Controllers\Api\MobileNotificationController::class, 'index']);
-        Route::post('/notifications/read-all', [App\Http\Controllers\Api\MobileNotificationController::class, 'markAllAsRead']);
-        Route::post('/notifications/{notification}/read', [App\Http\Controllers\Api\MobileNotificationController::class, 'markAsRead']);
-        Route::get('/bookings', [App\Http\Controllers\Api\MobileBookingController::class, 'index']);
-        Route::post('/bookings', [App\Http\Controllers\Api\MobileBookingController::class, 'store'])
-            ->middleware('throttle:10,1');
-        Route::post('/bookings/{booking}/cancel', [App\Http\Controllers\Api\MobileBookingController::class, 'cancel'])
-            ->middleware('throttle:10,1');
-        Route::post('/bookings/{booking}/reschedule', [App\Http\Controllers\Api\MobileBookingController::class, 'reschedule'])
-            ->middleware('throttle:10,1');
-        Route::post('/bookings/{booking}/rate', [App\Http\Controllers\Api\MobileBookingController::class, 'rate'])
-            ->middleware('throttle:10,1');
-        Route::post('/bookings/{booking}/dispute', [App\Http\Controllers\Api\MobileBookingController::class, 'dispute'])
+        Route::get('/me', [MobileAuthController::class, 'me']);
+        Route::post('/logout', [MobileAuthController::class, 'logout']);
+        Route::post('/logout-all', [MobileAuthController::class, 'logoutAll'])
             ->middleware('throttle:5,1');
-        Route::get('/staff/bookings', [App\Http\Controllers\Api\MobileStaffBookingController::class, 'index']);
-        Route::get('/staff/performance', [App\Http\Controllers\Api\MobileStaffPerformanceController::class, 'show']);
-        Route::post('/staff/bookings/{booking}/start', [App\Http\Controllers\Api\MobileStaffBookingController::class, 'start'])
+        Route::get('/notifications', [MobileNotificationController::class, 'index']);
+        Route::post('/notifications/read-all', [MobileNotificationController::class, 'markAllAsRead']);
+        Route::post('/notifications/{notification}/read', [MobileNotificationController::class, 'markAsRead']);
+        Route::get('/bookings', [MobileBookingController::class, 'index']);
+        Route::post('/bookings', [MobileBookingController::class, 'store'])
+            ->middleware('throttle:10,1');
+        Route::post('/bookings/{booking}/cancel', [MobileBookingController::class, 'cancel'])
+            ->middleware('throttle:10,1');
+        Route::post('/bookings/{booking}/reschedule', [MobileBookingController::class, 'reschedule'])
+            ->middleware('throttle:10,1');
+        Route::post('/bookings/{booking}/rate', [MobileBookingController::class, 'rate'])
+            ->middleware('throttle:10,1');
+        Route::post('/bookings/{booking}/dispute', [MobileBookingController::class, 'dispute'])
+            ->middleware('throttle:5,1');
+        Route::get('/staff/bookings', [MobileStaffBookingController::class, 'index']);
+        Route::get('/staff/performance', [MobileStaffPerformanceController::class, 'show']);
+        Route::post('/staff/bookings/{booking}/start', [MobileStaffBookingController::class, 'start'])
             ->middleware('throttle:20,1');
-        Route::post('/staff/bookings/{booking}/complete', [App\Http\Controllers\Api\MobileStaffBookingController::class, 'complete'])
+        Route::post('/staff/bookings/{booking}/complete', [MobileStaffBookingController::class, 'complete'])
             ->middleware('throttle:20,1');
     });
 });
 
-Route::post('/paymongo/webhook', App\Http\Controllers\Api\PaymongoWebhookController::class)
+Route::post('/paymongo/webhook', PaymongoWebhookController::class)
     ->name('api.paymongo.webhook');
 
 // IoT Device attendance punch - per-device rate limiting with signature validation
 Route::middleware(['rate_limit_per_device'])->group(function () {
-    Route::post('/iot/attendance/punch', [App\Http\Controllers\Api\AttendanceController::class, 'punch']);
-    Route::post('/iot/device/heartbeat', [App\Http\Controllers\Api\AttendanceController::class, 'heartbeat']);
-    Route::get('/iot/device/enrollment/next', [App\Http\Controllers\Api\AttendanceController::class, 'nextEnrollmentRequest']);
-    Route::post('/iot/device/enrollment/status', [App\Http\Controllers\Api\AttendanceController::class, 'updateEnrollmentRequest']);
+    Route::post('/iot/attendance/punch', [AttendanceController::class, 'punch']);
+    Route::post('/iot/device/heartbeat', [AttendanceController::class, 'heartbeat']);
+    Route::get('/iot/device/enrollment/next', [AttendanceController::class, 'nextEnrollmentRequest']);
+    Route::post('/iot/device/enrollment/status', [AttendanceController::class, 'updateEnrollmentRequest']);
 });
 
 // Admin only - get today's attendance status
-Route::middleware(['auth'])->get('/attendance/today', [App\Http\Controllers\Api\AttendanceController::class, 'todayStatus']);
+Route::middleware(['auth'])->get('/attendance/today', [AttendanceController::class, 'todayStatus']);

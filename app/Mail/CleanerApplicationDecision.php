@@ -16,6 +16,7 @@ class CleanerApplicationDecision extends Mailable
     public function __construct(
         public CleanerApplication $application,
         public ?string $activationToken = null,
+        public ?string $trackingToken = null,
     ) {}
 
     public function envelope(): Envelope
@@ -32,6 +33,9 @@ class CleanerApplicationDecision extends Mailable
         return new Content(view: 'emails.cleaner-application-decision', with: [
             'activationUrl' => $this->activationToken
                 ? route('provider.activate.show', ['token' => $this->activationToken])
+                : null,
+            'trackingUrl' => $this->trackingToken
+                ? route('cleaner-applications.status', ['token' => $this->trackingToken])
                 : null,
         ]);
     }

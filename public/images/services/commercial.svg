@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" role="img" aria-labelledby="title desc">
+  <title id="title">Standard office cleaning illustration</title><desc id="desc">A modern office building with desks and a clean workspace.</desc>
+  <rect width="800" height="420" rx="32" fill="#e9f7f7"/><circle cx="660" cy="84" r="55" fill="#c6eded"/><path d="M82 326h635" stroke="#a9d7d7" stroke-width="12" stroke-linecap="round"/>
+  <path d="M180 326V120h210v206z" fill="#fff" stroke="#187b83" stroke-width="10"/><path d="M215 154h35v35h-35zM275 154h35v35h-35zM335 154h35v35h-35zM215 215h35v35h-35zM275 215h35v35h-35zM335 215h35v35h-35z" fill="#99dcdf" stroke="#187b83" stroke-width="6"/><path d="M493 326V237h125v89M470 237l74-59 74 59" fill="#fff" stroke="#187b83" stroke-width="10"/><path d="M522 326v-45h26v45M507 260h27v25h-27zM560 260h27v25h-27z" fill="#99dcdf" stroke="#187b83" stroke-width="7"/><path d="M415 326h44M416 289h45M438 255v71" stroke="#f0a94a" stroke-width="10" stroke-linecap="round"/><circle cx="438" cy="245" r="16" fill="#f0a94a"/>
+  <g stroke="#174f56" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="430" cy="177" r="24" fill="#f2bd91"/><path d="M406 207h52l16 64h-73z" fill="#238b88"/><path d="M416 271l-20 55M448 271l22 55" fill="none"/><path d="M396 326h-28M470 326h28" fill="none"/><path d="M410 225l-45 43" fill="none"/><path d="M365 268l-31 20" fill="none"/><path d="M325 286h48v16h-48z" fill="#f0a94a"/><path d="M351 270v32" fill="none"/>
+  </g>
+</svg>

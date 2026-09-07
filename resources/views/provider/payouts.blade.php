@@ -5,10 +5,14 @@
 @section('page-subtitle', 'Track payout records for assigned marketplace work')
 
 @section('content')
+@php
+    $payoutSetupLabel = $application->payoutVerificationStatusLabel();
+    $payoutSetupClass = $application->payoutVerificationBadgeClass();
+@endphp
 <section class="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 sm:py-8">
     <div class="mx-auto max-w-6xl space-y-6">
         <section class="cleanflow-hero overflow-hidden px-6 py-7 text-white shadow-lg shadow-blue-950/10 sm:px-8">
-            <div class="cleanflow-hero-content flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div class="cleanflow-hero-content grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
                 <div class="max-w-3xl">
                     <span class="cleanflow-kicker">
                         <i class="fas fa-wallet"></i>
@@ -19,15 +23,33 @@
                         Read-only payout records for <strong>{{ $application->business_name }}</strong>. CleanFlow admin controls payout status and release timing.
                     </p>
                 </div>
-                <a href="{{ route('provider.dashboard') }}" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/15">
-                    <i class="fas fa-arrow-left"></i>
-                    Dashboard
-                </a>
+                <div class="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-sm">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="text-xs font-black uppercase tracking-[0.14em] text-blue-100">Payout setup</div>
+                        <i class="fas fa-shield-halved text-blue-200"></i>
+                    </div>
+                    <div class="mt-3">
+                        <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-black ring-1 {{ $payoutSetupClass }}">
+                            <i class="fas fa-circle text-[8px]"></i>
+                            {{ $payoutSetupLabel }}
+                        </span>
+                    </div>
+                    <p class="mt-2 text-sm leading-6 text-blue-100">Admin controls verification and release timing for your earnings.</p>
+                    <div class="mt-4 flex flex-col gap-2 sm:flex-row lg:flex-col">
+                        <a href="{{ route('provider.dashboard') }}#payout-setup" class="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-black text-blue-800 transition hover:bg-blue-50">
+                            Manage payout setup <i class="fas fa-arrow-right"></i>
+                        </a>
+                        <a href="{{ route('provider.dashboard') }}" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/15">
+                            <i class="fas fa-arrow-left"></i>
+                            Dashboard
+                        </a>
+                    </div>
+                </div>
             </div>
         </section>
 
         <div class="grid gap-4 md:grid-cols-3">
-            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="rounded-2xl border-t-4 border-slate-400 border-x border-b border-slate-200 bg-white p-5 shadow-sm">
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <div class="text-xs font-black uppercase text-slate-400">Gross</div>
@@ -38,7 +60,7 @@
                     </span>
                 </div>
             </div>
-            <div class="rounded-2xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
+            <div class="rounded-2xl border-t-4 border-blue-500 border-x border-b border-blue-200 bg-blue-50 p-5 shadow-sm">
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <div class="text-xs font-black uppercase text-blue-700">Commission</div>
@@ -49,7 +71,7 @@
                     </span>
                 </div>
             </div>
-            <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+            <div class="rounded-2xl border-t-4 border-emerald-500 border-x border-b border-emerald-200 bg-emerald-50 p-5 shadow-sm">
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <div class="text-xs font-black uppercase text-emerald-700">Cleaner Payout</div>
@@ -62,14 +84,14 @@
             </div>
         </div>
 
-        <div class="grid gap-3 md:grid-cols-4">
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
             @foreach([
                 'pending' => ['label' => 'Pending', 'icon' => 'fa-clock', 'class' => 'bg-amber-50 text-amber-700 border-amber-100'],
                 'ready' => ['label' => 'Ready', 'icon' => 'fa-circle-check', 'class' => 'bg-blue-50 text-blue-700 border-blue-100'],
                 'paid' => ['label' => 'Paid', 'icon' => 'fa-wallet', 'class' => 'bg-emerald-50 text-emerald-700 border-emerald-100'],
                 'held' => ['label' => 'Held', 'icon' => 'fa-pause-circle', 'class' => 'bg-rose-50 text-rose-700 border-rose-100'],
             ] as $key => $meta)
-                <div class="rounded-2xl border {{ $meta['class'] }} p-4 shadow-sm">
+                <div class="rounded-2xl border {{ $meta['class'] }} p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                     <div class="flex items-center justify-between gap-3">
                         <div class="text-xs font-black uppercase tracking-wide">{{ $meta['label'] }}</div>
                         <i class="fas {{ $meta['icon'] }}"></i>
@@ -79,7 +101,7 @@
             @endforeach
         </div>
 
-        <div class="grid gap-3 md:grid-cols-3">
+        <div class="grid gap-3 sm:grid-cols-3">
             <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div class="text-xs font-black uppercase text-slate-500">Cash Collected</div>
                 <div class="mt-2 text-xl font-black text-slate-950">&#8369;{{ number_format($payoutStats['cash_collected'], 2) }}</div>
@@ -95,7 +117,7 @@
         </div>
 
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div class="flex flex-col gap-3 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex flex-col gap-3 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <div>
                     <h2 class="text-lg font-black text-slate-950">Payout Records</h2>
                     <p class="mt-1 text-sm text-slate-500">{{ $payouts->total() }} payout record{{ $payouts->total() === 1 ? '' : 's' }} connected to assigned marketplace bookings.</p>
@@ -104,6 +126,10 @@
                     <i class="fas fa-shield-halved"></i>
                     Admin controlled
                 </span>
+            </div>
+            <div class="border-b border-slate-100 bg-white px-5 py-3 text-xs font-semibold text-slate-500 sm:hidden">
+                <i class="fas fa-arrows-left-right mr-1 text-blue-600"></i>
+                Swipe horizontally to view payout details.
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-[920px] w-full text-sm">
@@ -133,7 +159,7 @@
                                 <td class="px-5 py-4 text-right font-bold text-blue-700">&#8369;{{ number_format((float) $booking->platform_commission_amount, 2) }}</td>
                                 <td class="px-5 py-4 text-right font-bold text-emerald-700">&#8369;{{ number_format((float) $booking->provider_payout_amount, 2) }}</td>
                                 <td class="px-5 py-4">
-                                    @if($booking->payment_method === 'on_site_cash')
+                                    @if($booking->payment?->method === 'on_site_cash')
                                         <span class="inline-flex rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-700">
                                             {{ \App\Models\Booking::providerCommissionStatusLabel($booking->provider_commission_status) }}
                                         </span>

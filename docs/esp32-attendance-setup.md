@@ -76,16 +76,20 @@ Or use the admin UI:
 The command prints:
 
 - the device serial number
-- the generated `api_token`
+- the generated device token
+- the generated signing secret
 - the location shown in the admin UI
 
-Put that token into the ESP32 sketch as `DEVICE_TOKEN`.
+Put the device serial and signing secret into the ESP32 sketch as `DEVICE_SERIAL` and `DEVICE_SECRET`.
+The sketch signs every request with an HMAC and requires the ESP32 clock to be synchronized over NTP.
 
 If you ever need a new token:
 
 ```bash
 php artisan attendance:register-device ESP32-FRONT-01 "Front Desk Device" --rotate-token
 ```
+
+After rotation, update `DEVICE_SECRET` in the sketch before uploading it again.
 
 ## 4. Install Arduino IDE Support
 
@@ -130,7 +134,8 @@ Open [iot/esp32_staff_attendance/esp32_staff_attendance.ino](/c:/Users/xander/Do
 - `WIFI_SSID`
 - `WIFI_PASSWORD`
 - `API_BASE_URL`
-- `DEVICE_TOKEN`
+- `DEVICE_SERIAL`
+- `DEVICE_SECRET`
 
 Important:
 

@@ -104,11 +104,19 @@
                     <div class="footer-support">
                         <p>
                             <i class="fas fa-location-dot text-blue-400 w-4"></i>
-                            <span>{{ $siteSettings->contact_address ?: 'Valencia City, Bukidnon, Philippines' }}</span>
+                            @if($siteSettings->contact_address)
+                                <span>{{ $siteSettings->contact_address }}</span>
+                            @else
+                                <span>Office address not configured</span>
+                            @endif
                         </p>
                         <p>
                             <i class="fas fa-clock text-blue-400 w-4"></i>
-                            <span>{{ $siteSettings->office_hours ?: 'Monday - Saturday, 8:00 AM - 5:00 PM' }}</span>
+                            @if($siteSettings->office_hours)
+                                <span>{{ $siteSettings->office_hours }}</span>
+                            @else
+                                <span>Office hours not configured</span>
+                            @endif
                         </p>
                     </div>
                 </div>
@@ -138,10 +146,17 @@
                                 <span>Call/SMS fallback is not configured yet</span>
                             </p>
                         @endif
-                        <p>
-                            <i class="fas fa-building text-blue-400 w-4"></i>
-                            <span>Visit the office during the hours listed above</span>
-                        </p>
+                        @if($siteSettings->contact_address && $siteSettings->office_hours)
+                            <p>
+                                <i class="fas fa-building text-blue-400 w-4"></i>
+                                <span>Visit the office during the hours listed above</span>
+                            </p>
+                        @else
+                            <p>
+                                <i class="fas fa-building-circle-xmark text-amber-400 w-4"></i>
+                                <span>In-person visit fallback is not configured yet</span>
+                            </p>
+                        @endif
                         <p>
                             <i class="fas fa-circle-check text-blue-400 w-4"></i>
                             <span>Keep your booking reference when contacting us</span>

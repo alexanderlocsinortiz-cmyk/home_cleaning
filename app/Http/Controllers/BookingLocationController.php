@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Booking;
 use App\Models\BookingLocation;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class BookingLocationController extends Controller
@@ -12,6 +13,10 @@ class BookingLocationController extends Controller
     {
         $booking = Booking::findOrFail($id);
         $user = auth()->user();
+
+        if (! in_array($user->role, ['admin', 'client', 'staff'], true)) {
+            abort(403, 'You are not allowed to view this location.');
+        }
 
         // Only allow admin, or the client who owns this booking
         if ($user->role === 'client' && $booking->user_id !== $user->id) {
@@ -43,7 +48,7 @@ class BookingLocationController extends Controller
             'latitude' => $booking->current_latitude,
             'longitude' => $booking->current_longitude,
             'updated_at' => $booking->location_updated_at
-                ? \Carbon\Carbon::parse($booking->location_updated_at)->diffForHumans()
+                ? Carbon::parse($booking->location_updated_at)->diffForHumans()
                 : null,
             'is_admin' => $user->role === 'admin',
         ]);

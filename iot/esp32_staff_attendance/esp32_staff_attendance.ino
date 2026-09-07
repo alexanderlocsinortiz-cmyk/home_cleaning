@@ -4,6 +4,9 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_Fingerprint.h>
+#include <time.h>
+#include <mbedtls/md.h>
+#include <esp_system.h>
 
 // Required Arduino libraries:
 // - Adafruit Fingerprint Sensor Library
@@ -11,10 +14,11 @@
 // - Adafruit GFX Library
 
 // WiFi and Server
-constexpr char WIFI_SSID[] = "sander";
-constexpr char WIFI_PASSWORD[] = "san12345";
-constexpr char SERVER_URL[] = "http://10.135.199.1:8000/api/iot";
-constexpr char DEVICE_TOKEN[] = "yWGFNwAWgN7mQOtZF6evE7GwUC2lV7v1ok7QrwwyEjEATOdVl62hnwd2ueXty1Wm";
+constexpr char WIFI_SSID[] = "YOUR_WIFI_SSID";
+constexpr char WIFI_PASSWORD[] = "YOUR_WIFI_PASSWORD";
+constexpr char SERVER_URL[] = "http://YOUR_SERVER_IP:8000/api/iot";
+constexpr char DEVICE_SERIAL[] = "PASTE_DEVICE_SERIAL_HERE";
+constexpr char DEVICE_SECRET[] = "PASTE_GENERATED_SIGNING_SECRET_HERE";
 
 // Pin Config
 constexpr uint8_t FINGER_RX_PIN = 16;   // AS608 TX -> ESP32 RX2
@@ -49,6 +53,10 @@ constexpr unsigned long ENROLL_CHECK_INTERVAL = 5000UL;
 constexpr unsigned long SCAN_COOLDOWN_MS = 10000UL;
 constexpr unsigned long ENROLLMENT_WAIT_MS = 30000UL;
 constexpr unsigned long REMOVE_FINGER_WAIT_MS = 15000UL;
+
+// One-time maintenance option. Set to 7, upload once to delete only slot 7,
+// then set back to -1 and upload the normal sketch again.
+constexpr int RESET_FINGERPRINT_ID = -1;
 
 bool displayReady = false;
 uint32_t activeFingerBaud = 0;
@@ -118,6 +126,82 @@ String httpErrorMessage(int statusCode) {
   return message;
 }
 
+String hmacSha256(const String& message, const char* secret) {
+  byte digest[32];
+  mbedtls_md_context_t context;
+  const mbedtls_md_info_t* algorithm = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+
+  mbedtls_md_init(&context);
+  if (!algorithm || mbedtls_md_setup(&context, algorithm, 1) != 0) {
+    mbedtls_md_free(&context);
+    return "";
+  }
+
+  int result = mbedtls_md_hmac_starts(
+    &context,
+    reinterpret_cast<const unsigned char*>(secret),
+    strlen(secret)
+  );
+  if (result == 0) {
+    result = mbedtls_md_hmac_update(
+      &context,
+      reinterpret_cast<const unsigned char*>(message.c_str()),
+      message.length()
+    );
+  }
+  if (result == 0) {
+    result = mbedtls_md_hmac_finish(&context, digest);
+  }
+  mbedtls_md_free(&context);
+
+  if (result != 0) {
+    return "";
+  }
+
+  String encoded;
+  encoded.reserve(64);
+  for (byte value : digest) {
+    if (value < 16) {
+      encoded += "0";
+    }
+    encoded += String(value, HEX);
+  }
+
+  return encoded;
+}
+
+String requestNonce() {
+  String nonce;
+  nonce.reserve(32);
+  for (uint8_t index = 0; index < 8; index++) {
+    uint32_t value = esp_random();
+    for (uint8_t shift = 0; shift < 32; shift += 4) {
+      nonce += String((value >> shift) & 0x0F, HEX);
+    }
+  }
+  return nonce;
+}
+
+bool addSecurityHeaders(HTTPClient& http, const String& payload) {
+  const time_t now = time(nullptr);
+  if (now < 1700000000) {
+    return false;
+  }
+
+  const String timestamp = String(static_cast<long>(now));
+  const String nonce = requestNonce();
+  const String signature = hmacSha256(timestamp + nonce + payload, DEVICE_SECRET);
+  if (signature.length() == 0) {
+    return false;
+  }
+
+  http.addHeader("X-Device-Serial", DEVICE_SERIAL);
+  http.addHeader("X-Timestamp", timestamp);
+  http.addHeader("X-Nonce", nonce);
+  http.addHeader("X-Signature", signature);
+  return true;
+}
+
 void showMessage(const String& line1, const String& line2 = "", const String& line3 = "") {
   Serial.println(line1);
   if (line2.length() > 0) {
@@ -180,6 +264,7 @@ void connectWiFi() {
 
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("WiFi connected: " + WiFi.localIP().toString());
+    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
     showMessage("WiFi Connected!", WiFi.localIP().toString(), "");
     delay(1500);
   } else {
@@ -205,7 +290,12 @@ bool httpPost(const String& endpoint, const String& payload, String& responseBod
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("Accept", "application/json");
-  http.addHeader("X-Device-Token", DEVICE_TOKEN);
+  if (!addSecurityHeaders(http, payload)) {
+    responseBody = "Device clock is not synchronized or signing failed";
+    statusCode = -1;
+    http.end();
+    return false;
+  }
   http.setTimeout(10000);
 
   statusCode = http.POST(payload);
@@ -239,7 +329,12 @@ bool httpGet(const String& endpoint, String& responseBody, int& statusCode) {
   String url = String(SERVER_URL) + endpoint;
   http.begin(url);
   http.addHeader("Accept", "application/json");
-  http.addHeader("X-Device-Token", DEVICE_TOKEN);
+  if (!addSecurityHeaders(http, "")) {
+    responseBody = "Device clock is not synchronized or signing failed";
+    statusCode = -1;
+    http.end();
+    return false;
+  }
   http.setTimeout(10000);
 
   statusCode = http.GET();
@@ -285,6 +380,20 @@ void setupFingerprint() {
   finger.getTemplateCount();
   Serial.println("AS608 found!");
   showMessage("Sensor OK", "Templates: " + String(finger.templateCount), "Baud: " + String(activeFingerBaud));
+  delay(1500);
+}
+
+void resetFingerprintSlot(uint16_t id) {
+  uint8_t p = finger.deleteModel(id);
+
+  if (p == FINGERPRINT_OK) {
+    showMessage("Fingerprint deleted", "Slot ID: " + String(id), "");
+    Serial.println("Deleted fingerprint slot " + String(id));
+  } else {
+    showMessage("Delete failed", "Slot ID: " + String(id), "Code: " + String(p));
+    Serial.println("Failed to delete fingerprint slot " + String(id) + ", code: " + String(p));
+  }
+
   delay(1500);
 }
 
@@ -401,6 +510,22 @@ bool enrollFinger(uint16_t id, const String& staffName, String& error) {
   Serial.println("Enrolling ID: " + String(id));
 
   if (!captureFingerTemplate(1, "Enrolling...", "ID: " + String(id), error)) {
+    return false;
+  }
+
+  // Check the first captured image against all templates already stored in
+  // the sensor before creating a new model. Without this search, the same
+  // finger can be enrolled again under a different slot.
+  uint8_t duplicateCheck = finger.fingerFastSearch();
+  if (duplicateCheck == FINGERPRINT_OK) {
+    error = "Fingerprint already enrolled as ID " + String(finger.fingerID);
+    return false;
+  }
+
+  if (duplicateCheck != FINGERPRINT_NOTFOUND) {
+    error = duplicateCheck == FINGERPRINT_PACKETRECIEVEERR
+      ? "Sensor comm error during duplicate check"
+      : "Duplicate check failed";
     return false;
   }
 
@@ -554,6 +679,11 @@ void setup() {
   showMessage("Booting...", "CleanFlow", "Attendance");
 
   setupFingerprint();
+
+  if (RESET_FINGERPRINT_ID > 0) {
+    resetFingerprintSlot(static_cast<uint16_t>(RESET_FINGERPRINT_ID));
+  }
+
   connectWiFi();
   sendHeartbeat();
   showReady();

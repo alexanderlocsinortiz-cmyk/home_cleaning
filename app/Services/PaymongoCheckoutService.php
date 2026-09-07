@@ -116,7 +116,7 @@ class PaymongoCheckoutService
             throw new RuntimeException('PayMongo secret key is not configured.');
         }
 
-        /** @var \App\Models\Booking|null $firstBooking */
+        /** @var Booking|null $firstBooking */
         $firstBooking = $bookings->first();
 
         if (! $firstBooking) {
@@ -159,7 +159,7 @@ class PaymongoCheckoutService
                         'client_id' => (string) $user->id,
                         'service_plan' => (string) $firstBooking->service_plan,
                     ],
-                    'payment_method_types' => $this->paymentMethodTypes($firstBooking->payment_method),
+                    'payment_method_types' => $this->paymentMethodTypes($firstBooking->payment?->method ?? 'on_site_cash'),
                     'send_email_receipt' => true,
                     'show_description' => true,
                     'show_line_items' => true,
@@ -177,7 +177,7 @@ class PaymongoCheckoutService
 
     private function description(Collection $bookings): string
     {
-        /** @var \App\Models\Booking $firstBooking */
+        /** @var Booking $firstBooking */
         $firstBooking = $bookings->first();
         $bookingCode = 'CF-'.str_pad((string) $firstBooking->id, 5, '0', STR_PAD_LEFT);
 

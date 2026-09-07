@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Service;
 use App\Models\ServiceAddOn;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -12,7 +13,7 @@ class ServiceController extends Controller
 {
     public function index()
     {
-        $services = Service::orderBy('created_at', 'desc')->get();
+        $services = Service::orderBy('sort_order')->orderBy('price')->orderBy('created_at', 'desc')->get();
         $addOns = ServiceAddOn::orderBy('sort_order')->orderBy('label')->get();
         $packageCatalog = Service::packageCatalog();
 
@@ -29,21 +30,14 @@ class ServiceController extends Controller
         $request->validate([
             'name' => 'required|string|max:100',
             'description' => 'nullable|string',
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'price' => 'required|numeric|min:1',
             'duration_minutes' => 'required|integer|min:30|max:720',
-            'scope_max_floor_area' => 'nullable|integer|min:10|max:1000',
-            'scope_cleaner_count' => 'nullable|integer|min:1|max:20',
+            'sort_order' => 'nullable|integer|min:0|max:9999',
             'scope_status' => ['nullable', Rule::in(Service::SCOPE_STATUSES)],
             'scope_manual_review_above_limit' => 'nullable|boolean',
-            'scope_included_areas' => 'nullable|string|max:5000',
-            'scope_included_tasks' => 'nullable|string|max:5000',
-            'scope_excluded_tasks' => 'nullable|string|max:5000',
-            'scope_condition_limits' => 'nullable|string|max:5000',
-            'scope_equipment_policy' => 'nullable|string|max:5000',
-            'scope_access_limits' => 'nullable|string|max:5000',
-            'scope_extra_work_policy' => 'nullable|string|max:5000',
-            'scope_acceptance_criteria' => 'nullable|string|max:5000',
             'is_active' => 'nullable|boolean',
+            ...$this->scopeValidationRules($request),
         ]);
 
         $slug = Service::canonicalSlugForName($request->name);
@@ -62,8 +56,10 @@ class ServiceController extends Controller
             'description' => filled($request->description)
                 ? $request->description
                 : ($packageMetadata['default_description'] ?? null),
+            'image_path' => $this->storeServiceImage($request),
             'price' => $request->price,
             'duration_minutes' => $request->duration_minutes,
+            'sort_order' => $request->filled('sort_order') ? (int) $request->input('sort_order') : 0,
             'scope_max_floor_area' => $request->input('scope_max_floor_area'),
             'scope_cleaner_count' => $request->input('scope_cleaner_count', 1),
             'scope_status' => $request->input('scope_status', 'provisional'),
@@ -98,21 +94,14 @@ class ServiceController extends Controller
         $request->validate([
             'name' => 'required|string|max:100',
             'description' => 'nullable|string',
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'price' => 'required|numeric|min:1',
             'duration_minutes' => 'required|integer|min:30|max:720',
-            'scope_max_floor_area' => 'nullable|integer|min:10|max:1000',
-            'scope_cleaner_count' => 'nullable|integer|min:1|max:20',
+            'sort_order' => 'nullable|integer|min:0|max:9999',
             'scope_status' => ['nullable', Rule::in(Service::SCOPE_STATUSES)],
             'scope_manual_review_above_limit' => 'nullable|boolean',
-            'scope_included_areas' => 'nullable|string|max:5000',
-            'scope_included_tasks' => 'nullable|string|max:5000',
-            'scope_excluded_tasks' => 'nullable|string|max:5000',
-            'scope_condition_limits' => 'nullable|string|max:5000',
-            'scope_equipment_policy' => 'nullable|string|max:5000',
-            'scope_access_limits' => 'nullable|string|max:5000',
-            'scope_extra_work_policy' => 'nullable|string|max:5000',
-            'scope_acceptance_criteria' => 'nullable|string|max:5000',
             'is_active' => 'nullable|boolean',
+            ...$this->scopeValidationRules($request),
         ]);
 
         $slug = Service::canonicalSlugForName($request->name);
@@ -133,6 +122,7 @@ class ServiceController extends Controller
                 : ($packageMetadata['default_description'] ?? null),
             'price' => $request->price,
             'duration_minutes' => $request->duration_minutes,
+            'sort_order' => $request->filled('sort_order') ? (int) $request->input('sort_order') : ($service->sort_order ?? 0),
             'scope_max_floor_area' => $request->input('scope_max_floor_area'),
             'scope_cleaner_count' => $request->input('scope_cleaner_count', 1),
             'scope_status' => $request->input('scope_status', 'provisional'),
@@ -148,8 +138,58 @@ class ServiceController extends Controller
             'is_active' => $request->has('is_active') ? 1 : 0,
         ]);
 
+        $this->updateServiceImage($request, $service);
+
         return redirect()->route('admin.services.index')
             ->with('success', 'Service updated successfully.');
+    }
+
+    private function scopeValidationRules(Request $request): array
+    {
+        $approved = $request->input('scope_status') === 'approved';
+        $textRules = $approved
+            ? ['required', 'string', 'max:5000']
+            : ['nullable', 'string', 'max:5000'];
+
+        return [
+            'scope_max_floor_area' => $approved
+                ? ['required', 'integer', 'min:10', 'max:1000']
+                : ['nullable', 'integer', 'min:10', 'max:1000'],
+            'scope_cleaner_count' => $approved
+                ? ['required', 'integer', 'min:1', 'max:20']
+                : ['nullable', 'integer', 'min:1', 'max:20'],
+            'scope_included_areas' => $textRules,
+            'scope_included_tasks' => $textRules,
+            'scope_excluded_tasks' => $textRules,
+            'scope_condition_limits' => $textRules,
+            'scope_equipment_policy' => $textRules,
+            'scope_access_limits' => $textRules,
+            'scope_extra_work_policy' => $textRules,
+            'scope_acceptance_criteria' => $textRules,
+        ];
+    }
+
+    private function storeServiceImage(Request $request): ?string
+    {
+        return $request->hasFile('image')
+            ? $request->file('image')->store('services', config('filesystems.public_uploads_disk'))
+            : null;
+    }
+
+    private function updateServiceImage(Request $request, Service $service): void
+    {
+        if ($request->boolean('remove_image') && filled($service->image_path)) {
+            Storage::disk(config('filesystems.public_uploads_disk'))->delete($service->image_path);
+            $service->update(['image_path' => null]);
+        }
+
+        if ($request->hasFile('image')) {
+            if (filled($service->image_path)) {
+                Storage::disk(config('filesystems.public_uploads_disk'))->delete($service->image_path);
+            }
+
+            $service->update(['image_path' => $this->storeServiceImage($request)]);
+        }
     }
 
     public function destroy($id)

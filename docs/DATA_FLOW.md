@@ -31,7 +31,7 @@ Admin review / staff or provider assignment
 Confirmed --> In progress --> Completed
                  |                  |
                  |                  +--> booking_service_proofs
-                 |                  +--> payment/payout fields
+                 |                  +--> payment record and payout state
                  |                  +--> rating and reports
                  |
                  +--> booking_locations during live tracking
@@ -49,7 +49,7 @@ Confirmed --> In progress --> Completed
 | Service evidence | `booking_service_proofs` / `BookingServiceProof` | staff web/mobile workflows | client, staff, admin booking detail |
 | Location tracking | `bookings` current coordinates plus `booking_locations` history | staff location endpoint | client/admin maps |
 | Messages | `booking_messages` / `BookingMessage` | booking messaging controller | booking detail pages |
-| Payment | booking payment fields plus PayMongo checkout/webhook | booking controller, webhook, admin | booking detail, payouts, reports |
+| Payment | `payments` / `Payment` plus PayMongo checkout/webhook | booking controller, webhook, admin | booking detail, payouts, reports |
 | Provider payout | booking payout fields plus `provider_payout_transactions` | admin/provider workflows | provider portal, admin payout reports |
 
 ## Request entry points
@@ -65,7 +65,7 @@ Confirmed --> In progress --> Completed
 1. Admin dashboard and analytics use database-side aggregates for their chart metrics; remaining operational pages should still be profiled as booking volume grows.
 2. Booking creation queues email delivery, but still creates PayMongo checkout sessions inside the request. Slow payment-provider responses can keep web workers occupied.
 3. Several portal pages calculate summary counts with separate queries. These should be measured before being consolidated; not every separate query is an actual bottleneck.
-4. `bookings` contains both normalized service/payment fields and several legacy/calculated price fields. The source of truth for displayed totals should be explicitly documented before database cleanup.
+4. Booking payment data is normalized in `payments`; `bookings.price` remains the immutable booking-time price snapshot used for service and payout calculations.
 
 ## Current protections
 

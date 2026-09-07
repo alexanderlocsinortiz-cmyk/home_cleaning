@@ -3,8 +3,11 @@
 namespace Tests\Unit;
 
 use App\Models\Booking;
+use App\Models\Payment;
 use App\Models\Service;
 use App\Models\User;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class BookingTest extends TestCase
@@ -58,6 +61,92 @@ class BookingTest extends TestCase
         $this->assertArrayHasKey('on_site_cash', Booking::PAYMENT_METHOD_LABELS);
         $this->assertArrayHasKey('gcash', Booking::PAYMENT_METHOD_LABELS);
         $this->assertArrayHasKey('maya', Booking::PAYMENT_METHOD_LABELS);
+    }
+
+    public function test_booking_payment_data_is_normalized_without_legacy_columns()
+    {
+        $booking = Booking::factory()->create([
+            'price' => 1500,
+            'payment_method' => 'on_site_cash',
+            'payment_status' => 'pending',
+        ]);
+
+        $this->assertDatabaseHas('payments', [
+            'booking_id' => $booking->id,
+            'method' => 'on_site_cash',
+            'status' => 'pending',
+            'amount' => 1500,
+        ]);
+        $this->assertDatabaseMissing('payments', [
+            'booking_id' => $booking->id,
+            'collected_amount' => 1500,
+        ]);
+
+        $booking->forceFill([
+            'payment_status' => 'paid',
+            'payment_collected_amount' => 1500,
+        ])->save();
+
+        $this->assertDatabaseHas('payments', [
+            'booking_id' => $booking->id,
+            'status' => 'paid',
+            'collected_amount' => 1500,
+        ]);
+        $this->assertFalse(Schema::hasColumn('bookings', 'payment_status'));
+        $this->assertFalse(Schema::hasColumn('bookings', 'service_type'));
+    }
+
+    public function test_pending_payment_amount_tracks_booking_price_changes(): void
+    {
+        $booking = Booking::factory()->create([
+            'price' => 1500,
+            'payment_method' => 'on_site_cash',
+            'payment_status' => 'pending',
+        ]);
+
+        $booking->update(['price' => 2200]);
+
+        $this->assertDatabaseHas('payments', [
+            'booking_id' => $booking->id,
+            'status' => 'pending',
+            'amount' => 2200,
+        ]);
+    }
+
+    public function test_paid_payment_amount_is_frozen_when_booking_price_changes(): void
+    {
+        $booking = Booking::factory()->create([
+            'price' => 1500,
+            'payment_method' => 'on_site_cash',
+            'payment_status' => 'paid',
+        ]);
+
+        $booking->update(['price' => 2200]);
+
+        $this->assertDatabaseHas('payments', [
+            'booking_id' => $booking->id,
+            'status' => 'paid',
+            'amount' => 1500,
+        ]);
+    }
+
+    public function test_database_allows_only_one_payment_per_booking(): void
+    {
+        $booking = Booking::factory()->create([
+            'payment_method' => 'on_site_cash',
+            'payment_status' => 'pending',
+        ]);
+
+        $this->expectException(QueryException::class);
+
+        Payment::create([
+            'booking_id' => $booking->id,
+            'method' => 'on_site_cash',
+            'status' => 'pending',
+            'amount' => $booking->price,
+            'currency' => 'PHP',
+            'provider' => 'manual',
+        ]);
     }
 
     public function test_booking_belongs_to_client()

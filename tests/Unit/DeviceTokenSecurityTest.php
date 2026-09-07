@@ -59,11 +59,12 @@ class DeviceTokenSecurityTest extends TestCase
     public function test_signature_validation_success(): void
     {
         $timestamp = (string) time();
+        $nonce = 'nonce-success-1234';
         $body = json_encode(['punch_type' => 'in', 'user_id' => 123]);
         $secret = 'secret-key-xyz';
 
         // Create signature as device would
-        $dataToSign = $timestamp.$body;
+        $dataToSign = $timestamp.$nonce.$body;
         $signature = hash_hmac('sha256', $dataToSign, $secret);
 
         // Create mock device
@@ -74,6 +75,7 @@ class DeviceTokenSecurityTest extends TestCase
         $isValid = $this->tokenService->validateSignature(
             $device,
             $timestamp,
+            $nonce,
             $signature,
             $body
         );
@@ -87,12 +89,13 @@ class DeviceTokenSecurityTest extends TestCase
     public function test_signature_validation_fails_with_tampered_data(): void
     {
         $timestamp = (string) time();
+        $nonce = 'nonce-tampered-1234';
         $body = json_encode(['punch_type' => 'in', 'user_id' => 123]);
         $tamperedBody = json_encode(['punch_type' => 'in', 'user_id' => 999]);  // Changed user_id
         $secret = 'secret-key-xyz';
 
         // Create signature for original body
-        $dataToSign = $timestamp.$body;
+        $dataToSign = $timestamp.$nonce.$body;
         $signature = hash_hmac('sha256', $dataToSign, $secret);
 
         // Create mock device
@@ -103,6 +106,7 @@ class DeviceTokenSecurityTest extends TestCase
         $isValid = $this->tokenService->validateSignature(
             $device,
             $timestamp,
+            $nonce,
             $signature,
             $tamperedBody
         );
@@ -116,11 +120,12 @@ class DeviceTokenSecurityTest extends TestCase
     public function test_signature_validation_fails_with_expired_timestamp(): void
     {
         $oldTimestamp = (string) (time() - 400);  // 400 seconds ago (beyond 5 min window)
+        $nonce = 'nonce-expired-1234';
         $body = json_encode(['punch_type' => 'in']);
         $secret = 'secret-key-xyz';
 
         // Create valid signature
-        $dataToSign = $oldTimestamp.$body;
+        $dataToSign = $oldTimestamp.$nonce.$body;
         $signature = hash_hmac('sha256', $dataToSign, $secret);
 
         // Create mock device
@@ -131,6 +136,7 @@ class DeviceTokenSecurityTest extends TestCase
         $isValid = $this->tokenService->validateSignature(
             $device,
             $oldTimestamp,
+            $nonce,
             $signature,
             $body
         );
@@ -184,10 +190,11 @@ class DeviceTokenSecurityTest extends TestCase
     public function test_replay_attack_prevention(): void
     {
         $timestamp = (string) (time() - 400);  // 400 seconds ago
+        $nonce = 'nonce-replay-1234';
         $body = json_encode(['punch_type' => 'in']);
         $secret = 'secret-key-xyz';
 
-        $dataToSign = $timestamp.$body;
+        $dataToSign = $timestamp.$nonce.$body;
         $signature = hash_hmac('sha256', $dataToSign, $secret);
 
         $device = new Device;
@@ -197,6 +204,7 @@ class DeviceTokenSecurityTest extends TestCase
         $isValid = $this->tokenService->validateSignature(
             $device,
             $timestamp,
+            $nonce,
             $signature,
             $body
         );

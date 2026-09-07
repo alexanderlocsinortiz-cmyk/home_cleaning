@@ -45,41 +45,48 @@
             </div>
         @endif
 
-        <section class="overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-slate-50 shadow-sm">
-            <div class="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-center">
+        <section class="overflow-hidden rounded-3xl bg-gradient-to-br from-blue-950 via-blue-900 to-blue-700 text-white shadow-xl shadow-blue-950/15">
+            <div class="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-center">
                 <div>
-                    <a href="{{ route('provider.bookings') }}" class="inline-flex items-center gap-2 text-sm font-black text-blue-700">
+                    <a href="{{ route('provider.bookings') }}" class="inline-flex items-center gap-2 text-sm font-black text-blue-100 transition hover:text-white">
                         <i class="fas fa-arrow-left"></i>
                         Assigned bookings
                     </a>
-                    <div class="mt-5 font-mono text-sm font-black text-blue-700">CF-{{ str_pad($booking->id, 5, '0', STR_PAD_LEFT) }}</div>
-                    <h1 class="mt-2 text-4xl font-black tracking-tight text-slate-950">{{ $booking->service_label }}</h1>
-                    <p class="mt-2 text-sm text-slate-500">Assigned to <strong>{{ $application->business_name }}</strong></p>
+                    <div class="mt-5 font-mono text-sm font-black text-blue-200">CF-{{ str_pad($booking->id, 5, '0', STR_PAD_LEFT) }}</div>
+                    <h1 class="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">{{ $booking->service_label }}</h1>
+                    <p class="mt-2 text-sm text-blue-100">Assigned to <strong class="text-white">{{ $application->business_name }}</strong></p>
                     <div class="mt-4 flex flex-wrap gap-2">
-                        <span class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black text-blue-700 ring-1 ring-blue-100">
+                        <span class="inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-1 text-xs font-black text-white ring-1 ring-white/15">
                             <i class="fas fa-briefcase"></i>
                             {{ $statusLabel }}
                         </span>
-                        <span class="inline-flex rounded-full px-3 py-1 text-xs font-black {{ $booking->providerAssignmentBadgeClass() }}">
+                        <span class="inline-flex rounded-full px-3 py-1 text-xs font-black ring-1 ring-white/10 {{ $booking->providerAssignmentBadgeClass() }}">
                             {{ \App\Models\Booking::providerAssignmentStatusLabel($booking->effectiveProviderAssignmentStatus()) }}
                         </span>
                     </div>
                 </div>
-                <div class="rounded-2xl border border-white bg-white/80 p-5 shadow-sm">
-                    <div class="text-xs font-black uppercase tracking-wide text-slate-400">Next action</div>
-                    <div class="mt-2 text-lg font-black text-slate-950">{{ $nextActionLabel }}</div>
+                <div class="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-sm">
+                    <div class="text-xs font-black uppercase tracking-[0.14em] text-blue-100">Next action</div>
+                    <div class="mt-2 text-lg font-black text-white">{{ $nextActionLabel }}</div>
+                    <div class="mt-4 flex items-center gap-3 border-t border-white/15 pt-4">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/12 text-blue-100 ring-1 ring-white/15"><i class="fas fa-calendar-day"></i></span>
+                        <div>
+                            <div class="text-sm font-black text-white">{{ $booking->scheduled_date->format('M d, Y') }}</div>
+                            <div class="mt-1 text-xs font-semibold text-blue-100">{{ \Carbon\Carbon::parse($booking->scheduled_time)->format('h:i A') }} · {{ number_format($booking->duration_minutes ?? \App\Models\Service::DEFAULT_DURATION_MINUTES) }} minutes</div>
+                        </div>
+                    </div>
                     <div class="mt-4 grid grid-cols-3 gap-2 text-center">
-                        <div class="rounded-xl bg-blue-50 px-3 py-2">
-                            <div class="text-lg font-black text-blue-700">{{ $beforeProofs->count() }}</div>
-                            <div class="text-[11px] font-bold text-slate-500">Before</div>
+                        <div class="rounded-xl bg-white/10 px-3 py-2 ring-1 ring-white/10">
+                            <div class="text-lg font-black text-white">{{ $beforeProofs->count() }}</div>
+                            <div class="text-[11px] font-bold text-blue-100">Before</div>
                         </div>
-                        <div class="rounded-xl bg-emerald-50 px-3 py-2">
-                            <div class="text-lg font-black text-emerald-700">{{ $afterProofs->count() }}</div>
-                            <div class="text-[11px] font-bold text-slate-500">After</div>
+                        <div class="rounded-xl bg-white/10 px-3 py-2 ring-1 ring-white/10">
+                            <div class="text-lg font-black text-white">{{ $afterProofs->count() }}</div>
+                            <div class="text-[11px] font-bold text-blue-100">After</div>
                         </div>
-                        <div class="rounded-xl bg-purple-50 px-3 py-2">
-                            <div class="text-lg font-black text-purple-700">{{ $completionVideos->count() }}</div>
-                            <div class="text-[11px] font-bold text-slate-500">Videos</div>
+                        <div class="rounded-xl bg-white/10 px-3 py-2 ring-1 ring-white/10">
+                            <div class="text-lg font-black text-white">{{ $completionVideos->count() }}</div>
+                            <div class="text-[11px] font-bold text-blue-100">Videos</div>
                         </div>
                     </div>
                 </div>
@@ -225,14 +232,31 @@
             <aside class="space-y-5">
                 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <h2 class="text-lg font-black text-slate-950">Job Details</h2>
-                    <div class="mt-4 space-y-4 text-sm">
-                        <div class="flex justify-between gap-4"><span class="text-slate-500">Date</span><span class="font-bold text-slate-900">{{ $booking->scheduled_date->format('F d, Y') }}</span></div>
-                        <div class="flex justify-between gap-4"><span class="text-slate-500">Time</span><span class="font-bold text-slate-900">{{ \Carbon\Carbon::parse($booking->scheduled_time)->format('h:i A') }}</span></div>
-                        <div class="flex justify-between gap-4"><span class="text-slate-500">Duration</span><span class="font-bold text-slate-900">{{ number_format($booking->duration_minutes ?? \App\Models\Service::DEFAULT_DURATION_MINUTES) }} minutes</span></div>
-                        <div class="border-t border-slate-100 pt-4">
-                            <div class="text-xs font-black uppercase text-slate-400">Service Location</div>
-                            <div class="mt-2 font-bold text-slate-900">{{ $booking->street_address }}</div>
-                            <div class="mt-1 text-slate-500">{{ $booking->barangay }}</div>
+                    <div class="mt-4 grid grid-cols-3 gap-2">
+                        <div class="rounded-xl bg-slate-50 p-3">
+                            <i class="fas fa-calendar-day text-blue-600"></i>
+                            <div class="mt-2 text-[11px] font-black uppercase tracking-wide text-slate-400">Date</div>
+                            <div class="mt-1 text-sm font-black text-slate-900">{{ $booking->scheduled_date->format('M d, Y') }}</div>
+                        </div>
+                        <div class="rounded-xl bg-slate-50 p-3">
+                            <i class="fas fa-clock text-blue-600"></i>
+                            <div class="mt-2 text-[11px] font-black uppercase tracking-wide text-slate-400">Time</div>
+                            <div class="mt-1 text-sm font-black text-slate-900">{{ \Carbon\Carbon::parse($booking->scheduled_time)->format('h:i A') }}</div>
+                        </div>
+                        <div class="rounded-xl bg-slate-50 p-3">
+                            <i class="fas fa-hourglass-half text-blue-600"></i>
+                            <div class="mt-2 text-[11px] font-black uppercase tracking-wide text-slate-400">Duration</div>
+                            <div class="mt-1 text-sm font-black text-slate-900">{{ number_format($booking->duration_minutes ?? \App\Models\Service::DEFAULT_DURATION_MINUTES) }} min</div>
+                        </div>
+                    </div>
+                    <div class="mt-5 rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+                        <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-blue-700">
+                            <i class="fas fa-location-dot"></i>
+                            Service location
+                        </div>
+                        <div class="mt-2 font-bold text-slate-900">{{ $booking->street_address }}</div>
+                        <div class="mt-1 text-sm text-slate-500">{{ $booking->barangay }}, Valencia City, Bukidnon</div>
+                        <div>
                             @if($hasClientPin)
                                 <div class="mt-4 overflow-hidden rounded-2xl border border-blue-100 bg-blue-50">
                                     <div
@@ -250,7 +274,7 @@
                                                 <i class="fas fa-route"></i>
                                                 Show route
                                             </button>
-                                            <a href="https://www.google.com/maps/dir/?api=1&destination={{ $booking->service_latitude }},{{ $booking->service_longitude }}" target="_blank" class="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 transition hover:bg-blue-100">
+                                            <a href="https://www.google.com/maps/dir/?api=1&destination={{ $booking->service_latitude }},{{ $booking->service_longitude }}" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 transition hover:bg-blue-100">
                                                 <i class="fas fa-map-location-dot"></i>
                                                 Open Maps
                                             </a>
@@ -267,12 +291,22 @@
                 </section>
 
                 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h2 class="text-lg font-black text-slate-950">{{ $booking->payment_method === 'on_site_cash' ? 'Cash Commission Snapshot' : 'Payout Snapshot' }}</h2>
+                    <h2 class="text-lg font-black text-slate-950">{{ $booking->payment?->method === 'on_site_cash' ? 'Cash Commission Snapshot' : 'Payout Snapshot' }}</h2>
+                    <div class="mt-4 rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-100">
+                        <div class="flex items-center justify-between gap-3">
+                            <span class="text-xs font-black uppercase tracking-wide text-emerald-700">Your payout</span>
+                            <i class="fas fa-money-bill-wave text-emerald-600"></i>
+                        </div>
+                        <div class="mt-2 text-2xl font-black text-emerald-800">&#8369;{{ number_format((float) $booking->provider_payout_amount, 2) }}</div>
+                        <div class="mt-1 text-xs font-semibold text-emerald-700">
+                            {{ $booking->payment?->method === 'on_site_cash' ? \App\Models\Booking::providerCommissionStatusLabel($booking->provider_commission_status) : \App\Models\Booking::providerPayoutStatusLabel($booking->provider_payout_status) }}
+                        </div>
+                    </div>
                     <div class="mt-4 space-y-3 text-sm">
                         <div class="flex justify-between gap-4"><span class="text-slate-500">Gross</span><span class="font-bold text-slate-900">&#8369;{{ number_format((float) $booking->provider_gross_amount, 2) }}</span></div>
                         <div class="flex justify-between gap-4"><span class="text-slate-500">Commission</span><span class="font-bold text-blue-700">&#8369;{{ number_format((float) $booking->platform_commission_amount, 2) }}</span></div>
                         <div class="flex justify-between gap-4"><span class="text-slate-500">Cleaner payout</span><span class="font-bold text-emerald-700">&#8369;{{ number_format((float) $booking->provider_payout_amount, 2) }}</span></div>
-                        @if($booking->payment_method === 'on_site_cash')
+                        @if($booking->payment?->method === 'on_site_cash')
                             <div class="flex justify-between gap-4"><span class="text-slate-500">Cash collected</span><span class="font-bold text-slate-900">&#8369;{{ number_format((float) $booking->cash_collected_amount, 2) }}</span></div>
                             <div class="flex justify-between gap-4 border-t border-slate-100 pt-3"><span class="text-slate-500">Remit to CleanFlow</span><span class="font-bold text-orange-700">&#8369;{{ number_format((float) $booking->provider_commission_due, 2) }}</span></div>
                             <div class="flex justify-between gap-4"><span class="text-slate-500">Status</span><span class="font-bold text-slate-900">{{ \App\Models\Booking::providerCommissionStatusLabel($booking->provider_commission_status) }}</span></div>
@@ -283,8 +317,11 @@
                 </section>
 
                 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h2 class="text-lg font-black text-slate-950">Customer Notes</h2>
-                    <p class="mt-3 text-sm leading-7 text-slate-600">{{ $booking->notes ?: 'No customer notes were provided for this booking.' }}</p>
+                    <div class="flex items-center gap-3">
+                        <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600"><i class="fas fa-note-sticky"></i></span>
+                        <h2 class="text-lg font-black text-slate-950">Customer Notes</h2>
+                    </div>
+                    <p class="mt-4 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm leading-7 text-slate-600">{{ $booking->notes ?: 'No customer notes were provided for this booking.' }}</p>
                 </section>
             </aside>
         </div>
@@ -304,8 +341,8 @@
             @if($beforeProofs->count() || $afterProofs->count() || $completionVideos->count())
                 <div class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     @foreach($beforeProofs->merge($afterProofs)->take(8) as $proof)
-                        <a href="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" target="_blank" class="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                            <img src="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" alt="Service proof" class="h-40 w-full object-cover transition group-hover:scale-105">
+                        <a href="{{ route('bookings.service-proof', [$booking, $proof]) }}" target="_blank" class="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                            <img src="{{ route('bookings.service-proof', [$booking, $proof]) }}" alt="Service proof" class="h-40 w-full object-cover transition group-hover:scale-105">
                             <div class="flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-600">
                                 <span>{{ ucfirst($proof->stage) }} photo</span>
                                 <i class="fas fa-up-right-from-square text-slate-400"></i>
@@ -313,7 +350,7 @@
                         </a>
                     @endforeach
                     @foreach($completionVideos->take(2) as $proof)
-                        <a href="{{ \Illuminate\Support\Facades\Storage::disk(config('filesystems.public_uploads_disk'))->url($proof->file_path) }}" target="_blank" class="flex min-h-40 flex-col items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 p-4 text-center text-blue-700 transition hover:-translate-y-0.5 hover:bg-blue-100">
+                        <a href="{{ route('bookings.service-proof', [$booking, $proof]) }}" target="_blank" class="flex min-h-40 flex-col items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 p-4 text-center text-blue-700 transition hover:-translate-y-0.5 hover:bg-blue-100">
                             <i class="fas fa-video text-2xl"></i>
                             <span class="mt-2 text-xs font-bold">{{ $proof->original_name ?: 'Completion video' }}</span>
                         </a>

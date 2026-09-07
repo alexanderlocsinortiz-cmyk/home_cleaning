@@ -6,6 +6,8 @@ Approval date: ____________________
 Approver: ____________________  
 Effective date: ____________________
 
+The admin service editor rejects `approved` unless the maximum floor area, cleaner count, and all eight editable scope-definition fields are present and valid. Runtime booking and quote checks also treat an incomplete legacy `approved` record as provisional, so incomplete data cannot silently receive approved-service behavior.
+
 This matrix is the approval record for the “complete and inclusive” requirement. Draft scope sheets now exist in docs/SERVICE_SCOPE_SHEETS.md. Measurable area and cleaner-count controls are implemented and manually editable, but a service is not approved merely because it has a draft or catalog description. The owner must complete the scope sheet, approve the limits, and attach evidence before the service is marketed as fully inclusive.
 
 ## Approval status

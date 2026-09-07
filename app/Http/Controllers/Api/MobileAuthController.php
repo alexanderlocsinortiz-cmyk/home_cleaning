@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\MobileApiToken;
+use App\Models\SecurityEvent;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -17,12 +19,16 @@ use Illuminate\Validation\ValidationException;
 class MobileAuthController extends Controller
 {
     private const LOGIN_MAX_ATTEMPTS = 5;
+
     private const LOGIN_DECAY_SECONDS = 900;
+
     private const TOKEN_EXPIRY_DAYS = 60;
 
     public function register(Request $request): JsonResponse
     {
-        $minimumBirthDate = now()->subYears(18)->toDateString();
+        $minimumBirthDate = now(config('cleanflow.attendance_timezone', config('app.timezone')))
+            ->subYears(18)
+            ->toDateString();
 
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'min:2', 'max:255'],
@@ -30,7 +36,7 @@ class MobileAuthController extends Controller
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'phone' => ['required', 'regex:/^[0-9]{11}$/'],
             'date_of_birth' => ['required', 'date', 'before_or_equal:'.$minimumBirthDate],
-            'password' => ['required', 'confirmed', Password::min(8)],
+            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
         ], [
             'date_of_birth.before_or_equal' => 'Clients must be at least 18 years old to register.',
             'phone.regex' => 'Phone number must contain exactly 11 digits.',
@@ -60,9 +66,14 @@ class MobileAuthController extends Controller
             $verificationNotice = 'Account created, but the verification email could not be sent right now.';
         }
 
+        $token = $this->createTokenFor($user);
+        SecurityEvent::record('mobile_registration', $user, [
+            'email_verified' => $user->hasVerifiedEmail(),
+        ]);
+
         return response()->json([
             'message' => 'Registration successful.',
-            'token' => $this->createTokenFor($user),
+            'token' => $token,
             'token_type' => 'Bearer',
             'expires_in_days' => self::TOKEN_EXPIRY_DAYS,
             'requires_email_verification' => ! $user->hasVerifiedEmail(),
@@ -94,6 +105,10 @@ class MobileAuthController extends Controller
         if (! $user || ! Hash::check($validated['password'], $user->password)) {
             RateLimiter::hit($rateLimitKey, self::LOGIN_DECAY_SECONDS);
 
+            SecurityEvent::record('mobile_login_failed', $user, [
+                'identifier_hash' => hash('sha256', $email),
+            ]);
+
             throw ValidationException::withMessages([
                 'email' => ['Invalid email or password.'],
             ]);
@@ -102,6 +117,10 @@ class MobileAuthController extends Controller
         RateLimiter::clear($rateLimitKey);
 
         if ($user->hasActiveAccessRestriction()) {
+            SecurityEvent::record('mobile_login_blocked', $user, [
+                'reason' => $user->access_restriction_reason,
+            ]);
+
             return response()->json([
                 'message' => 'This account is temporarily restricted.',
                 'restricted_until' => $user->access_restricted_until?->toISOString(),
@@ -109,9 +128,14 @@ class MobileAuthController extends Controller
             ], 403);
         }
 
+        $token = $this->createTokenFor($user, $validated['device_name'] ?? 'mobile');
+        SecurityEvent::record('mobile_login_succeeded', $user, [
+            'device_name' => $validated['device_name'] ?? 'mobile',
+        ]);
+
         return response()->json([
             'message' => 'Login successful.',
-            'token' => $this->createTokenFor($user, $validated['device_name'] ?? 'mobile'),
+            'token' => $token,
             'token_type' => 'Bearer',
             'expires_in_days' => self::TOKEN_EXPIRY_DAYS,
             'requires_email_verification' => $user->role === 'client' && ! $user->hasVerifiedEmail(),
@@ -129,24 +153,59 @@ class MobileAuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $request->attributes->get('mobile_api_token')?->delete();
+        SecurityEvent::record('mobile_logout', $request->user());
 
         return response()->json([
             'message' => 'Logged out successfully.',
         ]);
     }
 
-    private function createTokenFor(User $user, string $name = 'mobile'): string
+    public function logoutAll(Request $request): JsonResponse
     {
-        $plainToken = Str::random(64);
-
-        $token = MobileApiToken::create([
-            'user_id' => $user->id,
-            'name' => $name,
-            'token_hash' => hash('sha256', $plainToken),
-            'expires_at' => now()->addDays(self::TOKEN_EXPIRY_DAYS),
+        $revokedCount = MobileApiToken::where('user_id', $request->user()->id)->delete();
+        SecurityEvent::record('mobile_logout_all', $request->user(), [
+            'revoked_count' => $revokedCount,
         ]);
 
-        return $token->id.'|'.$plainToken;
+        return response()->json([
+            'message' => 'All mobile devices have been logged out.',
+            'revoked_count' => $revokedCount,
+        ]);
+    }
+
+    private function createTokenFor(User $user, string $name = 'mobile'): string
+    {
+        return DB::transaction(function () use ($user, $name): string {
+            // Lock the parent row so concurrent logins cannot both exceed the
+            // per-user session ceiling when the user has few or no tokens.
+            User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+
+            MobileApiToken::query()
+                ->where('user_id', $user->id)
+                ->whereNotNull('expires_at')
+                ->where('expires_at', '<=', now())
+                ->delete();
+
+            $activeTokens = MobileApiToken::query()
+                ->where('user_id', $user->id)
+                ->orderByRaw('COALESCE(last_used_at, created_at) asc')
+                ->orderBy('id')
+                ->get();
+            $maxActiveTokens = (int) config('auth.mobile.max_active_tokens', 5);
+            $tokensToRemove = max(0, $activeTokens->count() - $maxActiveTokens + 1);
+
+            $activeTokens->take($tokensToRemove)->each->delete();
+
+            $plainToken = Str::random(64);
+            $token = MobileApiToken::create([
+                'user_id' => $user->id,
+                'name' => $name,
+                'token_hash' => hash('sha256', $plainToken),
+                'expires_at' => now()->addDays(self::TOKEN_EXPIRY_DAYS),
+            ]);
+
+            return $token->id.'|'.$plainToken;
+        });
     }
 
     private function userPayload(User $user): array

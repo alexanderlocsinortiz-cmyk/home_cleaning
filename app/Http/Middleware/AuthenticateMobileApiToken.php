@@ -35,8 +35,24 @@ class AuthenticateMobileApiToken
         }
         $token->loadMissing('user');
 
-        Auth::setUser($token->user);
-        $request->setUserResolver(fn () => $token->user);
+        $user = $token->user;
+
+        if (! $user) {
+            return response()->json([
+                'message' => 'This account is no longer available.',
+            ], 401);
+        }
+
+        if ($user->role !== 'admin' && $user->hasActiveAccessRestriction()) {
+            return response()->json([
+                'message' => 'This account is temporarily restricted.',
+                'restricted_until' => $user->access_restricted_until?->toISOString(),
+                'reason' => $user->access_restriction_reason,
+            ], 403);
+        }
+
+        Auth::setUser($user);
+        $request->setUserResolver(fn () => $user);
         $request->attributes->set('mobile_api_token', $token);
 
         return $next($request);

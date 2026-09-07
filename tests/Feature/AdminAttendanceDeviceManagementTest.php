@@ -29,11 +29,18 @@ class AdminAttendanceDeviceManagementTest extends TestCase
         $this->assertSame('Main Office', $device->location);
         $this->assertTrue($device->is_active);
         $this->assertSame(64, strlen($device->api_token));
+        $this->assertNotSame($response->getSession()->get('generated_device_token'), $device->api_token);
+        $this->assertNotNull($device->secret_key);
 
         $response->assertRedirect(route('admin.attendance'));
-        $response->assertSessionHas('generated_device_token', $device->api_token);
+        $response->assertSessionHas('generated_device_token');
+        $response->assertSessionHas('generated_device_secret');
         $response->assertSessionHas('generated_device_name', 'Front Desk Device');
         $response->assertSessionHas('generated_device_serial', 'ESP32-FRONT-01');
+        $this->assertDatabaseHas('security_events', [
+            'event' => 'iot_device_credentials_created',
+            'user_id' => $admin->id,
+        ]);
     }
 
     public function test_admin_can_rotate_an_attendance_device_token_from_the_attendance_page(): void
@@ -50,9 +57,15 @@ class AdminAttendanceDeviceManagementTest extends TestCase
         $response = $this->actingAs($admin)->post(route('admin.attendance.devices.rotate-token', $device));
 
         $response->assertRedirect(route('admin.attendance'));
-        $response->assertSessionHas('generated_device_token', $device->fresh()->api_token);
+        $response->assertSessionHas('generated_device_token');
+        $response->assertSessionHas('generated_device_secret');
         $this->assertNotSame(str_repeat('x', 64), $device->fresh()->api_token);
         $this->assertSame(64, strlen($device->fresh()->api_token));
+        $this->assertNotNull($device->fresh()->secret_key);
+        $this->assertDatabaseHas('security_events', [
+            'event' => 'iot_device_credentials_rotated',
+            'user_id' => $admin->id,
+        ]);
     }
 
     private function createAdmin(): User

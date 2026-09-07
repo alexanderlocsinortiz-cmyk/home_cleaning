@@ -376,7 +376,7 @@
                                         @if ($booking->rating->photo)
                                             <div class="mt-4">
                                                 <img
-                                                    src="{{ asset('storage/' . $booking->rating->photo) }}"
+                                                    src="{{ route('bookings.rating-photo', $booking) }}"
                                                     alt="Client review photo"
                                                     class="max-h-32 rounded-2xl border border-slate-200 object-cover shadow-sm"
                                                 >

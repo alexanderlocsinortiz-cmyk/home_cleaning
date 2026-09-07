@@ -6,7 +6,9 @@ use App\Models\Service;
 use App\Models\ServiceAddOn;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AdminServiceCatalogTest extends TestCase
@@ -90,6 +92,131 @@ class AdminServiceCatalogTest extends TestCase
             'scope_manual_review_above_limit' => true,
             'scope_included_tasks' => 'Dusting, sweeping, and mopping.',
         ]);
+    }
+
+    public function test_admin_cannot_approve_an_incomplete_scope_definition(): void
+    {
+        $admin = $this->createAdmin();
+        $service = $this->canonicalService([
+            'name' => 'Deep Clean',
+            'slug' => 'deep',
+            'scope_status' => 'provisional',
+            'scope_max_floor_area' => 60,
+            'scope_cleaner_count' => 2,
+        ]);
+
+        $response = $this->actingAs($admin)->put(route('admin.services.update', $service), [
+            'name' => $service->name,
+            'description' => $service->description,
+            'price' => $service->price,
+            'duration_minutes' => $service->duration_minutes,
+            'scope_max_floor_area' => 60,
+            'scope_cleaner_count' => 2,
+            'scope_status' => 'approved',
+            'is_active' => '1',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHasErrors([
+            'scope_included_areas',
+            'scope_included_tasks',
+            'scope_excluded_tasks',
+            'scope_condition_limits',
+            'scope_equipment_policy',
+            'scope_access_limits',
+            'scope_extra_work_policy',
+            'scope_acceptance_criteria',
+        ]);
+        $this->assertSame('provisional', $service->fresh()->scope_status);
+    }
+
+    public function test_incomplete_approved_scope_is_treated_as_provisional_at_runtime(): void
+    {
+        $service = $this->canonicalService([
+            'name' => 'Deep Clean',
+            'slug' => 'deep',
+            'scope_status' => 'approved',
+            'scope_max_floor_area' => null,
+        ]);
+
+        $this->assertFalse($service->scopeApprovalIsComplete());
+        $this->assertFalse($service->scopeIsApproved());
+        $this->assertSame('provisional', $service->scopeSummary()['status']);
+    }
+
+    public function test_admin_can_set_service_display_order(): void
+    {
+        $admin = $this->createAdmin();
+        $service = $this->canonicalService([
+            'name' => 'Deep Clean',
+            'slug' => 'deep',
+            'sort_order' => 0,
+        ]);
+
+        $response = $this->actingAs($admin)->put(route('admin.services.update', $service), [
+            'name' => $service->name,
+            'description' => $service->description,
+            'price' => $service->price,
+            'duration_minutes' => $service->duration_minutes,
+            'sort_order' => 2,
+            'scope_cleaner_count' => 1,
+            'scope_status' => 'provisional',
+            'is_active' => '1',
+        ]);
+
+        $response->assertRedirect(route('admin.services.index'));
+        $this->assertDatabaseHas('services', [
+            'id' => $service->id,
+            'sort_order' => 2,
+        ]);
+    }
+
+    public function test_admin_can_upload_replace_and_remove_a_service_image(): void
+    {
+        $admin = $this->createAdmin();
+        $service = $this->canonicalService([
+            'name' => 'Deep Clean',
+            'slug' => 'deep',
+            'description' => 'Detailed cleaning',
+            'price' => 95,
+            'is_active' => true,
+        ]);
+        $disk = config('filesystems.public_uploads_disk');
+        Storage::fake($disk);
+
+        $uploadResponse = $this->actingAs($admin)->put(route('admin.services.update', $service), [
+            'name' => $service->name,
+            'description' => $service->description,
+            'price' => $service->price,
+            'duration_minutes' => $service->duration_minutes,
+            'scope_cleaner_count' => 1,
+            'scope_status' => 'provisional',
+            'is_active' => '1',
+            'image' => UploadedFile::fake()->create('deep-clean.jpg', 100, 'image/jpeg'),
+        ]);
+
+        $uploadResponse->assertRedirect(route('admin.services.index'));
+        $service->refresh();
+        $customPath = $service->image_path;
+        $this->assertNotNull($customPath);
+        Storage::disk($disk)->assertExists($customPath);
+
+        $removeResponse = $this->actingAs($admin)->put(route('admin.services.update', $service), [
+            'name' => $service->name,
+            'description' => $service->description,
+            'price' => $service->price,
+            'duration_minutes' => $service->duration_minutes,
+            'scope_cleaner_count' => 1,
+            'scope_status' => 'provisional',
+            'is_active' => '1',
+            'remove_image' => '1',
+        ]);
+
+        $removeResponse->assertRedirect(route('admin.services.index'));
+        $service->refresh();
+        $this->assertNull($service->image_path);
+        Storage::disk($disk)->assertMissing($customPath);
+        $this->assertStringEndsWith('/images/services/deep.jpg', $service->image_url);
     }
 
     public function test_admin_service_index_shows_package_badges_without_quick_add_templates(): void

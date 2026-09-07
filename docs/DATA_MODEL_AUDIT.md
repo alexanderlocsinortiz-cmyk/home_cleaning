@@ -1,6 +1,6 @@
 # Data Model Audit
 
-Audit date: 2026-08-26.
+Audit date: 2026-08-31.
 
 ## Redundant fields removed
 
@@ -24,10 +24,12 @@ The migration `2026_08_26_000000_remove_redundant_booking_columns` backfills can
 
 The migration is guarded for environments where some legacy columns have already disappeared. Take a database backup before applying it because rollback recreates the columns but cannot reconstruct discarded legacy values.
 
+Before deploying integrity migrations, run `php artisan database:preflight`. This read-only command reports duplicate user/application emails and payment identifiers that would intentionally stop the migration.
+
 ## Fields intentionally retained
 
-- `service_id` and `service_type`: the relationship supports current catalog joins while `service_type` preserves the booking’s historical service slug.
+- `service_id` is the canonical service relationship. `service_label` preserves an unmatched custom or historical label; the model exposes the legacy `service_type` name only as an application compatibility accessor, not as a database column.
 - `price` and its components: the total is a booking-time price snapshot; components explain that total even if catalog pricing changes later.
-- `payment_reference` and `payment_checkout_session_id`: one is the customer/payment reference and the other identifies the PayMongo checkout session.
+- `payments` is the single payment data owner. Each booking has one payment record, with `amount` as the charge amount and `collected_amount` as cash actually received; the database enforces this one-to-one relationship.
 - Current booking coordinates and `booking_locations`: the booking row is the latest-location snapshot; the child table is the tracking history.
 - Current payout/commission fields and payout transaction tables: the booking stores current state while transaction rows preserve the audit trail.

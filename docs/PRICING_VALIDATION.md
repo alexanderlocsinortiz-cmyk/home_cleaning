@@ -21,7 +21,7 @@ The application pricing is technically traceable, but it is not yet proven legit
 | --- | --- | --- |
 | No minimum charge or area cap | A tiny job may be underpriced, while a large area may be impossible within the listed duration | Set a minimum price, minimum area, maximum area, or manual-quote threshold |
 | Fixed duration with variable floor area | A 60-minute Basic Clean and a 60-minute quote for any submitted area do not prove the crew can deliver the promised scope | Define capacity by area, condition, crew size, and travel time |
-| General/Regular PHP 500–800 range | The backend currently starts every calculated quote at PHP 500; no rule selects PHP 600–800 | Define the selection rule or remove the range and publish one price |
+| General/Regular PHP 500–800 range | The backend now uses the persisted service price as the current quote, but no rule selects a price above that configured amount based on scope or condition | Define the selection rule or remove the range and publish one price |
 | Office Deep condition handling | Customer-facing text and backend now consistently use PHP 60/sqm; no condition-based exception or re-quote flow is configured | Confirm that the fixed rate covers the intended conditions, or approve a separate inspection/re-quote workflow |
 | Add-on units are unspecified | “PHP 200” could mean per window, panel, room, appliance, or visit | Define the unit, quantity limit, and whether the add-on is per booking or per item |
 | No documented cost model | Revenue alone does not show whether labor, supplies, transport, taxes, overhead, refunds, and target margin are covered | Record actual cost per service and the approved margin formula |

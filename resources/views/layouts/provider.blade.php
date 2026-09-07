@@ -18,17 +18,20 @@
         <div class="flex items-center gap-3 p-5">
             <img src="{{ $siteSettings->logo_url }}" alt="{{ $siteSettings->website_name }}" class="h-12 w-auto shrink-0">
             <span class="min-w-0 text-lg font-bold leading-tight text-white">{{ $siteSettings->website_name }}</span>
+            <button type="button" class="ml-auto hidden h-9 w-9 items-center justify-center rounded-lg text-blue-100 transition hover:bg-white/10 hover:text-white max-[900px]:flex" aria-label="Close navigation" onclick="toggleProviderSidebar()">
+                <i class="fas fa-xmark"></i>
+            </button>
         </div>
-        <nav class="flex-1 px-4 py-3">
+        <nav class="flex-1 px-4 py-3" aria-label="Cleaner portal navigation">
             <div class="mt-3 px-2 py-2 text-xs font-black uppercase tracking-wider text-blue-200/70">Cleaner Portal</div>
-            <a href="{{ route('provider.dashboard') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-blue-100 transition-all hover:bg-white/10 hover:text-white {{ request()->routeIs('provider.dashboard') ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/20' : '' }}">
+            <a href="{{ route('provider.dashboard') }}" aria-current="{{ request()->routeIs('provider.dashboard') ? 'page' : 'false' }}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-blue-100 transition-all hover:bg-white/10 hover:text-white {{ request()->routeIs('provider.dashboard') ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/20' : '' }}">
                 <i class="fas fa-house w-5 text-center"></i> Dashboard
             </a>
             <div class="mt-5 px-2 py-2 text-xs font-black uppercase tracking-wider text-blue-200/70">Operations</div>
-            <a href="{{ route('provider.bookings') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-blue-100 transition-all hover:bg-white/10 hover:text-white {{ request()->routeIs('provider.bookings*') ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/20' : '' }}">
+            <a href="{{ route('provider.bookings') }}" aria-current="{{ request()->routeIs('provider.bookings*') ? 'page' : 'false' }}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-blue-100 transition-all hover:bg-white/10 hover:text-white {{ request()->routeIs('provider.bookings*') ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/20' : '' }}">
                 <i class="fas fa-calendar-check w-5 text-center"></i> Assigned Bookings
             </a>
-            <a href="{{ route('provider.payouts') }}" class="mt-1 flex items-center gap-3 rounded-xl px-4 py-3 text-blue-100 transition-all hover:bg-white/10 hover:text-white {{ request()->routeIs('provider.payouts') ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/20' : '' }}">
+            <a href="{{ route('provider.payouts') }}" aria-current="{{ request()->routeIs('provider.payouts') ? 'page' : 'false' }}" class="mt-1 flex items-center gap-3 rounded-xl px-4 py-3 text-blue-100 transition-all hover:bg-white/10 hover:text-white {{ request()->routeIs('provider.payouts') ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/20' : '' }}">
                 <i class="fas fa-wallet w-5 text-center"></i> Payouts
             </a>
             <div class="mt-5 px-2 py-2 text-xs font-black uppercase tracking-wider text-blue-200/70">Account</div>
@@ -74,17 +77,16 @@
                     <button
                         type="button"
                         class="relative hidden h-10 w-10 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 sm:flex"
-                        aria-label="Notifications"
-                        aria-controls="provider-notifications"
+                        aria-label="Open quick reminders"
+                        aria-controls="provider-reminders"
                         aria-expanded="false"
-                        onclick="toggleProviderNotifications()">
+                        onclick="toggleProviderReminders()">
                         <i class="fas fa-bell"></i>
-                        <span class="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black leading-none text-white">3</span>
                     </button>
-                    <div id="provider-notifications" class="absolute right-0 top-12 z-50 hidden w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-xl shadow-slate-900/10">
+                    <div id="provider-reminders" class="absolute right-0 top-12 z-50 hidden w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-xl shadow-slate-900/10">
                         <div class="border-b border-slate-100 px-4 py-3">
-                            <div class="text-sm font-black text-slate-950">Notifications</div>
-                            <div class="mt-1 text-xs text-slate-500">Cleaner portal updates</div>
+                            <div class="text-sm font-black text-slate-950">Quick reminders</div>
+                            <div class="mt-1 text-xs text-slate-500">Useful shortcuts for your cleaner account</div>
                         </div>
                         <div class="divide-y divide-slate-100">
                             <a href="{{ route('provider.bookings') }}" class="block px-4 py-3 transition hover:bg-blue-50">
@@ -125,17 +127,17 @@ function toggleProviderSidebar() {
     overlay.classList.toggle('hidden', !willOpen);
     toggle?.setAttribute('aria-expanded', String(willOpen));
 }
-function toggleProviderNotifications() {
-    const panel = document.getElementById('provider-notifications');
-    const button = document.querySelector('[aria-controls="provider-notifications"]');
+function toggleProviderReminders() {
+    const panel = document.getElementById('provider-reminders');
+    const button = document.querySelector('[aria-controls="provider-reminders"]');
     const willOpen = panel.classList.contains('hidden');
 
     panel.classList.toggle('hidden', !willOpen);
     button?.setAttribute('aria-expanded', String(willOpen));
 }
 document.addEventListener('click', function(event) {
-    const panel = document.getElementById('provider-notifications');
-    const button = document.querySelector('[aria-controls="provider-notifications"]');
+    const panel = document.getElementById('provider-reminders');
+    const button = document.querySelector('[aria-controls="provider-reminders"]');
 
     if (!panel || panel.classList.contains('hidden')) {
         return;
@@ -148,7 +150,7 @@ document.addEventListener('click', function(event) {
 });
 document.querySelectorAll('.admin-sidebar a').forEach(function(link) {
     link.addEventListener('click', function() {
-        if (window.innerWidth <= 767) {
+        if (window.innerWidth <= 900) {
             const sidebar = document.querySelector('.admin-sidebar');
             const overlay = document.getElementById('provider-sidebar-overlay');
             const toggle = document.getElementById('provider-sidebar-toggle');

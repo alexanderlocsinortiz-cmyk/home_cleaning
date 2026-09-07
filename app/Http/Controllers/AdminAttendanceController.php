@@ -6,7 +6,9 @@ use App\Http\Controllers\Concerns\AttendanceHelpers;
 use App\Models\AttendanceLog;
 use App\Models\Device;
 use App\Models\DeviceEnrollmentRequest;
+use App\Models\SecurityEvent;
 use App\Models\User;
+use App\Services\DeviceTokenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -14,6 +16,8 @@ use Illuminate\Validation\Rule;
 class AdminAttendanceController extends Controller
 {
     use AttendanceHelpers;
+
+    public function __construct(private DeviceTokenService $deviceTokenService) {}
 
     public function attendance(Request $request)
     {
@@ -81,18 +85,23 @@ class AdminAttendanceController extends Controller
             'location' => ['nullable', 'string', 'max:150'],
         ]);
 
-        $device = Device::create([
+        $credentials = $this->deviceTokenService->createDeviceWithToken([
             'name' => $validated['name'],
             'serial_number' => $validated['serial_number'],
             'location' => $validated['location'] ?? null,
-            'api_token' => $this->generateUniqueDeviceToken(),
             'is_active' => true,
+        ]);
+        $device = $credentials['device'];
+        SecurityEvent::record('iot_device_credentials_created', auth()->user(), [
+            'device_id' => $device->id,
+            'device_serial' => $device->serial_number,
         ]);
 
         return redirect()
             ->route('admin.attendance')
             ->with('success', 'Biometric device created successfully.')
-            ->with('generated_device_token', $device->api_token)
+            ->with('generated_device_token', $credentials['token'])
+            ->with('generated_device_secret', $credentials['secret_key'])
             ->with('generated_device_name', $device->name)
             ->with('generated_device_serial', $device->serial_number);
     }
@@ -219,15 +228,17 @@ class AdminAttendanceController extends Controller
 
     public function rotateAttendanceDeviceToken(Device $device)
     {
-        $device->update([
-            'api_token' => $this->generateUniqueDeviceToken(),
-            'is_active' => true,
+        $credentials = $this->deviceTokenService->rotateToken($device);
+        SecurityEvent::record('iot_device_credentials_rotated', auth()->user(), [
+            'device_id' => $device->id,
+            'device_serial' => $device->serial_number,
         ]);
 
         return redirect()
             ->route('admin.attendance')
             ->with('success', 'Device token rotated successfully.')
-            ->with('generated_device_token', $device->api_token)
+            ->with('generated_device_token', $credentials['token'])
+            ->with('generated_device_secret', $credentials['secret_key'])
             ->with('generated_device_name', $device->name)
             ->with('generated_device_serial', $device->serial_number);
     }

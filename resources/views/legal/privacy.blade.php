@@ -28,12 +28,12 @@
             <div class="space-y-6 px-6 py-6 text-sm leading-7 text-slate-600 sm:px-8">
                 <section>
                     <h2 class="text-lg font-extrabold text-slate-900">1. Information Collected</h2>
-                    <p class="mt-2">The platform stores account details, contact information, booking data, preferred cleaner requests, payment and subscription details, proof-of-service uploads, and optional rating submissions needed to operate the service.</p>
+                    <p class="mt-2">The platform stores account details, contact information, cleaner application details, identity and verification uploads, booking data, preferred cleaner requests, payment and subscription details, proof-of-service uploads, and optional rating submissions needed to operate the service.</p>
                 </section>
 
                 <section class="border-t border-slate-100 pt-6">
                     <h2 class="text-lg font-extrabold text-slate-900">2. How Information Is Used</h2>
-                    <p class="mt-2">Your information is used to create accounts, manage one-time and recurring bookings, assign staff, track payment status, send service updates, and improve service quality.</p>
+                    <p class="mt-2">Your information is used to create accounts, review cleaner applications, verify identity and eligibility, manage one-time and recurring bookings, assign staff, track payment status, send service updates, and improve service quality.</p>
                 </section>
 
                 <section class="border-t border-slate-100 pt-6">
@@ -47,12 +47,22 @@
                 </section>
 
                 <section class="border-t border-slate-100 pt-6">
-                    <h2 class="text-lg font-extrabold text-slate-900">5. Data Access</h2>
-                    <p class="mt-2">Access to booking and account information is restricted by role-based permissions inside the application.</p>
+                    <h2 class="text-lg font-extrabold text-slate-900">5. Cleaner Application Verification</h2>
+                    <p class="mt-2">Government ID files, selfie verification, date of birth, clearance details, and background answers submitted by cleaner applicants are used to review eligibility. Verification files are stored in private storage and are available only to authorized administrators and personnel with the required role permissions.</p>
                 </section>
 
                 <section class="border-t border-slate-100 pt-6">
-                    <h2 class="text-lg font-extrabold text-slate-900">6. Contact</h2>
+                    <h2 class="text-lg font-extrabold text-slate-900">6. Data Access</h2>
+                    <p class="mt-2">Access to booking, account, and cleaner verification information is restricted by role-based permissions inside the application. Government ID and clearance numbers are encrypted at rest, and verification uploads are kept in private storage.</p>
+                </section>
+
+                <section class="border-t border-slate-100 pt-6">
+                    <h2 class="text-lg font-extrabold text-slate-900">7. Retention and Deletion</h2>
+                    <p class="mt-2">Rejected cleaner applications are retained for {{ config('cleanflow.privacy.rejected_application_retention_days', 180) }} days for review and dispute handling. After that period, identity numbers, contact details, dates of birth, addresses, verification notes, and uploaded documents are deleted; an anonymized application record may remain for audit and reporting. Approved provider records retain verification data while the provider relationship requires it.</p>
+                </section>
+
+                <section class="border-t border-slate-100 pt-6">
+                    <h2 class="text-lg font-extrabold text-slate-900">8. Contact</h2>
                     <p class="mt-2">If you need changes to your account information or have privacy questions, please contact the service administrator.</p>
                 </section>
             </div>

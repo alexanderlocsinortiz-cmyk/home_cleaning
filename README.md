@@ -53,7 +53,7 @@ Home Cleaning Service is a Laravel 12 home-cleaning service platform for Valenci
 ### Week 6 Complete
 
 - Adds digital payment tracking with `Cash on Service Day`, `GCash`, and `Maya`.
-- Stores `payment_method`, `payment_status`, `payment_reference`, and `paid_at` booking metadata.
+- Stores booking payments in the normalized `payments` table, including method, status, provider references, receipts, and payment timestamps.
 - Supports recurring subscription plans with weekly, bi-weekly, and monthly scheduling.
 
 ### Week 7 Complete
@@ -418,10 +418,14 @@ composer dump-autoload
 Required `.env` variables for production:
 - `APP_ENV=production`
 - `APP_DEBUG=false`
-- `APP_KEY` (generated with `php artisan key:generate`)
+- `APP_KEY` (one stable key shared by the web service and queue worker; generate it once with `php artisan key:generate` and store it as a deployment secret)
 - `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`
 - `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`
 - `ATTENDANCE_TIMEZONE=Asia/Manila`
+- `FILESYSTEM_PRIVATE_DISK`, `FILESYSTEM_PROOF_DISK`, and `FILESYSTEM_PUBLIC_DISK` configured for durable object storage
+- `CACHE_STORE=database` and `SESSION_DRIVER=database` (or a shared Redis service)
+- `PAYMONGO_PUBLIC_KEY`, `PAYMONGO_SECRET_KEY`, and `PAYMONGO_WEBHOOK_SECRET`
+- `DAILY_API_KEY` and `DAILY_DOMAIN` if live booking video is enabled
 
 ### Pre-Deployment Checklist
 
@@ -432,6 +436,7 @@ php artisan route:cache
 php artisan view:cache
 
 # 2. Run migrations
+php artisan database:preflight
 php artisan migrate --force
 
 # 3. Build frontend assets
@@ -442,7 +447,13 @@ chmod -R 775 storage bootstrap/cache
 
 # 5. Verify queue is running
 php artisan queue:work --daemon
+
+# 6. Verify the scheduled backup command in staging
+php artisan cleanflow:verify --probe
+php artisan database:backup-cloud
 ```
+
+The Render blueprint also provisions a daily database-backup cron service at 02:00 UTC. Configure its database, object-storage credentials, and the same stable `APP_KEY` used by the web and worker services.
 
 ### Production Webserver Configuration
 

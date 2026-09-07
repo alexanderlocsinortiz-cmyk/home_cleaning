@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -70,7 +70,7 @@ class AdminSettingsController extends Controller
             'admin_email' => ['nullable', 'email', 'max:120'],
             'admin_phone' => ['nullable', 'string', 'max:30'],
             'admin_current_password' => ['nullable', 'string'],
-            'admin_new_password' => ['nullable', 'confirmed', Password::min(8)],
+            'admin_new_password' => ['nullable', 'confirmed', Password::min(8)->letters()->numbers()],
         ]);
 
         if (filled($validated['admin_new_password'] ?? null)) {
@@ -206,7 +206,7 @@ class AdminSettingsController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'database_backup_admin_password' => ['required', 'string'],
-            'database_backup_new_password' => ['required', 'confirmed', Password::min(8)],
+            'database_backup_new_password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
         ]);
 
         if ($validator->fails()) {
@@ -475,13 +475,22 @@ class AdminSettingsController extends Controller
 
         try {
             $pgDump = $this->findExecutable('pg_dump', [
-                env('DB_BACKUP_PG_DUMP_PATH'),
+                config('filesystems.database_backup_pg_dump_path'),
                 'C:\Program Files\PostgreSQL\18\bin\pg_dump.exe',
                 'C:\Program Files\PostgreSQL\17\bin\pg_dump.exe',
                 'C:\Program Files\PostgreSQL\16\bin\pg_dump.exe',
                 'C:\Program Files\PostgreSQL\15\bin\pg_dump.exe',
                 'C:\Program Files\PostgreSQL\14\bin\pg_dump.exe',
             ]);
+        } catch (RuntimeException $exception) {
+            Log::warning('pg_dump is unavailable; falling back to Laravel PostgreSQL SQL backup.', [
+                'error' => $exception->getMessage(),
+            ]);
+
+            return $this->backupPostgresDatabaseWithPdo($backupDirectory, $baseName);
+        }
+
+        try {
             $passwordFile = $this->createPostgresPasswordFile($connection, $backupDirectory);
             $process = new Process(array_filter([
                 $pgDump,
@@ -498,14 +507,6 @@ class AdminSettingsController extends Controller
             return $this->runDumpProcess($process, [
                 'PGPASSFILE' => $passwordFile,
             ], $backupPath, 'pg_dump');
-        } catch (RuntimeException $exception) {
-            @unlink($backupPath);
-
-            Log::warning('pg_dump failed; falling back to Laravel PostgreSQL SQL backup.', [
-                'error' => $exception->getMessage(),
-            ]);
-
-            return $this->backupPostgresDatabaseWithPdo($backupDirectory, $baseName);
         } finally {
             if (isset($passwordFile)) {
                 @unlink($passwordFile);
@@ -583,7 +584,7 @@ class AdminSettingsController extends Controller
     {
         $backupPath = $backupDirectory.DIRECTORY_SEPARATOR.$baseName.'.sql';
         $mysqlDump = $this->findExecutable('mysqldump', [
-            env('DB_BACKUP_MYSQLDUMP_PATH'),
+            config('filesystems.database_backup_mysqldump_path'),
             'C:\Program Files\MySQL\MySQL Server 9.0\bin\mysqldump.exe',
             'C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqldump.exe',
             'C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe',
@@ -649,7 +650,7 @@ class AdminSettingsController extends Controller
             }
         }
 
-        throw new RuntimeException("Database backup failed. {$binary} was not found. Add it to PATH or set DB_BACKUP_".strtoupper($binary === 'pg_dump' ? 'PG_DUMP' : 'MYSQLDUMP')."_PATH in .env.");
+        throw new RuntimeException("Database backup failed. {$binary} was not found. Add it to PATH or set DB_BACKUP_".strtoupper($binary === 'pg_dump' ? 'PG_DUMP' : 'MYSQLDUMP').'_PATH in .env.');
     }
 
     private function postgresConnectionUri(array $connection): string
@@ -691,14 +692,14 @@ class AdminSettingsController extends Controller
 
     private function postgresColumns(\PDO $pdo, string $schema, string $table): array
     {
-        $statement = $pdo->prepare("
+        $statement = $pdo->prepare('
             SELECT column_name, column_default, is_nullable, data_type, udt_name,
                    character_maximum_length, numeric_precision, numeric_scale,
                    datetime_precision
             FROM information_schema.columns
             WHERE table_schema = :schema AND table_name = :table
             ORDER BY ordinal_position
-        ");
+        ');
         $statement->execute(['schema' => $schema, 'table' => $table]);
 
         return $statement->fetchAll(\PDO::FETCH_ASSOC);

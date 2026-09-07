@@ -2,10 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\AttendanceLog;
 use App\Models\AccessRestrictionHistory;
+use App\Models\AttendanceLog;
 use App\Models\Booking;
 use App\Models\BookingActivityLog;
+use App\Models\SecurityEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -119,6 +120,29 @@ class AdminLogsPageTest extends TestCase
         $response->assertSee('Staff pages updated');
         $response->assertSee('Schedule access changed.');
         $response->assertSee($staff->email);
+    }
+
+    public function test_admin_can_view_security_events(): void
+    {
+        $admin = $this->createUser('admin', 'admin-security-logs@example.com', 'adminsecuritylogs');
+        $client = $this->createUser('client', 'client-security-logs@example.com', 'clientsecuritylogs');
+
+        SecurityEvent::create([
+            'user_id' => $client->id,
+            'event' => 'mobile_login_succeeded',
+            'ip_address' => '192.0.2.10',
+            'user_agent' => 'CleanFlow Mobile Test',
+            'metadata' => ['device_name' => 'Test phone'],
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.logs', ['source' => 'admin']));
+
+        $response->assertOk();
+        $response->assertSee('Security Events');
+        $response->assertSee('Mobile login succeeded');
+        $response->assertSee($client->email);
+        $response->assertSee('192.0.2.10');
+        $response->assertSee('Test phone');
     }
 
     public function test_admin_can_export_booking_logs_as_excel_and_pdf(): void

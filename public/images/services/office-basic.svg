@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" role="img" aria-labelledby="title desc">
+  <title id="title">Basic office cleaning illustration</title><desc id="desc">A tidy desk, computer, and light office cleaning tools.</desc>
+  <rect width="800" height="420" rx="32" fill="#edf7ff"/><circle cx="662" cy="86" r="54" fill="#d1eaff"/><path d="M82 326h635" stroke="#b9d9ed" stroke-width="12" stroke-linecap="round"/>
+  <path d="M180 326h380M220 326v-18M520 326v-18" stroke="#3479ad" stroke-width="11" stroke-linecap="round"/><path d="M275 304v-116h175v116z" fill="#fff" stroke="#3479ad" stroke-width="10"/><rect x="298" y="211" width="129" height="70" rx="5" fill="#b7e3fb" stroke="#3479ad" stroke-width="7"/><path d="M338 304h49M329 320h67" stroke="#3479ad" stroke-width="9" stroke-linecap="round"/><path d="M514 302V205h65l17 20v77z" fill="#fff" stroke="#48a58d" stroke-width="9"/><path d="M514 205h45l10-18h26l-16 18" fill="#b9ead9" stroke="#48a58d" stroke-width="9" stroke-linejoin="round"/><path d="M535 240h35M535 263h25" stroke="#7fc7b0" stroke-width="7" stroke-linecap="round"/><path d="M155 286l41-79" stroke="#8b5e3c" stroke-width="11" stroke-linecap="round"/><path d="M166 205h57l-8 39h-57z" fill="#f3c35d" stroke="#a86c00" stroke-width="8"/>
+  <g stroke="#1e527d" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="185" cy="171" r="24" fill="#f2bd91"/><path d="M161 201h50l18 63h-68z" fill="#4c9fca"/><path d="M175 264l-19 62M204 264l25 62" fill="none"/><path d="M156 326h-28M229 326h28" fill="none"/><path d="M207 218l48 39" fill="none"/><path d="M255 257l36-24" fill="none"/><path d="M286 228h31v20h-31z" fill="#6bc5aa"/>
+  </g>
+</svg>

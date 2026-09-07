@@ -63,17 +63,17 @@ class AdminController extends Controller
         $servicePopularity = Booking::query()
             ->leftJoin('services', 'services.id', '=', 'bookings.service_id')
             ->select([
-                'bookings.service_type',
+                'services.slug as service_slug',
                 'services.name as service_name',
             ])
             ->selectRaw('COUNT(bookings.id) as bookings')
-            ->groupBy('bookings.service_type', 'services.name')
+            ->groupBy('services.slug', 'services.name')
             ->orderByDesc('bookings')
             ->limit(5)
             ->get()
             ->map(fn ($row) => [
                 'name' => $row->service_name
-                    ?? ucfirst(str_replace('_', ' ', $row->service_type ?? 'Other')),
+                    ?? ucfirst(str_replace('_', ' ', $row->service_slug ?? 'Other')),
                 'bookings' => (int) $row->bookings,
             ])
             ->values();

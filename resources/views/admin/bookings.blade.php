@@ -397,7 +397,7 @@
                                         </div>
                                     </div>
                                     <div class="mt-3 break-words text-xs text-slate-500">
-                                        {{ \App\Models\Booking::paymentMethodLabel($booking->payment_method) }}@if($booking->payment_reference) &middot; Ref {{ $booking->payment_reference }}@endif
+                                        {{ \App\Models\Booking::paymentMethodLabel($booking->payment?->method ?? 'on_site_cash') }}@if($booking->payment?->reference) &middot; Ref {{ $booking->payment->reference }}@endif
                                     </div>
                                     @if($booking->expected_started_at || in_array($booking->status, ['confirmed', 'in_progress'], true))
                                         @php
@@ -423,8 +423,8 @@
                                     <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold {{ $statusClasses[$booking->status] ?? 'bg-slate-100 text-slate-600' }}">
                                         {{ $statusLabels[$booking->status] ?? ucfirst(str_replace('_', ' ', $booking->status)) }}
                                     </span>
-                                    <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-semibold {{ $paymentStatusClasses[$booking->payment_status] ?? 'bg-slate-100 text-slate-600' }}">
-                                        {{ \App\Models\Booking::paymentStatusLabel($booking->payment_status) }}
+                                    <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-semibold {{ $paymentStatusClasses[$booking->payment?->status ?? 'pending'] ?? 'bg-slate-100 text-slate-600' }}">
+                                        {{ \App\Models\Booking::paymentStatusLabel($booking->payment?->status ?? 'pending') }}
                                     </span>
                                     @if($booking->pending_escalation)
                                         <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-semibold {{ $booking->pending_escalation['class'] }}">
@@ -491,6 +491,7 @@
                                             <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Internal Staff</div>
                                             <div class="mt-1 text-sm font-bold text-slate-900">{{ $booking->staff?->display_name ?? 'Unassigned' }}</div>
                                             <div class="mt-1 text-xs leading-5 text-slate-500">Staff account used for portal access, status updates, attendance, and live operations.</div>
+                                            <div class="mt-2 text-xs font-bold text-blue-700">{{ $booking->required_cleaners ?: \App\Models\Booking::requiredCleanerCountForService($booking->service_type, (int) $booking->floor_area) }} cleaner{{ (($booking->required_cleaners ?: \App\Models\Booking::requiredCleanerCountForService($booking->service_type, (int) $booking->floor_area)) === 1) ? '' : 's' }} recommended for {{ (int) $booking->floor_area }} sqm.</div>
                                         </div>
                                     </div>
                                 </div>
@@ -669,12 +670,29 @@
                                         <label class="mb-1 block px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Payment</label>
                                         <select name="payment_status" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
                                             @foreach(\App\Models\Booking::paymentStatuses() as $paymentStatusOption)
-                                                <option value="{{ $paymentStatusOption }}" {{ $booking->payment_status === $paymentStatusOption ? 'selected' : '' }}>
+                                                <option value="{{ $paymentStatusOption }}" {{ ($booking->payment?->status ?? 'pending') === $paymentStatusOption ? 'selected' : '' }}>
                                                     {{ \App\Models\Booking::paymentStatusLabel($paymentStatusOption) }}
                                                 </option>
                                             @endforeach
                                         </select>
                                     </div>
+                                    @if($booking->payment?->method === 'on_site_cash')
+                                        <div class="rounded-lg border border-emerald-100 bg-emerald-50/60 p-2.5">
+                                            <div class="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Cash receipt details</div>
+                                            <div class="grid gap-2 sm:grid-cols-2">
+                                                <input type="number" name="payment_collected_amount" min="0.01" step="0.01" value="{{ old('payment_collected_amount', $booking->payment?->collected_amount ?? $booking->price) }}" placeholder="Amount collected" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
+                                                <input type="datetime-local" name="payment_collected_at" value="{{ old('payment_collected_at', $booking->payment?->collected_at?->format('Y-m-d\TH:i') ?: $booking->payment?->paid_at?->format('Y-m-d\TH:i')) }}" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
+                                            </div>
+                                            <input type="text" name="payment_receipt_notes" value="{{ old('payment_receipt_notes', $booking->payment?->receipt_notes) }}" placeholder="Optional receipt note" class="mt-2 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
+                                            <p class="mt-1 text-[11px] leading-4 text-slate-500">Required when marking cash as paid. The amount must match PHP {{ number_format((float) $booking->price, 2) }}.</p>
+                                            @if($booking->payment?->receipt_number && $booking->payment?->status === 'paid')
+                                                <a href="{{ route('bookings.receipt', $booking->id) }}" target="_blank" rel="noopener" class="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 underline hover:text-emerald-900">
+                                                    <i class="fas fa-receipt"></i>
+                                                    View / print receipt
+                                                </a>
+                                            @endif
+                                        </div>
+                                    @endif
                                     @if($booking->manual_review_status === 'pending')
                                         <div class="text-xs text-amber-700">Approve or block the manual review before changing status or staff.</div>
                                     @elseif($booking->manual_review_status === 'blocked')
@@ -706,7 +724,51 @@
                                         Confirm changes
                                     </button>
                                 </form>
-                                @if($showMarketplaceProvider && $booking->provider_gross_amount !== null && $booking->payment_method === 'on_site_cash')
+                                @if($booking->payment?->method === 'on_site_cash' && $booking->payment?->cash_proof_path)
+                                    @php
+                                        $cashProofStatus = $booking->payment->cash_proof_status ?: 'submitted';
+                                    @endphp
+                                    <div class="mt-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-left">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-blue-800">Client cash proof</div>
+                                            <span class="rounded-full px-2 py-1 text-[10px] font-bold {{ $cashProofStatus === 'pending' ? 'bg-amber-100 text-amber-700' : ($cashProofStatus === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700') }}">{{ ucfirst($cashProofStatus) }}</span>
+                                        </div>
+                                        <div class="mt-1 text-xs text-slate-600">{{ $booking->payment->cash_proof_original_name ?: 'Uploaded receipt' }}</div>
+                                        <a href="{{ route('bookings.cash-payment-proof.download', $booking->id) }}" class="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 underline hover:text-blue-900">
+                                            <i class="fas fa-download"></i>
+                                            Download private proof
+                                        </a>
+                                        @if($cashProofStatus === 'pending')
+                                            <form action="{{ route('admin.bookings.cash-payment-proof.review', $booking->id) }}" method="POST" class="mt-3 space-y-2">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="hidden" name="decision" value="approve">
+                                                <div class="grid gap-2 sm:grid-cols-2">
+                                                    <input type="number" name="payment_collected_amount" min="0.01" step="0.01" value="{{ old('payment_collected_amount', $booking->price) }}" placeholder="Cash amount" required class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
+                                                    <input type="datetime-local" name="payment_collected_at" value="{{ old('payment_collected_at', now()->format('Y-m-d\TH:i')) }}" required class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
+                                                </div>
+                                                <input type="text" name="payment_receipt_notes" placeholder="Optional admin note" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
+                                                <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700">
+                                                    <i class="fas fa-circle-check"></i>
+                                                    Approve and mark paid
+                                                </button>
+                                            </form>
+                                            <form action="{{ route('admin.bookings.cash-payment-proof.review', $booking->id) }}" method="POST" class="mt-2 space-y-2">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="hidden" name="decision" value="reject">
+                                                <input type="text" name="cash_proof_rejection_reason" required minlength="5" maxlength="1000" placeholder="Reason if rejecting" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-red-500 focus:outline-hidden">
+                                                <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-50">
+                                                    <i class="fas fa-rotate-left"></i>
+                                                    Reject and request replacement
+                                                </button>
+                                            </form>
+                                        @elseif($cashProofStatus === 'rejected' && $booking->payment->cash_proof_rejection_reason)
+                                            <div class="mt-2 rounded-lg border border-red-100 bg-red-50 p-2 text-[11px] leading-4 text-red-700">{{ $booking->payment->cash_proof_rejection_reason }}</div>
+                                        @endif
+                                    </div>
+                                @endif
+                                @if($showMarketplaceProvider && $booking->provider_gross_amount !== null && $booking->payment?->method === 'on_site_cash')
                                     <form action="{{ route('admin.bookings.provider-commission', $booking->id) }}" method="POST" enctype="multipart/form-data" class="mt-3 rounded-xl border border-orange-100 bg-orange-50/70 p-2">
                                         @csrf
                                         @method('PATCH')
@@ -740,7 +802,7 @@
                                         </div>
                                     </form>
                                 @endif
-                                @if($showMarketplaceProvider && $booking->provider_gross_amount !== null && $booking->payment_method !== 'on_site_cash')
+                                @if($showMarketplaceProvider && $booking->provider_gross_amount !== null && $booking->payment?->method !== 'on_site_cash')
                                     <form action="{{ route('admin.bookings.payout', $booking->id) }}" method="POST" enctype="multipart/form-data" class="mt-3 rounded-xl border border-emerald-100 bg-white p-2">
                                         @csrf
                                         @method('PATCH')
@@ -928,11 +990,11 @@
                                     <td class="border-t border-slate-100 px-6 py-4 align-top">
                                         <div class="font-semibold text-slate-900">&#8369;{{ number_format($booking->price, 2) }}</div>
                                         <div class="mt-2">
-                                            <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $paymentStatusClasses[$booking->payment_status] ?? 'bg-slate-100 text-slate-600' }}">
-                                                {{ \App\Models\Booking::paymentStatusLabel($booking->payment_status) }}
+                                            <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $paymentStatusClasses[$booking->payment?->status ?? 'pending'] ?? 'bg-slate-100 text-slate-600' }}">
+                                                {{ \App\Models\Booking::paymentStatusLabel($booking->payment?->status ?? 'pending') }}
                                             </span>
                                         </div>
-                                        <div class="mt-1 text-xs text-slate-500">{{ \App\Models\Booking::paymentMethodLabel($booking->payment_method) }}</div>
+                                        <div class="mt-1 text-xs text-slate-500">{{ \App\Models\Booking::paymentMethodLabel($booking->payment?->method ?? 'on_site_cash') }}</div>
                                     </td>
                                     <td class="border-t border-slate-100 px-6 py-4 align-top">
                                         @if($booking->status === 'cancelled')
@@ -954,7 +1016,7 @@
                                             <i class="fas fa-eye"></i>
                                             View Details
                                         </a>
-                                        @if($showMarketplaceProvider && $booking->provider_gross_amount !== null && $booking->payment_method === 'on_site_cash')
+                                        @if($showMarketplaceProvider && $booking->provider_gross_amount !== null && $booking->payment?->method === 'on_site_cash')
                                             <form action="{{ route('admin.bookings.provider-commission', $booking->id) }}" method="POST" enctype="multipart/form-data" class="mt-3 min-w-[240px] rounded-xl border border-orange-100 bg-orange-50/70 p-2">
                                                 @csrf
                                                 @method('PATCH')
@@ -985,7 +1047,7 @@
                                                 <div class="mt-2 px-1 text-[11px] leading-5 text-slate-500">Paid requires commission date and reference.</div>
                                             </form>
                                         @endif
-                                        @if($showMarketplaceProvider && $booking->provider_gross_amount !== null && $booking->payment_method !== 'on_site_cash')
+                                        @if($showMarketplaceProvider && $booking->provider_gross_amount !== null && $booking->payment?->method !== 'on_site_cash')
                                             <form action="{{ route('admin.bookings.payout', $booking->id) }}" method="POST" enctype="multipart/form-data" class="mt-3 min-w-[240px] rounded-xl border border-emerald-100 bg-emerald-50/60 p-2">
                                                 @csrf
                                                 @method('PATCH')

@@ -11,6 +11,7 @@ use App\Services\DeviceTokenService;
 use Carbon\Carbon;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -260,6 +261,7 @@ class AttendanceController extends Controller
         $signature = $request->header('X-Signature');
         $timestamp = $request->header('X-Timestamp');
         $deviceSerial = $request->header('X-Device-Serial');
+        $nonce = $request->header('X-Nonce');
         $legacyToken = $request->header('X-Device-Token');
 
         if ((! $signature || ! $timestamp || ! $deviceSerial) && $legacyToken) {
@@ -278,7 +280,7 @@ class AttendanceController extends Controller
         }
 
         // Validate headers present
-        if (! $signature || ! $timestamp || ! $deviceSerial) {
+        if (! $signature || ! $timestamp || ! $deviceSerial || ! $nonce) {
             Log::warning('Missing security headers in IoT request', [
                 'ip' => $request->ip(),
                 'path' => $request->path(),
@@ -327,7 +329,11 @@ class AttendanceController extends Controller
         // Validate signature
         $body = $request->getContent();
 
-        if (! $this->tokenService->validateSignature($device, $timestamp, $signature, $body)) {
+        if (
+            ! preg_match('/^[A-Za-z0-9_-]{16,128}$/', $nonce)
+            || ! $device->secret_key
+            || ! $this->tokenService->validateSignature($device, $timestamp, $nonce, $signature, $body)
+        ) {
             Log::warning('Invalid signature in IoT request', [
                 'device_id' => $device->id,
                 'ip' => $request->ip(),
@@ -338,6 +344,17 @@ class AttendanceController extends Controller
 
             throw new HttpResponseException(response()->json([
                 'error' => 'Invalid request signature.',
+            ], 401));
+        }
+
+        if (! Cache::add('iot:nonce:'.$device->id.':'.$nonce, true, now()->addMinutes(5))) {
+            Log::warning('Replayed IoT request rejected', [
+                'device_id' => $device->id,
+                'ip' => $request->ip(),
+            ]);
+
+            throw new HttpResponseException(response()->json([
+                'error' => 'Request has already been used.',
             ], 401));
         }
 

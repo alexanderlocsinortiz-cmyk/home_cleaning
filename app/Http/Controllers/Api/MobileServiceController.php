@@ -13,7 +13,8 @@ class MobileServiceController extends Controller
     public function index(): JsonResponse
     {
         $services = Service::where('is_active', true)
-            ->orderBy('id')
+            ->orderBy('sort_order')
+            ->orderBy('price')
             ->get()
             ->map(fn (Service $service) => $this->servicePayload($service))
             ->values();
@@ -33,6 +34,7 @@ class MobileServiceController extends Controller
                     'label' => $addOn['label'],
                     'price' => (float) $addOn['price'],
                     'description' => $addOn['description'] ?? '',
+                    'pricing_unit' => $addOn['pricing_unit'] ?? Booking::ADD_ON_PRICING_UNIT,
                 ])
                 ->values(),
             'payment_methods' => collect(Booking::paymentMethods())
@@ -87,6 +89,8 @@ class MobileServiceController extends Controller
             'slug' => $service->slug,
             'name' => $service->name,
             'description' => $service->description,
+            'image_url' => $service->image_url,
+            'image_alt' => $service->image_alt,
             'price' => (float) $service->price,
             'duration_minutes' => (int) ($service->duration_minutes ?: Service::durationForSlug($service->slug)),
             'badge' => $metadata['badge'] ?? null,

@@ -3,7 +3,7 @@
 ## Priority 1 — Data and system review
 
 - [x] Review and organize data from the past 10 days.
-- [ ] Resolve pending booking #18 after admin review. *(Explicitly deferred by owner; remains a pre-launch operational blocker.)*
+- [x] Resolve booking #18 after admin review. Booking was cancelled with payment left pending because no cash receipt evidence exists.
 - [x] Map the current data flow.
 - [x] Investigate backend performance and resolve overload issues.
 - [x] Audit API limits and document required changes.
@@ -39,7 +39,7 @@
 - [x] Add an automated private/public disk visibility contract test. Real bucket privacy testing remains open.
 - [x] Add a guest-denial test for private application downloads. Real object-storage access testing remains open.
 - [x] Verify sensitive application uploads honor the configured private disk. Real bucket access testing remains open.
-- [ ] Configure durable object storage for uploaded files. Production access policy, environment variables, migration, and privacy tests are still required.
+- [x] Add runtime enforcement, encrypted verification numbers, expiring applicant tracking, retention purge, and private-storage checks for uploaded files. Production bucket access policy, environment variables, migration, and live privacy tests remain required.
 - [ ] Configure and test off-site database disaster recovery. A cloud-upload workflow exists, but production backup storage, retention, restore testing, and recovery targets are still required.
 - [x] Separate processes and actions where necessary. See `docs/PROCESS_BOUNDARIES.md`; further queueing should be driven by production measurements.
 - [x] Remove duplicate or redundant data.
@@ -59,6 +59,7 @@
 - [x] Prepare a service-scope approval matrix. See `docs/SERVICE_SCOPE_APPROVAL.md`; all eight services remain pending owner approval.
 - [x] Draft scope sheets and provisional planning assumptions for all eight services. See `docs/SERVICE_SCOPE_SHEETS.md`; the approval matrix records each sheet as Provisional draft, while owner approval and real-world completion evidence remain open.
 - [x] Add measurable, manually editable service scope controls for area, cleaner count, and scope status. Approved area limits block oversized bookings; provisional limits route them for manual review.
+- [x] Require service approval integrity. Admin approval now requires measurable limits and all eight scope-definition fields, while incomplete legacy approvals fail closed as provisional at runtime.
 - [x] Store complete editable scope definitions for all eight services, including included areas/tasks, exclusions, condition limits, supplies, access/safety, extra-work rules, and acceptance criteria. Owner approval and real-world completion evidence remain open.
 - [ ] Confirm that each service is complete and inclusive. Editable baseline definitions now exist for all eight packages, but owner approval, capacity confirmation, and real-world evidence are still required before this is a complete/inclusive promise.
 - [x] Audit pricing calculations and validation requirements. See `docs/PRICING_VALIDATION.md`; commercial approval remains open.
@@ -76,3 +77,15 @@
 - [x] Create a market comparison table. See `docs/MARKET_COMPARISON.md`; local primary research remains required.
 - [x] Complete the desk research and proposal comparison. See `docs/RESEARCH_PROPOSAL_COMPARISON.md`; field interviews, competitor quotes, and pilot results remain required.
 - [x] Review the final plan for clarity and completeness. See `docs/FINAL_PLAN_REVIEW.md`; the plan supports controlled pilot preparation but not unrestricted public launch.
+
+## Priority 5 - Advisor recommendations
+
+These are advisor-requested product improvements. Implement and test each item separately.
+
+- [x] Add a homepage advertising slideshow. The slideshow is placed below the original hero, uses approved local service imagery, supports controls/dots/automatic rotation, pauses for reduced motion, and keeps the original hero text unchanged.
+- [x] Make the ERD background white. The printable ERD already uses a white background; table names, keys, and relationships remain unchanged.
+- [x] Strengthen password security. Password creation, staff setup, profile changes, admin changes, provider activation, and web/mobile resets require at least 8 characters with letters and numbers; symbols such as `@` are allowed. Existing hashes remain intact and the policy applies when a password is next set or changed; login rate limiting remains enabled.
+- [x] Add service-related images. Every catalog service has a real raster fallback image; custom images use public storage, private documents remain separate, service images include generated alt text and responsive sizing, and uploads are restricted to JPEG/PNG/WebP images up to 5 MB.
+- [x] Improve staff pin-location tracking similar to delivery apps. Staff can open a saved client pin, use current GPS, view a driving route with a direct-line fallback, and share live location only for their own active bookings. Client/admin access is authorization-checked; location history remains admin-only.
+- [x] Calculate and display required cleaners by service area. CleanFlow uses documented service-specific capacities, rounds up with ceiling division, enforces a minimum of one cleaner, flags requirements above 20 for manual review, snapshots the requirement on bookings, and documents the ISSA/APPA basis in docs/STAFFING_BASIS.md. The current schema still assigns one primary staff member, so multi-cleaner jobs require admin review.
+- [x] Add client cash-payment receipt upload and admin confirmation. Proofs are stored on the private disk, ownership/type/size are validated, admins are notified, approve/reject notes are supported, payment is marked paid only after approval, reviewer/time are recorded, duplicate pending submissions are blocked, and cross-client access is denied.

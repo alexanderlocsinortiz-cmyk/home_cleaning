@@ -10,6 +10,7 @@
         $descriptionValue = old('description', '');
         $priceValue = old('price', '');
         $durationValue = old('duration_minutes', \App\Models\Service::DEFAULT_DURATION_MINUTES);
+        $sortOrderValue = old('sort_order', 0);
         $scopeMaxAreaValue = old('scope_max_floor_area', 30);
         $scopeCleanerCountValue = old('scope_cleaner_count', 1);
         $scopeStatusValue = old('scope_status', 'provisional');
@@ -47,7 +48,7 @@
             <h3 class="text-lg font-extrabold text-slate-900">Service Details</h3>
             <p class="mt-1 text-sm text-slate-500">Define the service name, description, price, and availability for clients.</p>
         </div>
-        <form action="{{ route('admin.services.store') }}" method="POST" class="space-y-6 px-6 py-6"
+        <form action="{{ route('admin.services.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6 px-6 py-6"
             data-service-confirm
             data-confirm-title="Create this service?"
             data-confirm-message="This will add a new service package to the admin service catalog."
@@ -64,6 +65,7 @@
                     <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Description</label>
                     <textarea name="description" rows="4" placeholder="Brief description of this service..." class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">{{ $descriptionValue }}</textarea>
                 </div>
+                @include('admin.services._image_fields')
                 <div>
                     <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Price (&#8369;) <span class="text-red-500">*</span></label>
                     <input type="number" name="price" value="{{ $priceValue }}" required min="1" step="0.01" placeholder="e.g. 500" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
@@ -75,12 +77,18 @@
                     <p class="mt-1 text-xs text-slate-500">Staff availability blocks this duration plus 60 minutes rest.</p>
                     @error('duration_minutes')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
+                <div>
+                    <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Landing Page Display Order</label>
+                    <input type="number" name="sort_order" value="{{ $sortOrderValue }}" min="0" max="9999" step="1" placeholder="e.g. 1" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
+                    <p class="mt-1 text-xs text-slate-500">Lower numbers appear first. Equal numbers fall back to price.</p>
+                    @error('sort_order')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
                 <div class="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
                     <div class="text-sm font-extrabold text-slate-900">Measurable Scope Controls</div>
-                    <p class="mt-1 text-xs leading-5 text-slate-600">Set only limits the system can measure: area, cleaner count, and approval status. Keep the scope provisional until the service has real operating evidence.</p>
+                    <p class="mt-1 text-xs leading-5 text-slate-600">Set only limits the system can measure: area, cleaner count, and approval status. Approved requires the area limit, cleaner count, and every scope-definition field below.</p>
                     <div class="mt-4 grid gap-4 md:grid-cols-2">
                         <div>
-                            <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Maximum Floor Area (sqm)</label>
+                            <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Maximum Floor Area (sqm) <span class="text-red-500">*</span> <span class="font-normal normal-case tracking-normal text-slate-400">when approved</span></label>
                             <input type="number" name="scope_max_floor_area" value="{{ $scopeMaxAreaValue }}" min="10" max="1000" step="1" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
                             @error('scope_max_floor_area')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>

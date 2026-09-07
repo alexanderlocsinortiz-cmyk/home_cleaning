@@ -10,6 +10,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -307,6 +308,7 @@ class BookingStatusWorkflowTest extends TestCase
 
     public function test_staff_booking_list_shows_saved_proof_files_after_refresh(): void
     {
+        Config::set('filesystems.proof_uploads_disk', 'public');
         Storage::fake('public');
 
         $client = $this->createUser('client', 'client-visible-proof@example.com', 'clientvisibleproof');
@@ -327,7 +329,7 @@ class BookingStatusWorkflowTest extends TestCase
         $response->assertOk();
         $response->assertSee('Before 1', false);
         $response->assertSee('Open all proof files', false);
-        $response->assertSee('booking-proofs/before', false);
+        $response->assertSee('/bookings/'.$booking->id.'/proof/', false);
     }
 
     public function test_staff_proof_upload_request_is_rejected_before_oversized_body_is_processed(): void
@@ -781,6 +783,9 @@ class BookingStatusWorkflowTest extends TestCase
             ->from(route('admin.bookings'))
             ->patch(route('admin.bookings.payment', $booking->id), [
                 'payment_status' => 'paid',
+                'payment_collected_amount' => '1200.00',
+                'payment_collected_at' => '2026-08-29 12:00',
+                'payment_receipt_notes' => 'Cash received in full.',
             ]);
 
         $response->assertRedirect(route('admin.bookings'));
@@ -795,7 +800,32 @@ class BookingStatusWorkflowTest extends TestCase
         $this->assertSame('paid', $updatedBooking->payment_status);
         $this->assertNotNull($updatedBooking->payment_reference);
         $this->assertNotNull($updatedBooking->paid_at);
+        $this->assertSame('1200.00', $updatedBooking->payment_collected_amount);
+        $this->assertNotNull($updatedBooking->cash_receipt_number);
+        $this->assertSame($admin->id, $updatedBooking->payment_collected_by);
         $this->assertNotNull($notification);
+
+        $receiptResponse = $this->actingAs($admin)->get(route('bookings.receipt', $booking->id));
+        $receiptResponse->assertOk();
+        $receiptResponse->assertSee($updatedBooking->cash_receipt_number);
+        $receiptResponse->assertSee('Print / Save as PDF');
+    }
+
+    public function test_admin_cannot_mark_cash_payment_paid_without_receipt_details(): void
+    {
+        $admin = $this->createUser('admin', 'admin-cash-receipt-required@example.com', 'admincashreceiptrequired');
+        $client = $this->createUser('client', 'client-cash-receipt-required@example.com', 'clientcashreceiptrequired');
+        $booking = $this->createBooking($client, null, 'pending');
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.payment', $booking->id), [
+                'payment_status' => 'paid',
+            ]);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHasErrors('payment_collected_amount');
+        $this->assertSame('pending', $booking->fresh()->payment_status);
     }
 
     public function test_admin_can_update_payment_from_combined_booking_confirmation_form(): void
@@ -809,6 +839,8 @@ class BookingStatusWorkflowTest extends TestCase
             ->patch(route('admin.bookings.status', $booking->id), [
                 'status' => 'pending',
                 'payment_status' => 'paid',
+                'payment_collected_amount' => '1200.00',
+                'payment_collected_at' => '2026-08-29 12:00',
             ]);
 
         $response->assertRedirect(route('admin.bookings'));
@@ -821,7 +853,7 @@ class BookingStatusWorkflowTest extends TestCase
         $this->assertNotNull($updatedBooking->paid_at);
     }
 
-    public function test_completing_an_on_site_cash_booking_marks_it_paid_automatically(): void
+    public function test_completing_an_on_site_cash_booking_keeps_payment_pending_until_cash_is_confirmed(): void
     {
         $admin = $this->createUser('admin', 'admin-cash-complete@example.com', 'admincashcomplete');
         $client = $this->createUser('client', 'client-cash-complete@example.com', 'clientcashcomplete');
@@ -857,9 +889,10 @@ class BookingStatusWorkflowTest extends TestCase
         $completedBooking = $booking->fresh();
 
         $this->assertSame('completed', $completedBooking->status);
-        $this->assertSame('paid', $completedBooking->payment_status);
-        $this->assertNotNull($completedBooking->payment_reference);
-        $this->assertNotNull($completedBooking->paid_at);
+        $this->assertSame('pending', $completedBooking->payment_status);
+        $this->assertNull($completedBooking->payment_reference);
+        $this->assertNull($completedBooking->paid_at);
+        $this->assertNull($completedBooking->cash_receipt_number);
     }
 
     public function test_client_can_open_dispute_and_hold_provider_payout(): void
