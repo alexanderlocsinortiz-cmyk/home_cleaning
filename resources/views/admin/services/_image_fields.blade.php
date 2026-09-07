@@ -3,7 +3,7 @@
 <div class="rounded-2xl border border-blue-200 bg-blue-50/60 p-4">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div class="h-28 w-full shrink-0 overflow-hidden rounded-2xl border border-white bg-white shadow-sm sm:w-44">
-            <img src="{{ $serviceImage?->image_url ?? asset('images/services/basic.jpg') }}" alt="{{ $serviceImage?->image_alt ?? 'Service image preview' }}" class="h-full w-full object-cover" data-service-image-preview>
+            <img src="{{ $serviceImage?->image_url ?? asset('images/services/optimized/basic.jpg') }}" alt="{{ $serviceImage?->image_alt ?? 'Service image preview' }}" class="h-full w-full object-cover" data-service-image-preview>
         </div>
         <div class="min-w-0 flex-1">
             <div class="text-sm font-extrabold text-slate-900">Service image</div>

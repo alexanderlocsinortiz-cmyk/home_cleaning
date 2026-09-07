@@ -181,9 +181,11 @@
     <section class="home-hero-shell relative overflow-hidden">
         <img
             class="home-hero-bg"
-            src="{{ asset('images/landing-cleaning-hero.png') }}?v=20260510"
+            src="{{ asset('images/optimized/landing-cleaning-hero.jpg') }}?v=20260907"
             alt=""
             aria-hidden="true"
+            decoding="async"
+            fetchpriority="low"
         >
         <div class="home-hero-bg-overlay" aria-hidden="true"></div>
         <div class="hero-section container-pad relative z-10 mx-auto grid max-w-7xl items-center gap-12 px-6 pt-16 pb-16 lg:min-h-[760px] lg:grid-cols-[minmax(0,0.86fr)_minmax(480px,1.14fr)] lg:gap-16 lg:pt-24 lg:pb-24">
@@ -240,7 +242,7 @@
             <div class="home-hero-slider reveal-on-scroll" data-advertising-slider>
                 <div class="relative aspect-[0.98] min-h-[430px] sm:aspect-[1.18] lg:min-h-[520px]">
                     <article class="home-hero-slide absolute inset-0 grid" data-ad-slide aria-hidden="false">
-                        <img src="{{ asset('images/services/ChatGPT Image Sep 4, 2026, 02_14_05 AM.png') }}" alt="A professional cleaner working in a bright home" class="home-hero-slide__image">
+                        <img src="{{ asset('images/services/optimized/hero-general.jpg') }}?v=20260907" alt="A professional cleaner working in a bright home" class="home-hero-slide__image" loading="eager" fetchpriority="high" decoding="async">
                         <div class="home-hero-slide__veil" aria-hidden="true"></div>
                         <div class="home-hero-slide__content">
                             <span class="home-hero-slide__eyebrow">General cleaning</span>
@@ -250,7 +252,7 @@
                         </div>
                     </article>
                     <article class="home-hero-slide absolute inset-0 hidden" data-ad-slide aria-hidden="true">
-                        <img src="{{ asset('images/services/deep.jpg') }}" alt="Deep cleaning service" class="home-hero-slide__image">
+                        <img data-src="{{ asset('images/services/optimized/deep.jpg') }}?v=20260907" alt="Deep cleaning service" class="home-hero-slide__image" loading="lazy" decoding="async">
                         <div class="home-hero-slide__veil" aria-hidden="true"></div>
                         <div class="home-hero-slide__content">
                             <span class="home-hero-slide__eyebrow">Deep cleaning</span>
@@ -260,7 +262,7 @@
                         </div>
                     </article>
                     <article class="home-hero-slide absolute inset-0 hidden" data-ad-slide aria-hidden="true">
-                        <img src="{{ asset('images/services/weeklymaintenance.jpg') }}" alt="Regular maintenance cleaning" class="home-hero-slide__image">
+                        <img data-src="{{ asset('images/services/optimized/weeklymaintenance.jpg') }}?v=20260907" alt="Regular maintenance cleaning" class="home-hero-slide__image" loading="lazy" decoding="async">
                         <div class="home-hero-slide__veil" aria-hidden="true"></div>
                         <div class="home-hero-slide__content">
                             <span class="home-hero-slide__eyebrow">Flexible scheduling</span>
@@ -307,7 +309,7 @@
                 @endphp
                 <a href="{{ route('services.show', $service) }}" aria-label="View details for {{ $service->name }}" class="home-service-card group block focus:outline-none">
                     <div class="home-service-media relative overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200 transition duration-300 group-hover:-translate-y-1 group-hover:shadow-xl group-focus:ring-4 group-focus:ring-blue-100">
-                        <img src="{{ $service->image_url }}" alt="{{ $service->image_alt }}" loading="lazy" class="home-service-image transition duration-500 group-hover:scale-105">
+                        <img src="{{ $service->image_url }}" alt="{{ $service->image_alt }}" loading="lazy" decoding="async" class="home-service-image transition duration-500 group-hover:scale-105">
                     </div>
                     <div class="mt-4 flex items-start justify-between gap-4">
                         <div class="min-w-0">
@@ -915,10 +917,19 @@
     let current = 0;
     let timer;
 
+    const hydrateSlideImage = (slide) => {
+        const image = slide.querySelector('img[data-src]');
+        if (!image) return;
+
+        image.src = image.dataset.src;
+        image.removeAttribute('data-src');
+    };
+
     const show = (index) => {
         current = (index + slides.length) % slides.length;
         slides.forEach((slide, slideIndex) => {
             const active = slideIndex === current;
+            if (active) hydrateSlideImage(slide);
             slide.classList.toggle('hidden', !active);
             slide.classList.toggle('grid', active);
             slide.setAttribute('aria-hidden', active ? 'false' : 'true');

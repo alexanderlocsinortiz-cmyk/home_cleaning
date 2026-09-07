@@ -129,7 +129,7 @@ class Service extends Model
             'custom' => 'custom.jpg',
         ];
 
-        return 'images/services/'.($defaultImages[$catalogSlug] ?? 'custom.jpg');
+        return 'images/services/optimized/'.($defaultImages[$catalogSlug] ?? 'custom.jpg');
     }
 
     public function scopeDefinition(): array

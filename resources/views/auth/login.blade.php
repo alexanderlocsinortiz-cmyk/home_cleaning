@@ -27,7 +27,7 @@
     <div class="grid min-h-screen lg:grid-cols-[1.16fr_0.84fr]">
         <aside class="relative hidden overflow-hidden lg:block">
             <img
-                src="{{ asset('images/landing-cleaning-hero.png') }}?v=20260510"
+                src="{{ asset('images/optimized/landing-cleaning-hero.jpg') }}?v=20260907"
                 alt=""
                 aria-hidden="true"
                 class="absolute inset-0 h-full w-full object-cover object-right-bottom"
