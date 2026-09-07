@@ -66,6 +66,8 @@
     $beforeProofs = $booking->serviceProofs->where('stage', 'before')->where('media_type', 'image')->values();
     $afterProofs = $booking->serviceProofs->where('stage', 'after')->where('media_type', 'image')->values();
     $completionVideos = $booking->serviceProofs->where('stage', 'after')->where('media_type', 'video')->values();
+    $staffAssignments = $booking->staffAssignments ?? collect();
+    $myStaffAssignments = $staffAssignments->filter(fn ($assignment) => (int) $assignment->staff_id === (int) $viewer->id)->values();
     $activityLogs = $booking->activityLogs;
     $directionsDestination = ($booking->service_latitude && $booking->service_longitude)
         ? $booking->service_latitude . ',' . $booking->service_longitude
@@ -202,6 +204,31 @@
                 </div>
             </div>
         </div>
+
+        @if($staffAssignments->count() && ($isAdmin || $isStaff))
+        <div class="cleanflow-panel mb-6 border-l-4 border-violet-300 bg-violet-50/70 p-5">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <div class="text-xs font-bold uppercase tracking-[0.18em] text-violet-700">Specialist task plan</div>
+                    <h2 class="mt-2 text-lg font-black text-slate-950">{{ $staffAssignments->count() }} cleaner{{ $staffAssignments->count() === 1 ? '' : 's' }} assigned</h2>
+                </div>
+                <span class="rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-700">{{ $isStaff ? 'Your assigned tasks' : 'Admin view' }}</span>
+            </div>
+            <div class="mt-4 grid gap-3 md:grid-cols-2">
+                @foreach($staffAssignments as $assignment)
+                @if($isAdmin || $myStaffAssignments->contains('id', $assignment->id))
+                <div class="rounded-xl border border-violet-100 bg-white p-3">
+                    <div class="font-bold text-slate-900">{{ $assignment->staff?->display_name ?? 'Assigned cleaner' }}</div>
+                    <div class="mt-1 text-sm font-semibold text-violet-700">{{ $assignment->taskGroupLabel() }}</div>
+                    @if($assignment->task_notes)
+                    <div class="mt-2 text-sm leading-5 text-slate-600">{{ $assignment->task_notes }}</div>
+                    @endif
+                </div>
+                @endif
+                @endforeach
+            </div>
+        </div>
+        @endif
 
         @if($booking->dispute_status)
             <div class="cleanflow-panel mb-6 border-l-4 {{ $booking->hasOpenDispute() ? 'border-red-400 bg-red-50/80' : 'border-slate-300 bg-slate-50/80' }} p-5">

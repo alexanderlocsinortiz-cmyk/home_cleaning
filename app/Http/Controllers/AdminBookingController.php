@@ -11,12 +11,14 @@ use App\Jobs\SendMarketplaceProviderAssignedEmail;
 use App\Jobs\SendProviderPayoutPaidEmail;
 use App\Models\AttendanceLog;
 use App\Models\Booking;
+use App\Models\BookingStaffAssignment;
 use App\Models\CleanerApplication;
 use App\Models\ProviderPayoutTransaction;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -32,11 +34,11 @@ class AdminBookingController extends Controller
             ? $request->get('filter')
             : '';
 
-        $activeBookingsQuery = Booking::with(['user', 'staff', 'cleanerApplication', 'service', 'payment', 'reviewedBy', 'preferredStaff'])
+        $activeBookingsQuery = Booking::with(['user', 'staff', 'staffAssignments.staff', 'cleanerApplication', 'service', 'payment', 'reviewedBy', 'preferredStaff'])
             ->withCount(['beforeServiceProofs', 'afterServiceProofs'])
             ->whereIn('status', ['pending', 'confirmed', 'in_progress']);
 
-        $completedBookingsQuery = Booking::with(['user', 'staff', 'cleanerApplication', 'service', 'payment', 'rating', 'reviewedBy', 'preferredStaff'])
+        $completedBookingsQuery = Booking::with(['user', 'staff', 'staffAssignments.staff', 'cleanerApplication', 'service', 'payment', 'rating', 'reviewedBy', 'preferredStaff'])
             ->whereIn('status', ['completed', 'cancelled']);
 
         $filteredActiveBookingsQuery = (clone $activeBookingsQuery)
@@ -202,7 +204,7 @@ class AdminBookingController extends Controller
 
     public function updateBookingStatus(Request $request, $id)
     {
-        $booking = Booking::with(['cleanerApplication.documents', 'payment'])->findOrFail($id);
+        $booking = Booking::with(['cleanerApplication.documents', 'payment', 'staffAssignments'])->findOrFail($id);
         $oldStaffId = $booking->staff_id;
         $oldStatus = $booking->status;
         $oldPaymentStatus = $booking->payment?->status ?? 'pending';
@@ -240,6 +242,16 @@ class AdminBookingController extends Controller
         if (Booking::requiresAssignedStaffForStatus($newStatus) && ! $newStaffId && ! $booking->hasAcceptedProviderAssignment()) {
             return back()->withErrors([
                 'staff_id' => 'Please assign a staff member or use an accepted marketplace provider before updating to this status.',
+            ]);
+        }
+
+        $requiredCleaners = max((int) ($booking->required_cleaners ?: 1), 1);
+        if (Booking::requiresAssignedStaffForStatus($newStatus)
+            && $requiredCleaners > 1
+            && ! $booking->hasAcceptedProviderAssignment()
+            && $booking->staffAssignments->count() !== $requiredCleaners) {
+            return back()->withErrors([
+                'assignments' => 'Assign all '.$requiredCleaners.' cleaners and their task groups before confirming this booking.',
             ]);
         }
 
@@ -422,6 +434,92 @@ class AdminBookingController extends Controller
         }
 
         return back()->with('success', $message);
+    }
+
+    public function updateBookingAssignments(Request $request, $id)
+    {
+        $booking = Booking::with('staffAssignments')->findOrFail($id);
+        $requiredCleaners = max((int) ($booking->required_cleaners ?: 1), 1);
+
+        if ($requiredCleaners <= 1) {
+            return back()->withErrors([
+                'assignments' => 'Task assignments are only needed when a booking requires more than one cleaner.',
+            ]);
+        }
+
+        if (in_array($booking->status, ['completed', 'cancelled'], true)) {
+            return back()->withErrors(['assignments' => 'Assignments cannot be changed after a booking is completed or cancelled.']);
+        }
+
+        if ($booking->requiresManualReview() || $booking->isReviewBlocked()) {
+            return back()->withErrors(['assignments' => 'Approve the booking review before assigning cleaners.']);
+        }
+
+        $validated = $request->validate([
+            'assignments' => ['required', 'array', 'size:'.$requiredCleaners],
+            'assignments.*.staff_id' => [
+                'required',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'staff')),
+            ],
+            'assignments.*.task_group' => ['required', Rule::in(array_keys(BookingStaffAssignment::TASK_GROUPS))],
+            'assignments.*.task_notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $assignments = collect($validated['assignments']);
+        $staffIds = $assignments->pluck('staff_id')->map(fn ($id) => (int) $id);
+
+        if ($staffIds->unique()->count() !== $requiredCleaners) {
+            return back()->withErrors(['assignments' => 'Each cleaner can only be assigned once to this booking.']);
+        }
+
+        foreach ($staffIds as $staffId) {
+            if (Booking::staffHasScheduleConflict(
+                $staffId,
+                $booking->scheduled_date,
+                $booking->scheduled_time,
+                $booking->id,
+                (int) $booking->duration_minutes
+            )) {
+                return back()->withErrors([
+                    'assignments' => 'One of the selected cleaners is unavailable for this schedule. Choose cleaners without another overlapping booking or rest-buffer conflict.',
+                ]);
+            }
+        }
+
+        $oldStaffIds = $booking->staffAssignments->pluck('staff_id')->map(fn ($id) => (int) $id)->all();
+        $actor = auth()->user();
+
+        DB::transaction(function () use ($booking, $assignments, $staffIds, $actor, $oldStaffIds): void {
+            $booking->staffAssignments()->delete();
+            foreach ($assignments as $assignment) {
+                $booking->staffAssignments()->create($assignment);
+            }
+
+            // Keep the legacy lead-cleaner column populated for existing workflows,
+            // emails, location tracking, and older mobile clients.
+            $booking->staff_id = $staffIds->first();
+            $booking->save();
+
+            $booking->logActivity($actor, 'staff_assignments_updated', 'Multi-cleaner task assignments updated.', [
+                'from_staff_ids' => $oldStaffIds,
+                'to_staff_ids' => $staffIds->values()->all(),
+                'assignment_count' => $assignments->count(),
+            ]);
+        });
+
+        $booking->load(['staffAssignments.staff', 'user']);
+        foreach ($booking->staffAssignments as $assignment) {
+            $this->createNotification([
+                'user_id' => $assignment->staff_id,
+                'title' => 'Multi-cleaner booking assigned',
+                'message' => 'Booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' assigned task: '.$assignment->taskGroupLabel().'.',
+                'type' => 'info',
+                'link' => route('staff.bookings'),
+            ]);
+        }
+
+        return back()->with('success', 'All '.$requiredCleaners.' cleaners and their task groups have been assigned.');
     }
 
     public function updateBookingPayment(Request $request, $id)
@@ -828,6 +926,7 @@ class AdminBookingController extends Controller
 
         if ($reviewStatus === 'blocked') {
             $booking->staff_id = null;
+            $booking->staffAssignments()->delete();
 
             if (! in_array($booking->status, ['completed', 'cancelled'], true)) {
                 $booking->status = 'cancelled';
@@ -842,7 +941,7 @@ class AdminBookingController extends Controller
 
         $message = $reviewStatus === 'approved'
             ? 'Booking cleared for normal scheduling and confirmation.'
-            : 'Booking declined during manual review and removed from the active queue.';
+            : 'Booking blocked during manual review and removed from the active queue.';
 
         return back()->with('success', $message);
     }

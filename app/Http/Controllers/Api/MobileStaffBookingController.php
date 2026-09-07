@@ -182,7 +182,7 @@ class MobileStaffBookingController extends Controller
 
     private function assignedBookingQuery(int $staffId)
     {
-        return Booking::with(['user', 'rating', 'service', 'payment'])
+        return Booking::with(['user', 'rating', 'service', 'payment', 'staffAssignments.staff'])
             ->withCount([
                 'serviceProofs as before_photo_count' => fn ($proofs) => $proofs
                     ->where('stage', 'before')
@@ -194,7 +194,7 @@ class MobileStaffBookingController extends Controller
                     ->where('stage', 'after')
                     ->where('media_type', 'video'),
             ])
-            ->where('staff_id', $staffId)
+            ->assignedToStaff($staffId)
             ->whereIn('status', ['confirmed', 'in_progress', 'completed', 'cancelled']);
     }
 
@@ -220,6 +220,14 @@ class MobileStaffBookingController extends Controller
             'before_photo_count' => (int) ($booking->before_photo_count ?? 0),
             'after_photo_count' => (int) ($booking->after_photo_count ?? 0),
             'completion_video_count' => (int) ($booking->completion_video_count ?? 0),
+            'required_cleaners' => (int) ($booking->required_cleaners ?: 1),
+            'my_tasks' => $booking->staffAssignments
+                ->filter(fn ($assignment) => (int) $assignment->staff_id === (int) request()->user()?->id)
+                ->map(fn ($assignment) => [
+                    'task_group' => $assignment->task_group,
+                    'task_label' => $assignment->taskGroupLabel(),
+                    'notes' => $assignment->task_notes,
+                ])->values()->all(),
             'has_client_pin' => $booking->service_latitude !== null && $booking->service_longitude !== null,
             'payment_method' => $booking->payment_method,
             'payment_status' => $booking->payment_status,
@@ -247,7 +255,7 @@ class MobileStaffBookingController extends Controller
             ], 403));
         }
 
-        if ((int) $booking->staff_id !== (int) $staff->id) {
+        if (! $booking->isAssignedToStaff((int) $staff->id)) {
             abort(response()->json([
                 'message' => 'This booking is not assigned to your staff account.',
             ], 403));

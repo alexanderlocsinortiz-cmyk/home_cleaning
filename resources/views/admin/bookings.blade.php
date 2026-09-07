@@ -627,35 +627,82 @@
                                         </div>
                                     </div>
                                 @endif
+                                @if((int) ($booking->required_cleaners ?? 1) > 1)
+                                    <form action="{{ route('admin.bookings.assignments', $booking->id) }}" method="POST" class="mt-3 space-y-3 rounded-xl border border-violet-200 bg-violet-50/40 p-3">
+                                        @csrf
+                                        @method('PATCH')
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div>
+                                                <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-violet-700">Specialist task plan</div>
+                                                <p class="mt-1 text-[11px] leading-4 text-slate-600">This booking needs {{ $booking->required_cleaners }} cleaners. Assign each cleaner one work group before confirming it.</p>
+                                            </div>
+                                            <span class="rounded-full bg-violet-100 px-2 py-1 text-[10px] font-bold text-violet-700">{{ $booking->staffAssignments->count() }}/{{ $booking->required_cleaners }}</span>
+                                        </div>
+                                        @foreach(range(0, max((int) $booking->required_cleaners - 1, 0)) as $assignmentIndex)
+                                            @php $assignment = $booking->staffAssignments->values()->get($assignmentIndex); @endphp
+                                            <div class="rounded-lg border border-violet-100 bg-white p-2.5">
+                                                <div class="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Cleaner {{ $assignmentIndex + 1 }}</div>
+                                                <div class="grid gap-2 sm:grid-cols-2">
+                                                    <select name="assignments[{{ $assignmentIndex }}][staff_id]" {{ $reviewLocked ? 'disabled' : '' }} class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-violet-500 focus:outline-hidden {{ $reviewLocked ? 'bg-slate-100 text-slate-400' : '' }}">
+                                                        <option value="">Choose cleaner</option>
+                                                        @foreach($staffList as $staff)
+                                                            @php
+                                                                $staffBusyForSlot = in_array($staff->id, $booking->busy_staff_ids ?? [], true);
+                                                                $isCurrentAssignment = (int) ($assignment?->staff_id ?? 0) === (int) $staff->id;
+                                                                $staffAvailableForAssignment = $isCurrentAssignment || (! $staffBusyForSlot && (! $bookingIsToday || $staff->is_present));
+                                                            @endphp
+                                                            @if($staffAvailableForAssignment)
+                                                                <option value="{{ $staff->id }}" {{ $isCurrentAssignment ? 'selected' : '' }}>{{ $staff->display_name }}{{ $booking->preferred_staff_id === $staff->id ? ' (Requested)' : '' }}</option>
+                                                            @elseif($staffBusyForSlot)
+                                                                <option value="{{ $staff->id }}" disabled>{{ $staff->display_name }} (Busy)</option>
+                                                            @endif
+                                                        @endforeach
+                                                    </select>
+                                                    <select name="assignments[{{ $assignmentIndex }}][task_group]" {{ $reviewLocked ? 'disabled' : '' }} class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-violet-500 focus:outline-hidden {{ $reviewLocked ? 'bg-slate-100 text-slate-400' : '' }}">
+                                                        <option value="">Choose work group</option>
+                                                        @foreach(\App\Models\BookingStaffAssignment::TASK_GROUPS as $taskKey => $taskLabel)
+                                                            <option value="{{ $taskKey }}" {{ ($assignment?->task_group ?? '') === $taskKey ? 'selected' : '' }}>{{ $taskLabel }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <input type="text" name="assignments[{{ $assignmentIndex }}][task_notes]" value="{{ $assignment?->task_notes }}" {{ $reviewLocked ? 'disabled' : '' }} placeholder="Optional instructions for this cleaner" class="mt-2 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-violet-500 focus:outline-hidden {{ $reviewLocked ? 'bg-slate-100 text-slate-400' : '' }}">
+                                            </div>
+                                        @endforeach
+                                        <button type="submit" {{ $reviewLocked ? 'disabled' : '' }} class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-700 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-slate-300">
+                                            <i class="fas fa-users-gear"></i>
+                                            Save specialist assignments
+                                        </button>
+                                    </form>
+                                @endif
                                 <form action="{{ route('admin.bookings.status', $booking->id) }}" method="POST" class="mt-3 space-y-3 rounded-xl border border-slate-200 bg-white p-3">
                                     @csrf
                                     @method('PATCH')
-                                    <div>
-                                        <label class="mb-1 block px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Staff</label>
-                                        <select name="staff_id" {{ $reviewLocked ? 'disabled' : '' }} class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden {{ $reviewLocked ? 'bg-slate-100 text-slate-400' : '' }}">
-                                            <option value="" {{ $booking->staff_id ? '' : 'selected' }}>Unassigned</option>
-                                            @foreach($staffList as $staff)
-                                                @php
-                                                    $staffBusyForSlot = in_array($staff->id, $booking->busy_staff_ids ?? [], true);
-                                                    $staffAvailableForAssignment = ! $staffBusyForSlot
-                                                        && (! $bookingIsToday || $staff->is_present);
-                                                @endphp
-                                                @if($staffAvailableForAssignment)
-                                                    <option value="{{ $staff->id }}" {{ $booking->staff_id === $staff->id ? 'selected' : '' }}>
-                                                        {{ $staff->display_name }}{{ $booking->preferred_staff_id === $staff->id ? ' (Requested)' : '' }}
-                                                    </option>
-                                                @elseif($staffBusyForSlot)
-                                                    <option value="{{ $staff->id }}" disabled>
-                                                        {{ $staff->display_name }}{{ $booking->preferred_staff_id === $staff->id ? ' (Requested, Busy)' : ' (Busy)' }}
-                                                    </option>
-                                                @elseif($booking->staff_id === $staff->id)
-                                                    <option value="{{ $staff->id }}" selected>
-                                                        {{ $staff->display_name }}{{ $booking->preferred_staff_id === $staff->id ? ' (Requested, Absent)' : ' (Absent)' }}
-                                                    </option>
-                                                @endif
-                                            @endforeach
-                                        </select>
-                                    </div>
+                                    @if((int) ($booking->required_cleaners ?? 1) > 1)
+                                        <div class="rounded-lg border border-violet-100 bg-violet-50 px-2.5 py-2 text-[11px] text-violet-800">
+                                            <div class="font-bold">Multi-cleaner assignment</div>
+                                            <div class="mt-1">Use the specialist task plan above. The first assigned cleaner remains the lead for existing notifications and tracking.</div>
+                                        </div>
+                                    @else
+                                        <div>
+                                            <label class="mb-1 block px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Staff</label>
+                                            <select name="staff_id" {{ $reviewLocked ? 'disabled' : '' }} class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden {{ $reviewLocked ? 'bg-slate-100 text-slate-400' : '' }}">
+                                                <option value="" {{ $booking->staff_id ? '' : 'selected' }}>Unassigned</option>
+                                                @foreach($staffList as $staff)
+                                                    @php
+                                                        $staffBusyForSlot = in_array($staff->id, $booking->busy_staff_ids ?? [], true);
+                                                        $staffAvailableForAssignment = ! $staffBusyForSlot && (! $bookingIsToday || $staff->is_present);
+                                                    @endphp
+                                                    @if($staffAvailableForAssignment)
+                                                        <option value="{{ $staff->id }}" {{ $booking->staff_id === $staff->id ? 'selected' : '' }}>{{ $staff->display_name }}{{ $booking->preferred_staff_id === $staff->id ? ' (Requested)' : '' }}</option>
+                                                    @elseif($staffBusyForSlot)
+                                                        <option value="{{ $staff->id }}" disabled>{{ $staff->display_name }}{{ $booking->preferred_staff_id === $staff->id ? ' (Requested, Busy)' : ' (Busy)' }}</option>
+                                                    @elseif($booking->staff_id === $staff->id)
+                                                        <option value="{{ $staff->id }}" selected>{{ $staff->display_name }}{{ $booking->preferred_staff_id === $staff->id ? ' (Requested, Absent)' : ' (Absent)' }}</option>
+                                                    @endif
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    @endif
                                     <div>
                                         <label class="mb-1 block px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Status</label>
                                         <select name="status" {{ $reviewLocked ? 'disabled' : '' }} class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden {{ $reviewLocked ? 'bg-slate-100 text-slate-400' : '' }}">

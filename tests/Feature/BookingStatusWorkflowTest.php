@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Booking;
+use App\Models\BookingStaffAssignment;
 use App\Models\BookingServiceProof;
 use App\Models\CleanerApplication;
 use App\Models\Notification;
@@ -18,6 +19,79 @@ use Tests\TestCase;
 class BookingStatusWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_admin_can_assign_specialist_tasks_to_every_required_cleaner(): void
+    {
+        $admin = $this->createUser('admin', 'admin-specialists@example.com', 'adminspecialists');
+        $client = $this->createUser('client', 'client-specialists@example.com', 'clientspecialists');
+        $firstStaff = $this->createUser('staff', 'staff-specialist-one@example.com', 'staffspecialistone');
+        $secondStaff = $this->createUser('staff', 'staff-specialist-two@example.com', 'staffspecialisttwo');
+        $booking = $this->createBooking($client, null, 'pending', null, '09:00', 120);
+        $booking->forceFill(['required_cleaners' => 2])->save();
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.assignments', $booking->id), [
+                'assignments' => [
+                    ['staff_id' => $firstStaff->id, 'task_group' => 'kitchen_bathroom', 'task_notes' => 'Start with the kitchen.'],
+                    ['staff_id' => $secondStaff->id, 'task_group' => 'floors_surfaces', 'task_notes' => 'Finish floors and surfaces.'],
+                ],
+            ]);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHas('success', 'All 2 cleaners and their task groups have been assigned.');
+        $this->assertDatabaseHas('booking_staff_assignments', [
+            'booking_id' => $booking->id,
+            'staff_id' => $firstStaff->id,
+            'task_group' => 'kitchen_bathroom',
+        ]);
+        $this->assertDatabaseHas('booking_staff_assignments', [
+            'booking_id' => $booking->id,
+            'staff_id' => $secondStaff->id,
+            'task_group' => 'floors_surfaces',
+        ]);
+        $this->assertSame($firstStaff->id, $booking->fresh()->staff_id);
+    }
+
+    public function test_multi_cleaner_booking_cannot_be_confirmed_until_all_specialists_are_assigned(): void
+    {
+        $admin = $this->createUser('admin', 'admin-specialist-confirm@example.com', 'adminspecialistconfirm');
+        $client = $this->createUser('client', 'client-specialist-confirm@example.com', 'clientspecialistconfirm');
+        $staff = $this->createUser('staff', 'staff-specialist-confirm@example.com', 'staffspecialistconfirm');
+        $booking = $this->createBooking($client, null, 'pending');
+        $booking->forceFill(['required_cleaners' => 2])->save();
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.status', $booking->id), [
+                'status' => 'confirmed',
+                'staff_id' => $staff->id,
+            ]);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHasErrors('assignments');
+        $this->assertSame('pending', $booking->fresh()->status);
+        $this->assertSame(0, BookingStaffAssignment::where('booking_id', $booking->id)->count());
+    }
+
+    public function test_assigned_specialist_can_view_the_multi_cleaner_booking(): void
+    {
+        $client = $this->createUser('client', 'client-specialist-view@example.com', 'clientspecialistview');
+        $firstStaff = $this->createUser('staff', 'staff-specialist-view-one@example.com', 'staffspecialistviewone');
+        $secondStaff = $this->createUser('staff', 'staff-specialist-view-two@example.com', 'staffspecialistviewtwo');
+        $booking = $this->createBooking($client, $firstStaff, 'confirmed');
+        $booking->forceFill(['required_cleaners' => 2])->save();
+        $booking->staffAssignments()->createMany([
+            ['staff_id' => $firstStaff->id, 'task_group' => 'kitchen_bathroom'],
+            ['staff_id' => $secondStaff->id, 'task_group' => 'floors_surfaces'],
+        ]);
+
+        $response = $this->actingAs($secondStaff)->get(route('staff.bookings'));
+
+        $response->assertOk();
+        $response->assertSee('Floors and surfaces');
+        $response->assertDontSee('Kitchen and bathroom');
+    }
 
     public function test_admin_cannot_confirm_a_booking_without_assigning_staff(): void
     {

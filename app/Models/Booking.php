@@ -1010,6 +1010,27 @@ class Booking extends Model
         return $this->belongsTo(User::class, 'staff_id');
     }
 
+    public function staffAssignments()
+    {
+        return $this->hasMany(BookingStaffAssignment::class)->orderBy('id');
+    }
+
+    public function isAssignedToStaff(int $staffId): bool
+    {
+        return (int) $this->staff_id === $staffId
+            || ($this->relationLoaded('staffAssignments')
+                ? $this->staffAssignments->contains(fn ($assignment) => (int) $assignment->staff_id === $staffId)
+                : $this->staffAssignments()->where('staff_id', $staffId)->exists());
+    }
+
+    public function scopeAssignedToStaff(Builder $query, int $staffId): Builder
+    {
+        return $query->where(function (Builder $query) use ($staffId) {
+            $query->where('staff_id', $staffId)
+                ->orWhereHas('staffAssignments', fn (Builder $assignments) => $assignments->where('staff_id', $staffId));
+        });
+    }
+
     public function cleanerApplication()
     {
         return $this->belongsTo(CleanerApplication::class);
@@ -1611,7 +1632,7 @@ class Booking extends Model
 
     public function canUseLiveVideo(): bool
     {
-        return $this->status === 'in_progress' && $this->staff_id !== null;
+        return $this->status === 'in_progress' && ($this->staff_id !== null || $this->staffAssignments()->exists());
     }
 
     public function dailyRoomIsActive(): bool
@@ -1631,7 +1652,7 @@ class Booking extends Model
         return match ($user->role) {
             'admin' => true,
             'client' => (int) $this->user_id === (int) $user->id,
-            'staff' => (int) $this->staff_id === (int) $user->id,
+            'staff' => $this->isAssignedToStaff((int) $user->id),
             default => false,
         };
     }
@@ -1643,7 +1664,7 @@ class Booking extends Model
         }
 
         return $user->role === 'admin'
-            || ($user->role === 'staff' && (int) $this->staff_id === (int) $user->id);
+            || ($user->role === 'staff' && $this->isAssignedToStaff((int) $user->id));
     }
 
     public function expectedServiceStart(): Carbon
@@ -1935,15 +1956,16 @@ class Booking extends Model
     ): array {
         return self::query()
             ->whereIn('status', self::staffAssignmentConflictStatuses())
-            ->whereNotNull('staff_id')
             ->whereDate('scheduled_date', self::normalizeScheduleDate($scheduledDate))
             ->when(
                 $exceptBookingId !== null,
                 fn (Builder $query) => $query->where('id', '!=', $exceptBookingId)
             )
+            ->with('staffAssignments:id,booking_id,staff_id')
             ->get(['id', 'staff_id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'status', 'updated_at'])
             ->filter(fn (Booking $booking) => self::staffBookingConflictsWithSchedule($booking, $scheduledDate, $scheduledTime, $targetDurationMinutes))
-            ->pluck('staff_id')
+            ->flatMap(fn (Booking $booking) => collect([$booking->staff_id])->merge($booking->staffAssignments->pluck('staff_id')))
+            ->filter()
             ->map(fn ($staffId) => (int) $staffId)
             ->unique()
             ->values()
@@ -1958,14 +1980,15 @@ class Booking extends Model
         ?int $targetDurationMinutes = null
     ): ?self {
         return self::query()
-            ->where('staff_id', $staffId)
             ->whereIn('status', self::staffAssignmentConflictStatuses())
             ->whereDate('scheduled_date', self::normalizeScheduleDate($scheduledDate))
             ->when(
                 $exceptBookingId !== null,
                 fn (Builder $query) => $query->where('id', '!=', $exceptBookingId)
             )
+            ->with('staffAssignments:id,booking_id,staff_id')
             ->get(['id', 'staff_id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'status', 'updated_at'])
+            ->filter(fn (Booking $booking) => $booking->isAssignedToStaff($staffId))
             ->first(fn (Booking $booking) => self::staffBookingConflictsWithSchedule($booking, $scheduledDate, $scheduledTime, $targetDurationMinutes));
     }
 

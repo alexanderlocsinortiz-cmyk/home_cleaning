@@ -155,6 +155,7 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::delete('/customers/{customer}', [AdminCustomerController::class, 'destroy'])->name('customers.destroy');
         Route::get('/bookings', [AdminBookingController::class, 'bookings'])->name('bookings');
         Route::patch('/bookings/{id}/status', [AdminBookingController::class, 'updateBookingStatus'])->middleware('throttle:30,1')->name('bookings.status');
+        Route::patch('/bookings/{id}/assignments', [AdminBookingController::class, 'updateBookingAssignments'])->middleware('throttle:30,1')->name('bookings.assignments');
         Route::patch('/bookings/{id}/provider', [AdminBookingController::class, 'updateBookingProvider'])->middleware('throttle:30,1')->name('bookings.provider');
         Route::patch('/bookings/{id}/payment', [AdminBookingController::class, 'updateBookingPayment'])->middleware('throttle:30,1')->name('bookings.payment');
         Route::patch('/bookings/{id}/cash-payment-proof/review', [AdminBookingController::class, 'reviewCashPaymentProof'])->middleware('throttle:30,1')->name('bookings.cash-payment-proof.review');

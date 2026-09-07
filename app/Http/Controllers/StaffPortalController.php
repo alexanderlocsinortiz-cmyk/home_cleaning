@@ -19,7 +19,7 @@ class StaffPortalController extends Controller
         $user = Auth::user();
 
         // ✅ Eager load to avoid N+1 queries
-        $assignedBookings = Booking::with(['user', 'rating', 'service', 'payment'])
+        $assignedBookings = Booking::with(['user', 'rating', 'service', 'payment', 'staffAssignments.staff'])
             ->select([
                 'id',
                 'user_id',
@@ -30,14 +30,14 @@ class StaffPortalController extends Controller
                 'scheduled_time',
                 'price',
             ])
-            ->where('staff_id', $user->id)
+            ->assignedToStaff($user->id)
             ->whereIn('status', ['confirmed', 'in_progress'])
             ->orderBy('scheduled_date')
             ->orderBy('scheduled_time')
             ->get();
 
         // ✅ Use aggregates instead of multiple queries
-        $stats = Booking::where('staff_id', $user->id)
+        $stats = Booking::assignedToStaff($user->id)
             ->selectRaw("
                 COUNT(*) as total_bookings,
                 SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_bookings,
@@ -54,7 +54,7 @@ class StaffPortalController extends Controller
         $totalEarnings = $stats->total_earnings ?? 0;
 
         // ✅ Use withAvg to get rating in one query
-        $ratingStats = Booking::where('staff_id', $user->id)
+        $ratingStats = Booking::assignedToStaff($user->id)
             ->withAvg('rating', 'stars')
             ->withCount('rating')
             ->first();
@@ -86,7 +86,7 @@ class StaffPortalController extends Controller
         ]);
 
         $booking = Booking::where('id', $id)
-            ->where('staff_id', Auth::id())
+            ->assignedToStaff(Auth::id())
             ->firstOrFail();
 
         if (! $booking->canBeUpdatedByStaffTo($validated['status'])) {
@@ -268,7 +268,7 @@ class StaffPortalController extends Controller
         $user = Auth::user();
         $status = $request->get('status', 'all');
 
-        $query = Booking::with(['user', 'rating', 'service', 'payment', 'serviceProofs'])
+        $query = Booking::with(['user', 'rating', 'service', 'payment', 'serviceProofs', 'staffAssignments.staff'])
             ->withCount([
                 'serviceProofs as before_photo_count' => fn ($proofs) => $proofs
                     ->where('stage', 'before')
@@ -280,7 +280,7 @@ class StaffPortalController extends Controller
                     ->where('stage', 'after')
                     ->where('media_type', 'video'),
             ])
-            ->where('staff_id', $user->id)
+            ->assignedToStaff($user->id)
             ->orderBy('scheduled_date', 'desc');
 
         if ($status !== 'all') {
@@ -290,11 +290,11 @@ class StaffPortalController extends Controller
         $bookings = $query->paginate(10);
 
         $counts = [
-            'all' => Booking::where('staff_id', $user->id)->count(),
-            'confirmed' => Booking::where('staff_id', $user->id)->where('status', 'confirmed')->count(),
-            'in_progress' => Booking::where('staff_id', $user->id)->where('status', 'in_progress')->count(),
-            'completed' => Booking::where('staff_id', $user->id)->where('status', 'completed')->count(),
-            'cancelled' => Booking::where('staff_id', $user->id)->where('status', 'cancelled')->count(),
+            'all' => Booking::assignedToStaff($user->id)->count(),
+            'confirmed' => Booking::assignedToStaff($user->id)->where('status', 'confirmed')->count(),
+            'in_progress' => Booking::assignedToStaff($user->id)->where('status', 'in_progress')->count(),
+            'completed' => Booking::assignedToStaff($user->id)->where('status', 'completed')->count(),
+            'cancelled' => Booking::assignedToStaff($user->id)->where('status', 'cancelled')->count(),
         ];
 
         return view('staff.bookings', compact('bookings', 'status', 'counts', 'user'));
@@ -306,7 +306,7 @@ class StaffPortalController extends Controller
 
         // All completed bookings with ratings
         $completedBookings = Booking::with(['rating', 'service', 'user', 'payment'])
-            ->where('staff_id', $user->id)
+            ->assignedToStaff($user->id)
             ->where('status', 'completed')
             ->orderBy('updated_at', 'desc')
             ->get();
@@ -323,7 +323,7 @@ class StaffPortalController extends Controller
         }
 
         // Overall stats
-        $totalBookings = Booking::where('staff_id', $user->id)->count();
+        $totalBookings = Booking::assignedToStaff($user->id)->count();
         $completedCount = $completedBookings->count();
         $completionRate = $totalBookings > 0 ? round(($completedCount / $totalBookings) * 100, 1) : 0;
         $totalEarnings = $completedBookings->sum('price');
@@ -358,8 +358,8 @@ class StaffPortalController extends Controller
     {
         $user = Auth::user();
 
-        $bookings = Booking::with(['user', 'service', 'payment'])
-            ->where('staff_id', $user->id)
+        $bookings = Booking::with(['user', 'service', 'payment', 'staffAssignments.staff'])
+            ->assignedToStaff($user->id)
             ->whereIn('status', ['confirmed', 'in_progress'])
             ->whereDate('scheduled_date', '>=', now()->startOfMonth())
             ->whereDate('scheduled_date', '<=', now()->endOfMonth()->addMonth())

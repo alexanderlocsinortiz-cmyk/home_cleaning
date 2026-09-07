@@ -95,6 +95,7 @@
         $beforeProofs = $booking->serviceProofs->where('stage', 'before')->where('media_type', 'image')->values();
         $afterProofs = $booking->serviceProofs->where('stage', 'after')->where('media_type', 'image')->values();
         $completionVideos = $booking->serviceProofs->where('stage', 'after')->where('media_type', 'video')->values();
+        $myTasks = $booking->staffAssignments->filter(fn ($assignment) => (int) $assignment->staff_id === (int) $user->id)->values();
       @endphp
       <article class="booking-card">
         <div class="booking-card-main">
@@ -107,8 +108,9 @@
             <div class="booking-card-status">
               <span class="cf-badge badge-{{ $booking->status }}">{{ ucfirst(str_replace('_', ' ', $booking->status)) }}</span>
               <span class="sb-price">&#8369;{{ number_format($booking->price, 2) }}</span>
-            </div>
           </div>
+
+        </div>
 
           <div class="booking-info-grid">
             <section class="booking-info-block">
@@ -150,6 +152,22 @@
               @endif
             </section>
           </div>
+
+          @if($myTasks->count())
+          <div class="mt-4 rounded-xl border border-violet-100 bg-violet-50/60 p-3">
+            <div class="mb-2 text-xs font-bold uppercase tracking-[0.12em] text-violet-700">Your assigned work</div>
+            <div class="space-y-2">
+              @foreach($myTasks as $task)
+              <div class="rounded-lg border border-violet-100 bg-white px-3 py-2 text-xs text-slate-700">
+                <div class="font-bold text-slate-900">{{ $task->taskGroupLabel() }}</div>
+                @if($task->task_notes)
+                <div class="mt-1 leading-5 text-slate-600">{{ $task->task_notes }}</div>
+                @endif
+              </div>
+              @endforeach
+            </div>
+          </div>
+          @endif
 
           @if($hasClientPin)
           <div id="staff-route-panel-{{ $booking->id }}" class="staff-route-panel hidden">

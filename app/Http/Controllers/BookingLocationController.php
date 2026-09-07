@@ -24,7 +24,7 @@ class BookingLocationController extends Controller
         }
 
         // Only allow staff who is assigned to this booking
-        if ($user->role === 'staff' && $booking->staff_id !== $user->id) {
+        if ($user->role === 'staff' && ! $booking->isAssignedToStaff((int) $user->id)) {
             abort(403, 'You are not allowed to view this location.');
         }
 
@@ -81,7 +81,7 @@ class BookingLocationController extends Controller
             abort(403, 'Only staff can share location.');
         }
 
-        if ($booking->staff_id !== $user->id) {
+        if (! $booking->isAssignedToStaff((int) $user->id)) {
             abort(403, 'You are not assigned to this booking.');
         }
 

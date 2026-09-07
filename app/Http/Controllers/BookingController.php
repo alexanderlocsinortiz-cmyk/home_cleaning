@@ -499,6 +499,7 @@ class BookingController extends Controller
     {
         $booking = Booking::with([
             'staff',
+            'staffAssignments.staff',
             'user',
             'rating',
             'service',
@@ -516,7 +517,7 @@ class BookingController extends Controller
             abort(403);
         }
 
-        if ($user->role === 'staff' && $booking->staff_id !== $user->id) {
+        if ($user->role === 'staff' && ! $booking->isAssignedToStaff((int) $user->id)) {
             abort(403);
         }
 
@@ -648,14 +649,14 @@ class BookingController extends Controller
 
     public function receipt($id)
     {
-        $booking = Booking::with(['staff', 'user', 'service', 'payment.collector'])->findOrFail($id);
+        $booking = Booking::with(['staff', 'staffAssignments', 'user', 'service', 'payment.collector'])->findOrFail($id);
         $user = auth()->user();
 
         if ($user->role === 'client' && $booking->user_id !== $user->id) {
             abort(403);
         }
 
-        if ($user->role === 'staff' && $booking->staff_id !== $user->id) {
+        if ($user->role === 'staff' && ! $booking->isAssignedToStaff((int) $user->id)) {
             abort(403);
         }
 
@@ -932,7 +933,7 @@ class BookingController extends Controller
         return match ($user->role) {
             'admin' => true,
             'client' => (int) $booking->user_id === (int) $user->id,
-            'staff' => (int) $booking->staff_id === (int) $user->id,
+            'staff' => $booking->isAssignedToStaff((int) $user->id),
             'provider' => $user->cleanerApplication
                 && $user->cleanerApplication->status === CleanerApplication::STATUS_APPROVED
                 && $user->cleanerApplication->activated_at
