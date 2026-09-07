@@ -54,6 +54,8 @@ class StoreBookingRequest extends FormRequest
             'floor_area' => 'required|integer|min:10|max:1000',
             'add_ons' => 'nullable|array',
             'add_ons.*' => ['string', Rule::in($validAddOns)],
+            'add_on_quantities' => 'nullable|array',
+            'add_on_quantities.*' => 'nullable|integer|min:1|max:50',
             'payment_method' => ['required', Rule::in($paymentMethods)],
             'service_plan' => ['required', Rule::in($servicePlans)],
             'subscription_frequency' => [

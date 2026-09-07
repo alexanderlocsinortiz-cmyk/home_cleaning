@@ -35,6 +35,7 @@ class MobileServiceController extends Controller
                     'price' => (float) $addOn['price'],
                     'description' => $addOn['description'] ?? '',
                     'pricing_unit' => $addOn['pricing_unit'] ?? Booking::ADD_ON_PRICING_UNIT,
+                    'quantity_supported' => ($addOn['pricing_unit'] ?? Booking::ADD_ON_PRICING_UNIT) !== Booking::ADD_ON_PRICING_UNIT,
                 ])
                 ->values(),
             'payment_methods' => collect(Booking::paymentMethods())
@@ -70,7 +71,8 @@ class MobileServiceController extends Controller
             $validated['rooms'] ?? 1,
             $validated['bathrooms'] ?? 1,
             $validated['floor_area'],
-            $validated['add_ons'] ?? []
+            $validated['add_ons'] ?? [],
+            $validated['add_on_quantities'] ?? []
         );
 
         return response()->json([

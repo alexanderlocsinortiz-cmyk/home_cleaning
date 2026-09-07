@@ -31,6 +31,8 @@ class CalculatePriceRequest extends FormRequest
             'floor_area' => 'required|integer|min:10|max:1000',
             'add_ons' => 'nullable|array',
             'add_ons.*' => ['string', Rule::in($validAddOns)],
+            'add_on_quantities' => 'nullable|array',
+            'add_on_quantities.*' => 'nullable|integer|min:1|max:50',
         ];
     }
 

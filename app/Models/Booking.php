@@ -315,9 +315,10 @@ class Booking extends Model
             'description' => 'Interior glass panels and reachable windows.',
         ],
         'refrigerator' => [
-            'label' => 'Refrigerator Cleaning',
+            'label' => 'Refrigerator Interior Cleaning – Small',
             'price' => 350.0,
-            'description' => 'Deep wipe-down for the inside of the refrigerator.',
+            'description' => 'Interior cleaning for a small refrigerator.',
+            'pricing_unit' => 'per unit',
         ],
         'inside_cabinets' => [
             'label' => 'Inside Cabinet Cleaning',
@@ -328,6 +329,54 @@ class Booking extends Model
             'label' => 'Sofa Vacuuming',
             'price' => 400.0,
             'description' => 'Dust and crumb removal for fabric seating.',
+        ],
+        'sofa_deep_cleaning' => [
+            'label' => 'Sofa Deep Cleaning',
+            'price' => 300.0,
+            'description' => 'Deep cleaning for fabric sofa seats.',
+            'pricing_unit' => 'per seat',
+        ],
+        'mattress_single' => [
+            'label' => 'Mattress Cleaning – Single',
+            'price' => 900.0,
+            'description' => 'Deep cleaning for one single mattress.',
+            'pricing_unit' => 'per mattress',
+        ],
+        'mattress_double' => [
+            'label' => 'Mattress Cleaning – Double',
+            'price' => 1200.0,
+            'description' => 'Deep cleaning for one double mattress.',
+            'pricing_unit' => 'per mattress',
+        ],
+        'mattress_queen' => [
+            'label' => 'Mattress Cleaning – Queen',
+            'price' => 1500.0,
+            'description' => 'Deep cleaning for one queen mattress.',
+            'pricing_unit' => 'per mattress',
+        ],
+        'mattress_king' => [
+            'label' => 'Mattress Cleaning – King',
+            'price' => 1800.0,
+            'description' => 'Deep cleaning for one king mattress.',
+            'pricing_unit' => 'per mattress',
+        ],
+        'refrigerator_regular' => [
+            'label' => 'Refrigerator Interior Cleaning – Regular',
+            'price' => 650.0,
+            'description' => 'Interior cleaning for a regular two-door refrigerator.',
+            'pricing_unit' => 'per unit',
+        ],
+        'carpet_small' => [
+            'label' => 'Carpet Cleaning – Small',
+            'price' => 800.0,
+            'description' => 'Cleaning for a carpet below 2×3 meters.',
+            'pricing_unit' => 'per carpet',
+        ],
+        'closet_cleaning' => [
+            'label' => 'Closet Cleaning & Arrangement',
+            'price' => 150.0,
+            'description' => 'Cleaning and arrangement for one cabinet or closet.',
+            'pricing_unit' => 'per cabinet/closet',
         ],
         'pet_hair_removal' => [
             'label' => 'Pet Hair Removal',
@@ -353,6 +402,7 @@ class Booking extends Model
         'bathrooms',
         'floor_area',
         'add_ons',
+        'add_on_quantities',
         'barangay',
         'street_address',
         'service_latitude',
@@ -442,6 +492,7 @@ class Booking extends Model
 
     protected $casts = [
         'add_ons' => 'array',
+        'add_on_quantities' => 'array',
         'risk_reasons' => 'array',
         'scheduled_date' => 'date',
         'reviewed_at' => 'datetime',
@@ -1513,7 +1564,7 @@ class Booking extends Model
             if ($catalog !== []) {
                 return collect($catalog)
                     ->map(fn (array $addOn) => array_merge($addOn, [
-                        'pricing_unit' => self::ADD_ON_PRICING_UNIT,
+                        'pricing_unit' => $addOn['pricing_unit'] ?? self::ADD_ON_PRICING_UNIT,
                     ]))
                     ->all();
             }
@@ -1522,13 +1573,13 @@ class Booking extends Model
         return $activeOnly
             ? collect(self::ADD_ON_CATALOG)
                 ->map(fn (array $addOn) => array_merge($addOn, [
-                    'pricing_unit' => self::ADD_ON_PRICING_UNIT,
+                    'pricing_unit' => $addOn['pricing_unit'] ?? self::ADD_ON_PRICING_UNIT,
                 ]))
                 ->all()
             : collect(self::ADD_ON_CATALOG)
                 ->map(fn (array $addOn) => array_merge($addOn, [
                     'is_active' => true,
-                    'pricing_unit' => self::ADD_ON_PRICING_UNIT,
+                    'pricing_unit' => $addOn['pricing_unit'] ?? self::ADD_ON_PRICING_UNIT,
                 ]))
                 ->all();
     }
@@ -1551,21 +1602,49 @@ class Booking extends Model
             ->all();
     }
 
-    public static function addOnBreakdown(mixed $addOns): array
+    public static function normalizeAddOnQuantities(mixed $quantities, mixed $addOns = []): array
     {
         $catalog = self::addOnCatalog(false);
-
-        return collect(is_array($addOns) ? $addOns : [])
+        $selected = collect(is_array($addOns) ? $addOns : [])
             ->filter(fn ($key) => is_string($key) && array_key_exists($key, $catalog))
             ->unique()
             ->values()
-            ->map(function (string $key) {
+            ->all();
+        $input = is_array($quantities) ? $quantities : [];
+
+        return collect($selected)
+            ->mapWithKeys(function (string $key) use ($input, $catalog) {
+                $quantity = (int) ($input[$key] ?? 1);
+                $unit = $catalog[$key]['pricing_unit'] ?? self::ADD_ON_PRICING_UNIT;
+
+                return [$key => $unit === self::ADD_ON_PRICING_UNIT ? 1 : max(1, min($quantity, 50))];
+            })
+            ->all();
+    }
+
+    public static function addOnBreakdown(mixed $addOns, mixed $quantities = []): array
+    {
+        $catalog = self::addOnCatalog(false);
+        $selected = collect(is_array($addOns) ? $addOns : [])
+            ->filter(fn ($key) => is_string($key) && array_key_exists($key, $catalog))
+            ->unique()
+            ->values()
+            ->all();
+        $normalizedQuantities = self::normalizeAddOnQuantities($quantities, $selected);
+
+        return collect($selected)
+            ->filter(fn ($key) => is_string($key) && array_key_exists($key, $catalog))
+            ->map(function (string $key) use ($normalizedQuantities) {
                 $catalog = self::addOnCatalog(false);
+                $quantity = $normalizedQuantities[$key] ?? 1;
+                $unitPrice = (float) $catalog[$key]['price'];
 
                 return [
                     'key' => $key,
                     'label' => self::addOnLabel($key),
-                    'price' => (float) $catalog[$key]['price'],
+                    'price' => round($unitPrice * $quantity, 2),
+                    'unit_price' => $unitPrice,
+                    'quantity' => $quantity,
                     'description' => $catalog[$key]['description'] ?? '',
                     'pricing_unit' => $catalog[$key]['pricing_unit'] ?? self::ADD_ON_PRICING_UNIT,
                 ];
@@ -2058,7 +2137,8 @@ class Booking extends Model
         $rooms,
         $bathrooms,
         $floorArea = 0,
-        $addOns = []
+        $addOns = [],
+        $addOnQuantities = []
     ) {
         $basePrice = Service::where('slug', $serviceType)->value('price');
         $basePrice = $basePrice !== null
@@ -2092,7 +2172,7 @@ class Booking extends Model
         $billableFloorArea = $isFlatRateRange ? 0 : self::billableFloorAreaForService($serviceType, $floorArea);
         $floorAreaRate = self::floorAreaRateForService($serviceType);
         $floorAreaFee = $billableFloorArea * $floorAreaRate;
-        $addOnBreakdown = self::addOnBreakdown($addOns);
+        $addOnBreakdown = self::addOnBreakdown($addOns, $addOnQuantities);
         $addOnsFee = (float) collect($addOnBreakdown)->sum('price');
         $totalPrice = $basePrice + $propertyFee + $roomsFee + $bathroomsFee + $floorAreaFee + $addOnsFee;
         $requiredCleaners = self::requiredCleanerCountForService($serviceType, $floorArea);
@@ -2111,6 +2191,7 @@ class Booking extends Model
             'required_cleaners' => $requiredCleaners,
             'staffing_manual_review' => self::staffingRequiresManualReview($requiredCleaners),
             'add_ons' => collect($addOnBreakdown)->pluck('key')->all(),
+            'add_on_quantities' => collect($addOnBreakdown)->mapWithKeys(fn (array $addOn) => [$addOn['key'] => $addOn['quantity']])->all(),
             'add_on_breakdown' => $addOnBreakdown,
             'add_ons_fee' => round($addOnsFee, 2),
             'total' => round($totalPrice, 2),

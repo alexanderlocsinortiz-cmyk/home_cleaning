@@ -223,6 +223,7 @@ class ServiceController extends Controller
             'label' => 'required|string|max:100',
             'description' => 'nullable|string|max:500',
             'price' => 'required|numeric|min:0|max:999999.99',
+            'pricing_unit' => 'nullable|string|max:60',
             'sort_order' => 'nullable|integer|min:0|max:9999',
             'is_active' => 'nullable|boolean',
         ]);
@@ -240,6 +241,7 @@ class ServiceController extends Controller
             'label' => $validated['label'],
             'description' => $validated['description'] ?? null,
             'price' => $validated['price'],
+            'pricing_unit' => $validated['pricing_unit'] ?? 'per booking',
             'sort_order' => $validated['sort_order'] ?? 0,
             'is_active' => $request->has('is_active'),
         ]);
@@ -259,6 +261,7 @@ class ServiceController extends Controller
             ],
             'description' => 'nullable|string|max:500',
             'price' => 'required|numeric|min:0|max:999999.99',
+            'pricing_unit' => 'nullable|string|max:60',
             'sort_order' => 'nullable|integer|min:0|max:9999',
             'is_active' => 'nullable|boolean',
         ]);
@@ -267,6 +270,7 @@ class ServiceController extends Controller
             'label' => $validated['label'],
             'description' => $validated['description'] ?? null,
             'price' => $validated['price'],
+            'pricing_unit' => $validated['pricing_unit'] ?? 'per booking',
             'sort_order' => $validated['sort_order'] ?? 0,
             'is_active' => $request->has('is_active'),
         ]);

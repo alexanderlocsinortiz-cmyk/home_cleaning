@@ -32,7 +32,7 @@
     $homeUrl = $isAdmin ? route('admin.dashboard') : ($isStaff ? route('staff.dashboard') : route('client.dashboard'));
     $listLabel = $isAdmin ? 'Bookings' : ($isStaff ? 'Assigned Bookings' : 'My Bookings');
     $propertyTypeLabel = \App\Models\Booking::propertyTypeLabel($booking->property_type);
-    $selectedAddOns = \App\Models\Booking::addOnBreakdown($booking->add_ons ?? []);
+    $selectedAddOns = \App\Models\Booking::addOnBreakdown($booking->add_ons ?? [], $booking->add_on_quantities ?? []);
     $includedFloorArea = \App\Models\Booking::includedFloorArea();
     $floorArea = (int) ($booking->floor_area ?? 0);
     $cleanerCapacity = \App\Models\Service::cleanerCapacityForSlug($booking->service_type);
@@ -378,7 +378,7 @@
                                 @if(count($selectedAddOns))
                                     <div class="space-y-1">
                                         @foreach($selectedAddOns as $addOn)
-                                        <div class="text-sm font-medium text-slate-900">{{ $addOn['label'] }}</div>
+                                        <div class="text-sm font-medium text-slate-900">{{ $addOn['label'] }} @if(($addOn['quantity'] ?? 1) > 1)<span class="text-xs font-semibold text-violet-700">× {{ $addOn['quantity'] }}</span>@endif</div>
                                         @endforeach
                                     </div>
                                     <div class="mt-2 text-sm text-slate-500">{{ count($selectedAddOns) }} add-on{{ count($selectedAddOns) === 1 ? '' : 's' }} included in the quotation.</div>
@@ -1067,7 +1067,7 @@
                             </div>
                             @foreach($selectedAddOns as $addOn)
                             <div class="flex items-center justify-between gap-3 pl-4 text-xs text-slate-500">
-                                <span>{{ $addOn['label'] }}</span>
+                                <span>{{ $addOn['label'] }} @if(($addOn['quantity'] ?? 1) > 1)<span class="text-violet-700">× {{ $addOn['quantity'] }} {{ str_replace('per ', '', $addOn['pricing_unit'] ?? '') }}</span>@endif</span>
                                 <span>&#8369;{{ number_format($addOn['price'], 2) }}</span>
                             </div>
                             @endforeach

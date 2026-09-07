@@ -75,7 +75,7 @@ class HomePagePricingTest extends TestCase
         $response->assertSee('quote_source', false);
         $response->assertSee('Get your instant quote', false);
         $response->assertSee('Trusted home cleaning for Valencia City.', false);
-        $response->assertSee('Each is charged once per booking.', false);
+        $response->assertSee('Unit-priced extras use one unit in this preview', false);
     }
 
     public function test_home_page_instant_quote_uses_the_active_database_rate_and_canonical_service_slug(): void

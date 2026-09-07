@@ -603,7 +603,7 @@
 
                                 <div class="rounded-2xl border border-white/70 bg-white/70 p-4">
                                     <label class="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">Add-ons</label>
-                                    <p class="mb-3 text-xs text-slate-500">Tap to include extras and instantly update your quote. Each is charged once per booking.</p>
+                                    <p class="mb-3 text-xs text-slate-500">Tap to include extras and instantly update your quote. Unit-priced extras use one unit in this preview; choose the final quantity during booking.</p>
                                     <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                         @foreach($pricingAddOns as $key => $addOn)
                                         <label class="cursor-pointer">
@@ -614,7 +614,7 @@
                                                 </span>
                                                 <span class="min-w-0">
                                                     <span class="block text-sm font-semibold text-slate-900">{{ $addOn['label'] }}</span>
-                                                    <span class="mt-0.5 block text-xs text-blue-700">+&#8369;{{ number_format($addOn['price'], 0) }} <span class="text-slate-500">per booking</span></span>
+                                                    <span class="mt-0.5 block text-xs text-blue-700">+&#8369;{{ number_format($addOn['price'], 0) }} <span class="text-slate-500">{{ $addOn['pricing_unit'] ?? \App\Models\Booking::ADD_ON_PRICING_UNIT }}</span></span>
                                                 </span>
                                             </span>
                                         </label>

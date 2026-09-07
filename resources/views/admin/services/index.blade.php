@@ -69,7 +69,7 @@
         <div class="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
                 <h3 class="text-lg font-extrabold text-slate-900">Booking Add-ons</h3>
-                <p class="mt-1 text-sm text-slate-500">Manage optional extras clients can select during booking. These are not service packages. Current add-ons are charged once per booking; quantity billing is not supported.</p>
+                <p class="mt-1 text-sm text-slate-500">Manage optional extras clients can select during booking. Use the charging basis to support per-booking or quantity-based pricing such as per seat, mattress, unit, carpet, or closet.</p>
             </div>
             <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500">
                 <i class="fas fa-puzzle-piece text-slate-400"></i>
@@ -77,7 +77,7 @@
             </div>
         </div>
 
-        <form action="{{ route('admin.services.add-ons.store') }}" method="POST" class="grid gap-4 border-b border-slate-100 px-6 py-5 lg:grid-cols-[1.2fr_1.6fr_0.7fr_0.55fr_auto_auto] lg:items-end"
+        <form action="{{ route('admin.services.add-ons.store') }}" method="POST" class="grid gap-4 border-b border-slate-100 px-6 py-5 lg:grid-cols-[1.2fr_1.6fr_0.7fr_0.9fr_0.55fr_auto_auto] lg:items-end"
             data-service-confirm
             data-confirm-title="Add this add-on?"
             data-confirm-message="This will add a new optional booking add-on to the catalog."
@@ -97,6 +97,10 @@
                 <input id="addon-price" type="number" name="price" value="{{ old('price') }}" min="0" step="0.01" required class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
             </div>
             <div>
+                <label for="addon-pricing-unit" class="text-xs font-bold uppercase tracking-wide text-slate-500">Charging basis</label>
+                <input id="addon-pricing-unit" type="text" name="pricing_unit" value="{{ old('pricing_unit', 'per booking') }}" required class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100" placeholder="per booking / per seat">
+            </div>
+            <div>
                 <label for="addon-sort-order" class="text-xs font-bold uppercase tracking-wide text-slate-500">Order</label>
                 <input id="addon-sort-order" type="number" name="sort_order" value="{{ old('sort_order', $addOns->count() + 1) }}" min="0" class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
             </div>
@@ -111,12 +115,13 @@
         </form>
 
         <div class="overflow-x-auto">
-            <table class="min-w-[900px] w-full text-sm">
+            <table class="min-w-[1050px] w-full text-sm">
                 <thead class="bg-slate-50/90">
                     <tr>
                         <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Add-on</th>
                         <th class="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Description</th>
                         <th class="px-5 py-3 text-center text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Price</th>
+                        <th class="px-5 py-3 text-center text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Charging basis</th>
                         <th class="px-5 py-3 text-center text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Order</th>
                         <th class="px-5 py-3 text-center text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Status</th>
                         <th class="px-5 py-3 text-right text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Actions</th>
@@ -134,6 +139,9 @@
                             </td>
                             <td class="px-5 py-4">
                                 <input form="addon-update-{{ $addOn->id }}" type="number" name="price" value="{{ old('price', $addOn->price) }}" min="0" step="0.01" required class="mx-auto w-32 rounded-2xl border border-slate-200 px-3 py-2 text-center text-sm font-black text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
+                            </td>
+                            <td class="px-5 py-4">
+                                <input form="addon-update-{{ $addOn->id }}" type="text" name="pricing_unit" value="{{ old('pricing_unit', $addOn->pricing_unit ?: 'per booking') }}" required class="mx-auto w-36 rounded-2xl border border-slate-200 px-3 py-2 text-center text-sm text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
                             </td>
                             <td class="px-5 py-4">
                                 <input form="addon-update-{{ $addOn->id }}" type="number" name="sort_order" value="{{ old('sort_order', $addOn->sort_order) }}" min="0" class="mx-auto w-24 rounded-2xl border border-slate-200 px-3 py-2 text-center text-sm font-bold text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
@@ -177,7 +185,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-12 text-center text-sm text-slate-500">No add-ons have been added yet.</td>
+                            <td colspan="7" class="px-6 py-12 text-center text-sm text-slate-500">No add-ons have been added yet.</td>
                         </tr>
                     @endforelse
                 </tbody>

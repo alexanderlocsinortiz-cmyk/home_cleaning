@@ -182,7 +182,8 @@ class BookingController extends Controller
             $request->rooms,
             $request->bathrooms,
             $request->floor_area,
-            $request->input('add_ons', [])
+            $request->input('add_ons', []),
+            $request->input('add_on_quantities', [])
         );
 
         $riskReasons = Booking::detectRiskReasons(
@@ -280,6 +281,7 @@ class BookingController extends Controller
                             'floor_area' => $request->floor_area,
                             'required_cleaners' => $pricing['required_cleaners'],
                             'add_ons' => $pricing['add_ons'],
+                            'add_on_quantities' => $pricing['add_on_quantities'],
                             'barangay' => $request->barangay,
                             'street_address' => $request->street_address,
                             'service_latitude' => $request->input('service_latitude'),
@@ -390,7 +392,8 @@ class BookingController extends Controller
             $request->rooms,
             $request->bathrooms,
             $request->floor_area,
-            $request->input('add_ons', [])
+            $request->input('add_ons', []),
+            $request->input('add_on_quantities', [])
         );
 
         return response()->json($pricing);

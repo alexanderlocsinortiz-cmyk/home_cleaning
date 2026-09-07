@@ -28,6 +28,7 @@
     $servicePlans = $servicePlans ?? \App\Models\Booking::servicePlans();
     $subscriptionFrequencies = $subscriptionFrequencies ?? \App\Models\Booking::subscriptionFrequencyLabels();
     $selectedAddOns = old('add_ons', []);
+    $selectedAddOnQuantities = old('add_on_quantities', []);
     $selectedServiceType = old('service_type', request()->query('service'));
     $selectedPaymentMethod = old('payment_method', 'on_site_cash');
     $selectedServicePlan = old('service_plan', 'one_time');
@@ -356,7 +357,7 @@
                 <div class="mt-5">
                     <div class="mb-3">
                         <h3 class="text-sm font-semibold text-slate-900">Add-ons (optional)</h3>
-                        <p class="mt-1 text-xs text-slate-500">Select only the extra cleaning tasks you want included in the quotation. Each selected add-on is charged once per booking.</p>
+                        <p class="mt-1 text-xs text-slate-500">Select extra cleaning tasks and enter a quantity when the add-on is charged per seat, mattress, unit, carpet, or cabinet/closet.</p>
                     </div>
 
                     <div class="grid gap-4 md:grid-cols-2">
@@ -371,6 +372,12 @@
                                     </div>
                                     <div class="text-right text-sm font-semibold text-blue-600">+&#8369;{{ number_format($addOn['price'], 0) }}<div class="text-[11px] font-medium text-slate-500">{{ $addOn['pricing_unit'] ?? \App\Models\Booking::ADD_ON_PRICING_UNIT }}</div></div>
                                 </div>
+                                @if(($addOn['pricing_unit'] ?? \App\Models\Booking::ADD_ON_PRICING_UNIT) !== \App\Models\Booking::ADD_ON_PRICING_UNIT)
+                                <div class="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                                    <label for="add-on-quantity-{{ $key }}" class="text-xs font-semibold text-slate-600">Quantity</label>
+                                    <input id="add-on-quantity-{{ $key }}" type="number" name="add_on_quantities[{{ $key }}]" value="{{ $selectedAddOnQuantities[$key] ?? 1 }}" min="1" max="50" step="1" data-add-on-quantity="{{ $key }}" onclick="event.stopPropagation()" class="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-center text-sm font-bold text-slate-700 focus:border-blue-500 focus:outline-hidden">
+                                </div>
+                                @endif
                             </div>
                         </label>
                         @endforeach
@@ -985,6 +992,15 @@ function findNearestBarangay(lat, lng) {
 
 function getSelectedAddOns() {
     return Array.from(document.querySelectorAll('input[name="add_ons[]"]:checked')).map((input) => input.value);
+}
+
+function getSelectedAddOnQuantities() {
+    return Array.from(document.querySelectorAll('input[data-add-on-quantity]')).reduce((quantities, input) => {
+        const quantity = Math.max(1, Math.min(50, parseInt(input.value || '1', 10) || 1));
+        quantities[input.dataset.addOnQuantity] = quantity;
+
+        return quantities;
+    }, {});
 }
 
 function formatSchedule(dateValue, timeValue) {
@@ -1632,7 +1648,8 @@ function updatePrice() {
     const floorAreaRate = floorAreaRates[serviceType] || 0;
     const billableFloorArea = isFlatRateRange ? 0 : isPerSquareMeter ? Math.max(0, floorArea) : Math.max(0, floorArea - includedFloorArea);
     const floorAreaFee = billableFloorArea * floorAreaRate;
-    const addOnsFee = selectedAddOns.reduce((sum, key) => sum + Number(addOnCatalog[key]?.price || 0), 0);
+    const selectedAddOnQuantities = getSelectedAddOnQuantities();
+    const addOnsFee = selectedAddOns.reduce((sum, key) => sum + (Number(addOnCatalog[key]?.price || 0) * Number(selectedAddOnQuantities[key] || 1)), 0);
     const total = basePrice + propertyFee + floorAreaFee + addOnsFee;
 
     document.getElementById('pb-base').textContent = formatCurrency(basePrice);
@@ -1660,7 +1677,12 @@ function updatePrice() {
             : `${billableFloorArea} billable sqm x ${formatCurrency(floorAreaRate)}/sqm after ${includedFloorArea} sqm included`
         : `Enter floor area to compute any excess-square-meter charge.`;
     document.getElementById('pb-add-ons-meta').textContent = selectedAddOns.length > 0
-        ? selectedAddOns.map((key) => addOnCatalog[key]?.label).join(', ')
+        ? selectedAddOns.map((key) => {
+            const quantity = Number(selectedAddOnQuantities[key] || 1);
+            const unit = addOnCatalog[key]?.pricing_unit || 'per booking';
+
+            return unit === 'per booking' ? addOnCatalog[key]?.label : `${addOnCatalog[key]?.label} (${quantity} ${unit.replace(/^per /, '')})`;
+        }).join(', ')
         : 'No add-ons selected.';
 
     const floorAreaRule = document.getElementById('floor-area-rule');
@@ -1931,6 +1953,11 @@ document.querySelectorAll('input[name="add_ons[]"]').forEach((input) => {
         syncAddOnCards();
         updatePrice();
     });
+});
+
+document.querySelectorAll('input[data-add-on-quantity]').forEach((input) => {
+    input.addEventListener('input', updatePrice);
+    input.addEventListener('click', (event) => event.stopPropagation());
 });
 
 document.getElementById('use-current-location')?.addEventListener('click', useCurrentLocation);

@@ -69,7 +69,8 @@ class MobileBookingController extends Controller
             $validated['rooms'],
             $validated['bathrooms'],
             $validated['floor_area'],
-            $validated['add_ons'] ?? []
+            $validated['add_ons'] ?? [],
+            $validated['add_on_quantities'] ?? []
         );
 
         $riskReasons = Booking::detectRiskReasons(
@@ -139,6 +140,7 @@ class MobileBookingController extends Controller
                         'floor_area' => $validated['floor_area'],
                         'required_cleaners' => $pricing['required_cleaners'],
                         'add_ons' => $pricing['add_ons'],
+                        'add_on_quantities' => $pricing['add_on_quantities'],
                         'barangay' => $validated['barangay'],
                         'street_address' => $validated['street_address'],
                         'service_latitude' => $validated['service_latitude'] ?? null,
@@ -310,6 +312,8 @@ class MobileBookingController extends Controller
             'floor_area' => ['required', 'integer', 'min:10', 'max:1000'],
             'add_ons' => ['nullable', 'array'],
             'add_ons.*' => ['string', Rule::in(array_keys(Booking::addOnCatalog()))],
+            'add_on_quantities' => ['nullable', 'array'],
+            'add_on_quantities.*' => ['nullable', 'integer', 'min:1', 'max:50'],
             'payment_method' => ['required', Rule::in(array_keys(Booking::paymentMethods()))],
             'barangay' => ['required', Rule::in(array_keys(config('cleanflow.barangays', [])))],
             'street_address' => ['required', 'string', 'max:255'],
@@ -334,6 +338,7 @@ class MobileBookingController extends Controller
         }
 
         $validated['add_ons'] = $validated['add_ons'] ?? [];
+        $validated['add_on_quantities'] = $validated['add_on_quantities'] ?? [];
         $validated['rooms'] = (int) ($validated['rooms'] ?? 1);
         $validated['bathrooms'] = (int) ($validated['bathrooms'] ?? 1);
 
@@ -390,6 +395,8 @@ class MobileBookingController extends Controller
             'street_address' => $booking->street_address,
             'rooms' => (int) $booking->rooms,
             'bathrooms' => (int) $booking->bathrooms,
+            'add_ons' => Booking::addOnBreakdown($booking->add_ons ?? [], $booking->add_on_quantities ?? []),
+            'add_ons_fee' => (float) $booking->add_ons_fee,
             'manual_review_status' => $booking->manual_review_status,
             'risk_reasons' => $booking->risk_reasons ?? [],
             'dispute_status' => $booking->dispute_status,

@@ -15,6 +15,7 @@ class ServiceAddOn extends Model
         'label',
         'description',
         'price',
+        'pricing_unit',
         'sort_order',
         'is_active',
     ];
@@ -43,6 +44,7 @@ class ServiceAddOn extends Model
                 $addOn->key => [
                     'label' => $addOn->label,
                     'price' => (float) $addOn->price,
+                    'pricing_unit' => $addOn->pricing_unit ?: 'per booking',
                     'description' => $addOn->description,
                     'is_active' => $addOn->is_active,
                 ],

@@ -534,6 +534,23 @@ class BookingCreationTest extends TestCase
         $this->assertSame(250.0, (float) Booking::ADD_ON_CATALOG['yard_sweeping']['price']);
     }
 
+    public function test_quantity_priced_add_ons_scale_by_the_requested_quantity(): void
+    {
+        $pricing = Booking::calculatePrice(
+            'basic',
+            'house',
+            1,
+            1,
+            30,
+            ['sofa_deep_cleaning', 'closet_cleaning'],
+            ['sofa_deep_cleaning' => 3, 'closet_cleaning' => 2],
+        );
+
+        $this->assertSame(1200.0, $pricing['add_ons_fee']);
+        $this->assertSame(3, $pricing['add_on_quantities']['sofa_deep_cleaning']);
+        $this->assertSame(2, $pricing['add_on_quantities']['closet_cleaning']);
+    }
+
     public function test_booking_details_page_shows_price_breakdown_for_floor_area_and_add_ons(): void
     {
         $this->canonicalService([
@@ -588,7 +605,7 @@ class BookingCreationTest extends TestCase
         $response->assertSee('Floor area charge', false);
         $response->assertSee('Saved pricing snapshot for this booking', false);
         $response->assertSee('Window Glass Cleaning', false);
-        $response->assertSee('Refrigerator Cleaning', false);
+        $response->assertSee('Refrigerator Interior Cleaning – Small', false);
         $response->assertSee('Payment', false);
         $response->assertSee('GCash', false);
         $response->assertSee('Subscription Plan', false);
