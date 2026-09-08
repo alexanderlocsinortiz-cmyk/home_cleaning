@@ -242,7 +242,7 @@
               <form action="{{ route('staff.bookings.status', $booking->id) }}" method="POST" enctype="multipart/form-data" class="status-form-stack" novalidate>
                 @csrf @method('PATCH')
                 <input type="hidden" name="status" value="in_progress">
-                <label class="proof-upload-card proof-upload-card--before">
+                <label for="before-photos-{{ $booking->id }}" class="proof-upload-card proof-upload-card--before">
                   <span class="proof-upload-icon"><i class="fas fa-camera"></i></span>
                   <span class="proof-upload-body">
                     <span class="proof-upload-title">Before-service photos</span>
@@ -251,7 +251,7 @@
                     <button type="button" class="proof-upload-remove" data-remove-upload>Remove selected photos</button>
                     <span class="proof-upload-error"></span>
                   </span>
-                  <input type="file" name="before_photos[]" accept="image/*" multiple data-required-message="Select at least one before-service photo before starting." class="status-file-input proof-upload-input">
+                  <input id="before-photos-{{ $booking->id }}" type="file" name="before_photos[]" accept="image/*" multiple data-required-message="Select at least one before-service photo before starting." class="status-file-input proof-upload-input">
                 </label>
                 <button type="submit" class="status-submit-btn status-submit-btn--start">
                   Start Service
@@ -286,7 +286,7 @@
               <form action="{{ route('staff.bookings.status', $booking->id) }}" method="POST" enctype="multipart/form-data" class="status-form-stack" novalidate>
                 @csrf @method('PATCH')
                 <input type="hidden" name="status" value="completed">
-                <label class="proof-upload-card proof-upload-card--after">
+                <label for="after-photos-{{ $booking->id }}" class="proof-upload-card proof-upload-card--after">
                   <span class="proof-upload-icon"><i class="fas fa-images"></i></span>
                   <span class="proof-upload-body">
                     <span class="proof-upload-title">After-service photos</span>
@@ -295,9 +295,9 @@
                     <button type="button" class="proof-upload-remove" data-remove-upload>Remove selected photos</button>
                     <span class="proof-upload-error"></span>
                   </span>
-                  <input type="file" name="after_photos[]" accept="image/*" multiple data-required-message="Select at least one after-service photo before completing." class="status-file-input proof-upload-input">
+                  <input id="after-photos-{{ $booking->id }}" type="file" name="after_photos[]" accept="image/*" multiple data-required-message="Select at least one after-service photo before completing." class="status-file-input proof-upload-input">
                 </label>
-                <label class="proof-upload-card proof-upload-card--video">
+                <label for="completion-video-{{ $booking->id }}" class="proof-upload-card proof-upload-card--video">
                   <span class="proof-upload-icon"><i class="fas fa-video"></i></span>
                   <span class="proof-upload-body">
                     <span class="proof-upload-title">Completion video</span>
@@ -306,7 +306,7 @@
                     <button type="button" class="proof-upload-remove" data-remove-upload>Remove video</button>
                     <span class="proof-upload-error"></span>
                   </span>
-                  <input type="file" name="completion_video" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo" data-max-file-mb="{{ $proofMaxVideoMb }}" class="status-file-input proof-upload-input">
+                  <input id="completion-video-{{ $booking->id }}" type="file" name="completion_video" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo" data-max-file-mb="{{ $proofMaxVideoMb }}" class="status-file-input proof-upload-input">
                 </label>
                 <button type="submit" class="status-submit-btn status-submit-btn--complete">
                   Complete Service

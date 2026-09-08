@@ -73,6 +73,7 @@ class StaffLocationTrackingTest extends TestCase
         $bookingsResponse->assertSee('Show route', false);
         $bookingsResponse->assertSee('data-remove-upload', false);
         $bookingsResponse->assertSee('Remove video', false);
+        $bookingsResponse->assertSee('for="completion-video-'.$booking->id.'"', false);
     }
 
     public function test_provider_cannot_read_a_booking_location_from_the_shared_endpoint(): void
