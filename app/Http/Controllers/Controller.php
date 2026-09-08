@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Notification;
+use App\Models\Rating;
+use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 
 abstract class Controller
@@ -11,7 +14,7 @@ abstract class Controller
      */
     public function createNotification(array $data)
     {
-        $notification = \App\Models\Notification::create($data);
+        $notification = Notification::create($data);
 
         // ✅ Invalidate user's notification count cache
         Cache::forget('staff:unread_notif_'.$data['user_id']);
@@ -26,12 +29,12 @@ abstract class Controller
     {
         $barangays = config('cleanflow.service_areas', []);
 
-        $avg = \App\Models\Rating::avg('stars');
+        $avg = Rating::avg('stars');
 
         return [
             'barangays' => count($barangays),
-            'customers' => \App\Models\User::where('role', 'client')->count(),
-            'staff' => \App\Models\User::where('role', 'staff')->count(),
+            'customers' => User::where('role', 'client')->count(),
+            'staff' => User::where('role', 'staff')->count(),
             'satisfaction' => $avg ? round(($avg / 5) * 100) : 98,
         ];
     }

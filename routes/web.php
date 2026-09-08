@@ -3,10 +3,10 @@
 use App\Http\Controllers\AdminAttendanceController;
 use App\Http\Controllers\AdminBookingController;
 use App\Http\Controllers\AdminCleanerApplicationController;
-use App\Http\Controllers\AdminProviderController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminCustomerController;
 use App\Http\Controllers\AdminLogController;
+use App\Http\Controllers\AdminProviderController;
 use App\Http\Controllers\AdminReportController;
 use App\Http\Controllers\AdminSettingsController;
 use App\Http\Controllers\AnalyticsController;

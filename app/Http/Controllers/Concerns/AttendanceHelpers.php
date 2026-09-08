@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Concerns;
 
 use App\Models\AttendanceLog;
 use App\Models\Device;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -225,7 +226,7 @@ trait AttendanceHelpers
             return $summary;
         });
 
-        $staffList = \App\Models\User::where('role', 'staff')->get();
+        $staffList = User::where('role', 'staff')->get();
 
         $totalLogs = AttendanceLog::whereHas('user', function ($q) {
             $q->where('role', 'staff');

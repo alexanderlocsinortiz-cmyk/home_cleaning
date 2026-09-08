@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Booking;
-use App\Models\Service;
 use App\Models\User;
 use App\Services\PaymongoCheckoutService;
 use Illuminate\Support\Facades\Config;

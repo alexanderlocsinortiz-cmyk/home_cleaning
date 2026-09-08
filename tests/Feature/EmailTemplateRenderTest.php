@@ -14,7 +14,6 @@ use App\Mail\QuickNotification;
 use App\Models\Booking;
 use App\Models\CleanerApplication;
 use App\Models\Notification;
-use App\Models\Service;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;

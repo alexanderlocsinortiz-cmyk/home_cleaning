@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Models\Booking;
 use App\Models\User;
 use Carbon\Carbon;
 use Tests\TestCase;
@@ -117,7 +118,7 @@ class UserTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'client']);
 
-        \App\Models\Booking::factory(3)->create(['user_id' => $user->id]);
+        Booking::factory(3)->create(['user_id' => $user->id]);
 
         $this->assertCount(3, $user->bookings);
     }

@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        $driver = \DB::getDriverName();
+        $driver = DB::getDriverName();
 
         // Add foreign key constraints for data integrity (PostgreSQL and MySQL only)
         if (in_array($driver, ['pgsql', 'mysql'])) {
@@ -87,7 +87,7 @@ return new class extends Migration
     private function hasConstraint(string $table, string $constraint): bool
     {
         // Check if constraint exists in PostgreSQL
-        $result = \DB::selectOne(
+        $result = DB::selectOne(
             'SELECT constraint_name FROM information_schema.table_constraints WHERE table_name = ? AND constraint_name = ?',
             [$table, $constraint]
         );

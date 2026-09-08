@@ -7,9 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 class CleanerApplicationDocument extends Model
 {
     public const TYPE_VALID_ID = 'valid_id';
+
     public const TYPE_VALID_ID_FRONT = 'valid_id_front';
+
     public const TYPE_VALID_ID_BACK = 'valid_id_back';
+
     public const TYPE_BUSINESS_PERMIT = 'business_permit';
+
     public const TYPE_PAYOUT_ACCOUNT_PROOF = 'payout_account_proof';
 
     public const TYPE_LABELS = [
