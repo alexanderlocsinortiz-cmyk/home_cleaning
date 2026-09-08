@@ -78,7 +78,7 @@
                                 name="password"
                                 autocomplete="new-password"
                                 placeholder="Enter new password"
-                                minlength="12"
+                                minlength="8"
                                 aria-describedby="password-help"
                                 required
                                 class="h-16 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-14 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
@@ -104,7 +104,7 @@
                                 name="password_confirmation"
                                 autocomplete="new-password"
                                 placeholder="Confirm new password"
-                                minlength="12"
+                                minlength="8"
                                 required
                                 class="h-16 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-14 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                             >

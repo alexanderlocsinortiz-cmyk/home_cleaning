@@ -146,7 +146,7 @@
                                 <label for="password" class="mb-3 block text-sm font-bold text-slate-800">Password <span class="text-red-500">*</span></label>
                                 <div class="relative">
                                     <span class="absolute inset-y-0 left-0 flex items-center pl-5 text-blue-600"><i class="fas fa-lock"></i></span>
-                                    <input id="password" type="password" name="password" placeholder="12+ characters, upper/lowercase, number and symbol" minlength="12" required autocomplete="new-password" aria-describedby="password-help" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-12 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                                    <input id="password" type="password" name="password" placeholder="8+ characters, upper/lowercase, number and symbol" minlength="8" required autocomplete="new-password" aria-describedby="password-help" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-12 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
                                     <button type="button" onclick="togglePw('password', this)" class="absolute inset-y-0 right-0 flex items-center pr-5 text-slate-400 transition hover:text-slate-700" aria-label="Toggle password visibility"><i class="fas fa-eye"></i></button>
                                 </div>
                                 @error('password')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
@@ -156,7 +156,7 @@
                                 <label for="password_confirmation" class="mb-3 block text-sm font-bold text-slate-800">Confirm Password <span class="text-red-500">*</span></label>
                                 <div class="relative">
                                     <span class="absolute inset-y-0 left-0 flex items-center pl-5 text-blue-600"><i class="fas fa-check"></i></span>
-                                    <input id="password_confirmation" type="password" name="password_confirmation" placeholder="Repeat password" minlength="12" required autocomplete="new-password" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-12 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                                    <input id="password_confirmation" type="password" name="password_confirmation" placeholder="Repeat password" minlength="8" required autocomplete="new-password" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-12 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
                                     <button type="button" onclick="togglePw('password_confirmation', this)" class="absolute inset-y-0 right-0 flex items-center pr-5 text-slate-400 transition hover:text-slate-700" aria-label="Toggle password visibility"><i class="fas fa-eye"></i></button>
                                 </div>
                             </div>

@@ -49,7 +49,7 @@
         <label for="password" class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">
             Password @if(!isset($staff))<span class="text-red-500">*</span>@endif
         </label>
-        <input id="password" type="password" name="password" minlength="12" autocomplete="new-password" aria-describedby="password-help" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100" @if(!isset($staff)) required @endif>
+        <input id="password" type="password" name="password" minlength="8" autocomplete="new-password" aria-describedby="password-help" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100" @if(!isset($staff)) required @endif>
         @error('password')
             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
         @enderror

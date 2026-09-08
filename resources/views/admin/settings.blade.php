@@ -162,7 +162,7 @@
                                 <label class="block">
                                     <span class="text-sm font-bold text-slate-700">New password</span>
                                     <div class="relative mt-2">
-                                        <input type="password" name="admin_new_password" autocomplete="new-password" minlength="12" aria-describedby="admin-password-help" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                                        <input type="password" name="admin_new_password" autocomplete="new-password" minlength="8" aria-describedby="admin-password-help" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
                                         <button type="button" data-password-toggle class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-blue-700" aria-label="Show new password">
                                             <i class="fas fa-eye"></i>
                                         </button>
@@ -174,7 +174,7 @@
                                 <label class="block">
                                     <span class="text-sm font-bold text-slate-700">Confirm new password</span>
                                     <div class="relative mt-2">
-                                        <input type="password" name="admin_new_password_confirmation" autocomplete="new-password" minlength="12" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                                        <input type="password" name="admin_new_password_confirmation" autocomplete="new-password" minlength="8" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
                                         <button type="button" data-password-toggle class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-blue-700" aria-label="Show confirm new password">
                                             <i class="fas fa-eye"></i>
                                         </button>
@@ -276,7 +276,7 @@
                                 <label class="block">
                                     <span class="text-sm font-bold text-slate-700">New backup password</span>
                                     <div class="relative mt-2">
-                                        <input type="password" name="database_backup_new_password" autocomplete="new-password" minlength="12" aria-describedby="backup-password-help" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                                        <input type="password" name="database_backup_new_password" autocomplete="new-password" minlength="8" aria-describedby="backup-password-help" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
                                         <button type="button" data-password-toggle class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-blue-700" aria-label="Show new backup password">
                                             <i class="fas fa-eye"></i>
                                         </button>
@@ -289,7 +289,7 @@
                                 <label class="block">
                                     <span class="text-sm font-bold text-slate-700">Confirm new backup password</span>
                                     <div class="relative mt-2">
-                                        <input type="password" name="database_backup_new_password_confirmation" autocomplete="new-password" minlength="12" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                                        <input type="password" name="database_backup_new_password_confirmation" autocomplete="new-password" minlength="8" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
                                         <button type="button" data-password-toggle class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-blue-700" aria-label="Show confirm new backup password">
                                             <i class="fas fa-eye"></i>
                                         </button>
