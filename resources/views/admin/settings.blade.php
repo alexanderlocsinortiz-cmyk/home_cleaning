@@ -181,7 +181,7 @@
                                     </div>
                                 </label>
                             </div>
-                            <p id="admin-password-help" class="text-xs leading-5 text-slate-500">New passwords need at least 12 characters with uppercase, lowercase, a number, and a symbol.</p>
+                            <p id="admin-password-help" class="text-xs leading-5 text-slate-500">New passwords need at least 8 characters with uppercase, lowercase, a number, and a symbol.</p>
                             <p class="text-xs leading-5 text-slate-500">Leave these fields empty if you only want to update website or contact information.</p>
                         </div>
                     </div>
@@ -281,7 +281,7 @@
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
-                                    <p id="backup-password-help" class="mt-1 text-xs text-slate-500">Use at least 12 characters with uppercase, lowercase, a number, and a symbol.</p>
+                                    <p id="backup-password-help" class="mt-1 text-xs text-slate-500">Use at least 8 characters with uppercase, lowercase, a number, and a symbol.</p>
                                     @error('database_backup_new_password')
                                         <span class="mt-1 block text-xs font-semibold text-red-600">{{ $message }}</span>
                                     @enderror

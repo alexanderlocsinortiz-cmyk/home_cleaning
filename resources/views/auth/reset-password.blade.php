@@ -87,7 +87,7 @@
                                 <i class="fas fa-eye"></i>
                             </button>
                         </div>
-                        <p id="password-help" class="mt-2 text-xs text-slate-500">Use at least 12 characters with uppercase, lowercase, a number, and a symbol.</p>
+                        <p id="password-help" class="mt-2 text-xs text-slate-500">Use at least 8 characters with uppercase, lowercase, a number, and a symbol.</p>
                     </div>
 
                     <div>

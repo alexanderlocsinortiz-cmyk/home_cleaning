@@ -53,7 +53,7 @@
         @error('password')
             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
         @enderror
-        <p id="password-help" class="mt-2 text-xs text-slate-500">Use at least 12 characters with uppercase, lowercase, a number, and a symbol.</p>
+        <p id="password-help" class="mt-2 text-xs text-slate-500">Use at least 8 characters with uppercase, lowercase, a number, and a symbol.</p>
         @isset($staff)
             <p class="mt-2 text-xs text-slate-500">Leave this blank if you want to keep the current password.</p>
         @endisset

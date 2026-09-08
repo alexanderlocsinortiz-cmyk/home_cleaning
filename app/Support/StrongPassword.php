@@ -8,7 +8,7 @@ final class StrongPassword
 {
     public static function rule(): Password
     {
-        return Password::min(12)
+        return Password::min(8)
             ->mixedCase()
             ->numbers()
             ->symbols();

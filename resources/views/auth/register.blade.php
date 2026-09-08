@@ -150,7 +150,7 @@
                                     <button type="button" onclick="togglePw('password', this)" class="absolute inset-y-0 right-0 flex items-center pr-5 text-slate-400 transition hover:text-slate-700" aria-label="Toggle password visibility"><i class="fas fa-eye"></i></button>
                                 </div>
                                 @error('password')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
-                                <p id="password-help" class="mt-2 text-xs text-slate-500">Use at least 12 characters with uppercase, lowercase, a number, and a symbol.</p>
+                                <p id="password-help" class="mt-2 text-xs text-slate-500">Use at least 8 characters with uppercase, lowercase, a number, and a symbol.</p>
                             </div>
                             <div>
                                 <label for="password_confirmation" class="mb-3 block text-sm font-bold text-slate-800">Confirm Password <span class="text-red-500">*</span></label>
