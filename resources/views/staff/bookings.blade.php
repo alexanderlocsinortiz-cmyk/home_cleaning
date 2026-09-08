@@ -1340,15 +1340,16 @@ document.addEventListener('DOMContentLoaded', function () {
         const card = input.closest('.proof-upload-card');
 
         card?.addEventListener('click', function (event) {
+            if (event.target === input) {
+                return;
+            }
+
             if (event.target.closest('[data-remove-upload]')) {
                 return;
             }
 
             event.preventDefault();
-
-            if (event.target !== input) {
-                input.click();
-            }
+            input.click();
         });
 
         input.addEventListener('change', function () {
