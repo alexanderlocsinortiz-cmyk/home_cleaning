@@ -39,7 +39,9 @@ return [
 
         'smtp' => [
             'transport' => 'smtp',
-            'scheme' => env('MAIL_SCHEME'),
+            // MAIL_SCHEME is the Laravel 12 setting. Keep MAIL_ENCRYPTION as
+            // a compatibility fallback for existing Cloud environments.
+            'scheme' => env('MAIL_SCHEME', env('MAIL_ENCRYPTION') === 'ssl' ? 'smtps' : null),
             'url' => env('MAIL_URL'),
             'host' => env('MAIL_HOST', '127.0.0.1'),
             'port' => env('MAIL_PORT', 2525),

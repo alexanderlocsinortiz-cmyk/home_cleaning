@@ -424,6 +424,7 @@ Required `.env` variables for production:
 - `ATTENDANCE_TIMEZONE=Asia/Manila`
 - `FILESYSTEM_PRIVATE_DISK`, `FILESYSTEM_PROOF_DISK`, and `FILESYSTEM_PUBLIC_DISK` configured for durable object storage
 - `CACHE_STORE=database` and `SESSION_DRIVER=database` (or a shared Redis service)
+- A Laravel Cloud managed queue named `emails` for queued OTP and booking emails; Cloud sets `QUEUE_CONNECTION=cloud` after it is attached
 - `PAYMONGO_PUBLIC_KEY`, `PAYMONGO_SECRET_KEY`, and `PAYMONGO_WEBHOOK_SECRET`
 - `DAILY_API_KEY` and `DAILY_DOMAIN` if live booking video is enabled
 
@@ -445,15 +446,15 @@ npm run build
 # 4. Set permissions
 chmod -R 775 storage bootstrap/cache
 
-# 5. Verify queue is running
-php artisan queue:work --daemon
+# 5. Local queue check only; Laravel Cloud runs the production queue worker
+php artisan queue:work database --queue=emails,default --once -v
 
 # 6. Verify the scheduled backup command in staging
 php artisan cleanflow:verify --probe
 php artisan database:backup-cloud
 ```
 
-The Render blueprint also provisions a daily database-backup cron service at 02:00 UTC. Configure its database, object-storage credentials, and the same stable `APP_KEY` used by the web and worker services.
+For Laravel Cloud queue and live SMTP setup, follow [`docs/LARAVEL_CLOUD_QUEUE_MAIL.md`](docs/LARAVEL_CLOUD_QUEUE_MAIL.md). Cloud manages the queue workers and scheduler from the environment dashboard; do not run a queue worker inside the web process.
 
 ### Production Webserver Configuration
 

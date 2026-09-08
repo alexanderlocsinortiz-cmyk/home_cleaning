@@ -16,7 +16,9 @@ class ServiceFactory extends Factory
 
         return [
             'name' => $name,
-            'slug' => Str::slug($name),
+            // Factory-created services frequently coexist in one test. Keep
+            // their slugs unique instead of relying on Faker's random words.
+            'slug' => Str::slug($name).'-'.Str::lower(Str::random(8)),
             'description' => $this->faker->sentence(),
             'price' => $this->faker->randomFloat(2, 100, 2000),
             'duration_minutes' => $this->faker->randomElement([60, 90, 120, 180, 240]),

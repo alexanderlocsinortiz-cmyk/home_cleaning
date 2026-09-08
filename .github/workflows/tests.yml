@@ -44,7 +44,18 @@ jobs:
           ${{ runner.os }}-composer-
 
     - name: Install dependencies
-      run: composer install --no-dev --optimize-autoloader
+      run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: npm
+
+    - name: Build frontend assets
+      run: |
+        npm ci --audit false
+        npm run build
 
     - name: Copy environment file
       run: |
