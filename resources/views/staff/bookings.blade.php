@@ -1337,8 +1337,21 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     document.querySelectorAll('.proof-upload-input').forEach(function (input) {
+        const card = input.closest('.proof-upload-card');
+
+        card?.addEventListener('click', function (event) {
+            if (event.target.closest('[data-remove-upload]')) {
+                return;
+            }
+
+            event.preventDefault();
+
+            if (event.target !== input) {
+                input.click();
+            }
+        });
+
         input.addEventListener('change', function () {
-            const card = input.closest('.proof-upload-card');
             const selectedLabel = card?.querySelector('.proof-upload-selected');
 
             if (!selectedLabel) {
