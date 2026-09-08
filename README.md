@@ -185,7 +185,7 @@ php artisan key:generate
 
 Update the `DB_*` values in `.env` if your PostgreSQL host, database name, username, or password are different from the defaults.
 
-Run the database migrations and seeders:
+Run the database migrations and demo seeders (local/staging only):
 
 ```bash
 php artisan migrate --seed
@@ -212,10 +212,10 @@ After running `php artisan db:seed`, the following accounts are available:
 | Role | Username | Email | Password |
 | --- | --- | --- | --- |
 | Admin | `testuser` | `tester@admin.com` | `password123` |
-| Staff | `staffer` | `staff@Home Cleaning Service.local` | `password123` |
-| Client | `clientuser` | `client@Home Cleaning Service.local` | `password123` |
+| Staff | `staffer` | `staff@cleanflow.local` | `password123` |
+| Client | `clientuser` | `client@cleanflow.local` | `password123` |
 
-These test accounts are skipped automatically in the `production` environment. The seeders also create sample services and additional staff records for testing the admin views.
+These test accounts and sample staff records are for local/staging only and are skipped in the `production` environment. The seeders also create sample services for testing the admin views.
 
 ## Main Application Areas
 
@@ -418,13 +418,13 @@ composer dump-autoload
 Required `.env` variables for production:
 - `APP_ENV=production`
 - `APP_DEBUG=false`
-- `APP_KEY` (one stable key shared by the web service and queue worker; generate it once with `php artisan key:generate` and store it as a deployment secret)
+- `APP_KEY` (one stable key shared by the web service, queue worker, and scheduler; set it once and preserve it for existing environments)
 - `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`
 - `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`
 - `ATTENDANCE_TIMEZONE=Asia/Manila`
-- `FILESYSTEM_PRIVATE_DISK`, `FILESYSTEM_PROOF_DISK`, and `FILESYSTEM_PUBLIC_DISK` configured for durable object storage
+- `FILESYSTEM_PRIVATE_DISK`, `FILESYSTEM_PROOF_DISK`, `FILESYSTEM_PUBLIC_DISK`, and `DATABASE_BACKUP_DISK` configured for durable object storage
 - `CACHE_STORE=database` and `SESSION_DRIVER=database` (or a shared Redis service)
-- A Laravel Cloud managed queue named `emails` for queued OTP and booking emails; Cloud sets `QUEUE_CONNECTION=cloud` after it is attached
+- A Laravel Cloud managed queue named `emails` (or an equivalent self-managed worker) for queued OTP and booking emails; verify the resulting queue connection is supported by the deployed application
 - `PAYMONGO_PUBLIC_KEY`, `PAYMONGO_SECRET_KEY`, and `PAYMONGO_WEBHOOK_SECRET`
 - `DAILY_API_KEY` and `DAILY_DOMAIN` if live booking video is enabled
 

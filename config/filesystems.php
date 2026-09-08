@@ -85,13 +85,16 @@ return [
         's3_proof' => [
             'driver' => 's3',
             'prefix' => env('FILESYSTEM_PROOF_PREFIX', 'proofs'),
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
-            'region' => env('AWS_DEFAULT_REGION'),
-            'bucket' => env('AWS_PRIVATE_BUCKET', env('AWS_BUCKET')),
-            'url' => env('AWS_PRIVATE_URL'),
-            'endpoint' => env('AWS_ENDPOINT'),
-            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            // Keep proof uploads on a separately configured private disk. This
+            // lets Laravel Cloud's managed S3 credentials continue serving the
+            // main private disk while proof media uses Cloudflare R2.
+            'key' => env('R2_ACCESS_KEY_ID', env('AWS_ACCESS_KEY_ID')),
+            'secret' => env('R2_SECRET_ACCESS_KEY', env('AWS_SECRET_ACCESS_KEY')),
+            'region' => env('R2_DEFAULT_REGION', env('AWS_DEFAULT_REGION')),
+            'bucket' => env('R2_PRIVATE_BUCKET', env('AWS_PRIVATE_BUCKET', env('AWS_BUCKET'))),
+            'url' => env('R2_PRIVATE_URL', env('AWS_PRIVATE_URL')),
+            'endpoint' => env('R2_ENDPOINT', env('AWS_ENDPOINT')),
+            'use_path_style_endpoint' => env('R2_USE_PATH_STYLE_ENDPOINT', env('AWS_USE_PATH_STYLE_ENDPOINT', false)),
             'http' => [
                 'verify' => env('AWS_CA_BUNDLE', true),
             ],
@@ -103,17 +106,20 @@ return [
         's3_public' => [
             'driver' => 's3',
             'prefix' => env('FILESYSTEM_PUBLIC_PREFIX', ''),
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
-            'region' => env('AWS_DEFAULT_REGION'),
-            'bucket' => env('AWS_PUBLIC_BUCKET', env('AWS_BUCKET')),
-            'url' => env('AWS_PUBLIC_URL', env('AWS_URL')),
-            'endpoint' => env('AWS_ENDPOINT'),
-            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'key' => env('R2_ACCESS_KEY_ID', env('AWS_ACCESS_KEY_ID')),
+            'secret' => env('R2_SECRET_ACCESS_KEY', env('AWS_SECRET_ACCESS_KEY')),
+            'region' => env('R2_DEFAULT_REGION', env('AWS_DEFAULT_REGION')),
+            'bucket' => env('R2_PUBLIC_BUCKET', env('AWS_PUBLIC_BUCKET', env('AWS_BUCKET'))),
+            'url' => env('R2_PUBLIC_URL', env('AWS_PUBLIC_URL', env('AWS_URL'))),
+            'endpoint' => env('R2_ENDPOINT', env('AWS_ENDPOINT')),
+            'use_path_style_endpoint' => env('R2_USE_PATH_STYLE_ENDPOINT', env('AWS_USE_PATH_STYLE_ENDPOINT', false)),
             'http' => [
                 'verify' => env('AWS_CA_BUNDLE', true),
             ],
-            'visibility' => 'public',
+            // R2 public access is controlled at the bucket/domain level. Keep
+            // object visibility private so Flysystem does not send the
+            // unsupported public-read ACL to R2.
+            'visibility' => 'private',
             'throw' => false,
             'report' => false,
         ],

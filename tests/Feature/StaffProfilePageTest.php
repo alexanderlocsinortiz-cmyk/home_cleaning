@@ -41,6 +41,23 @@ class StaffProfilePageTest extends TestCase
         ]);
     }
 
+    public function test_staff_profile_rejects_invalid_phone_number(): void
+    {
+        $staff = $this->createStaff();
+
+        $response = $this->actingAs($staff)->put(route('staff.profile.update'), [
+            'first_name' => 'Staff',
+            'last_name' => 'Member',
+            'phone' => '0924252j5j5j355sgg',
+        ]);
+
+        $response->assertSessionHasErrors('phone');
+        $this->assertDatabaseHas('users', [
+            'id' => $staff->id,
+            'phone' => '09170000001',
+        ]);
+    }
+
     private function createStaff(): User
     {
         return User::create([

@@ -119,6 +119,16 @@
                         <span>Reset Password</span>
                     </button>
                 </form>
+
+                <div class="mt-6 text-center text-sm text-slate-500">
+                    <span>Didn't receive the code?</span>
+                    <form method="POST" action="{{ route('password.resend') }}" class="mt-2 inline-block">
+                        @csrf
+                        <button type="submit" class="font-bold text-blue-600 transition hover:text-blue-700 hover:underline">
+                            Resend code
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>

@@ -122,19 +122,8 @@ class AuthController extends Controller
         $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
 
         if ($user) {
-            $expiresInMinutes = $this->passwordResetCodeExpiresInMinutes();
-            $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-
-            DB::table('password_reset_tokens')->updateOrInsert(
-                ['email' => $user->email],
-                [
-                    'token' => Hash::make($code),
-                    'created_at' => now(),
-                ]
-            );
-
             try {
-                $user->notify(new ResetPasswordOtp($code, $expiresInMinutes));
+                $this->issuePasswordResetCode($user);
             } catch (\Exception $e) {
                 Log::error('Failed to send password reset code', [
                     'user_id' => $user->id,
@@ -153,6 +142,37 @@ class AuthController extends Controller
         return redirect()
             ->route('password.reset.verify')
             ->with('success', 'If that email exists, a password reset code was sent.');
+    }
+
+    public function resendPasswordResetCode(Request $request)
+    {
+        $email = strtolower((string) $request->session()->get('password_reset_email'));
+
+        if ($email === '') {
+            return redirect()->route('password.request');
+        }
+
+        $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
+
+        if ($user) {
+            try {
+                $this->issuePasswordResetCode($user);
+            } catch (\Exception $e) {
+                Log::error('Failed to resend password reset code', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return redirect()
+                    ->route('password.reset.verify')
+                    ->withErrors(['code' => 'Failed to send reset code. Please try again.']);
+            }
+        }
+
+        return redirect()
+            ->route('password.reset.verify')
+            ->with('success', 'If that email exists, a new password reset code was sent.');
     }
 
     public function showResetPassword(Request $request)
@@ -349,6 +369,22 @@ class AuthController extends Controller
             'provider' => 'provider.dashboard',
             default => 'client.dashboard',
         });
+    }
+
+    private function issuePasswordResetCode(User $user): void
+    {
+        $expiresInMinutes = $this->passwordResetCodeExpiresInMinutes();
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $user->email],
+            [
+                'token' => Hash::make($code),
+                'created_at' => now(),
+            ]
+        );
+
+        $user->notify(new ResetPasswordOtp($code, $expiresInMinutes));
     }
 
     private function ensureLoginIsNotLocked(Request $request): void

@@ -2431,6 +2431,12 @@ label:focus-within .selection-card {
     background: #DBEAFE;
 }
 
+#client-location-map {
+    min-height: 220px;
+    overflow: hidden;
+    background: #DBEAFE;
+}
+
 #google-map-frame .leaflet-control-zoom,
 #admin-google-map-frame .leaflet-control-zoom {
     border: 0 !important;
@@ -2493,7 +2499,8 @@ label:focus-within .selection-card {
     }
 
     #google-map-frame,
-    #admin-google-map-frame {
+    #admin-google-map-frame,
+    #client-location-map {
         min-height: 280px;
     }
 }

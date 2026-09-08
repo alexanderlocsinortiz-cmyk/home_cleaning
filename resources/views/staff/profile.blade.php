@@ -143,11 +143,16 @@
                             <label for="phone" class="text-sm font-semibold text-slate-700">Phone number</label>
                             <input
                                 id="phone"
-                                type="text"
+                                type="tel"
                                 name="phone"
                                 value="{{ old('phone', $user->phone) }}"
                                 class="client-profile-input"
                                 placeholder="09XXXXXXXXX"
+                                inputmode="numeric"
+                                pattern="09[0-9]{9}"
+                                maxlength="11"
+                                title="Enter an 11-digit Philippine mobile number starting with 09"
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11)"
                             >
                             @error('phone')
                                 <p class="text-xs font-medium text-red-600">{{ $message }}</p>

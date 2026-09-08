@@ -50,7 +50,7 @@ class StaffController extends Controller
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'phone' => 'required|string|max:20',
+            'phone' => ['required', 'regex:/^09[0-9]{9}$/'],
             'username' => 'required|string|unique:users,username',
             'password' => ['required', StrongPassword::rule()],
         ]);
@@ -91,7 +91,7 @@ class StaffController extends Controller
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($staff->id)],
-            'phone' => ['nullable', 'string', 'max:30'],
+            'phone' => ['nullable', 'regex:/^09[0-9]{9}$/'],
             'username' => ['required', 'string', 'min:5', 'max:20', Rule::unique('users', 'username')->ignore($staff->id)],
             'password' => ['nullable', StrongPassword::rule()],
         ]);

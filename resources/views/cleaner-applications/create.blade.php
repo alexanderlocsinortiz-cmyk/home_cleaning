@@ -1274,6 +1274,10 @@ document.addEventListener('DOMContentLoaded', function() {
             nextLabel.textContent = `Continue to ${stepLabels[currentStep + 1]}`;
         }
 
+        if (currentStep === 2 && typeof window.cleanflowInvalidateProviderLocationMaps === 'function') {
+            window.requestAnimationFrame(() => window.cleanflowInvalidateProviderLocationMaps());
+        }
+
         if (currentStep === 4) {
             updateFinalSummary();
         }

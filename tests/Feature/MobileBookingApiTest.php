@@ -78,6 +78,30 @@ class MobileBookingApiTest extends TestCase
         ]);
     }
 
+    public function test_mobile_booking_rejects_one_sided_service_coordinates(): void
+    {
+        $service = $this->service();
+        $token = $this->mobileToken();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/mobile/bookings', $this->validPayload([
+                'service_type' => $service->slug,
+                'service_latitude' => 7.9041,
+            ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('service_longitude');
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/mobile/bookings', $this->validPayload([
+                'service_type' => $service->slug,
+                'service_longitude' => 125.0926,
+            ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('service_latitude');
+
+        $this->assertDatabaseCount('bookings', 0);
+    }
+
     public function test_mobile_booking_rejects_incompatible_service_and_property_type(): void
     {
         $this->service();

@@ -10,10 +10,14 @@ use Illuminate\Support\Str;
 class StaffSeeder extends Seeder
 {
     /**
-     * Seed the staff table with sample records.
+     * Seed the staff table with sample records for local and staging use.
      */
     public function run(): void
     {
+        if (app()->environment('production')) {
+            return;
+        }
+
         $barangays = array_keys(config('cleanflow.barangays'));
 
         $staff = [

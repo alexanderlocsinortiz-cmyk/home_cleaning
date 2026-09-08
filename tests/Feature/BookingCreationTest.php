@@ -163,6 +163,8 @@ class BookingCreationTest extends TestCase
             'add_ons' => ['window_glass', 'refrigerator'],
             'barangay' => 'Poblacion',
             'street_address' => '123 Rizal Street',
+            'service_latitude' => 7.9041,
+            'service_longitude' => 125.0926,
             'scheduled_date' => now()->addDays(3)->toDateString(),
             'scheduled_time' => '09:00',
             'payment_method' => 'on_site_cash',
@@ -189,6 +191,52 @@ class BookingCreationTest extends TestCase
         $this->assertSame(550.0, (float) $booking->add_ons_fee);
         $this->assertSame(2, $booking->required_cleaners);
         $this->assertSame(['window_glass', 'refrigerator'], $booking->add_ons);
+        $this->assertSame(7.9041, (float) $booking->service_latitude);
+        $this->assertSame(125.0926, (float) $booking->service_longitude);
+    }
+
+    public function test_booking_rejects_one_sided_service_coordinates(): void
+    {
+        $this->canonicalService([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $client = $this->createVerifiedUser([
+            'email' => 'one-sided-coordinates@example.com',
+            'username' => 'onesidedcoordinates',
+        ]);
+
+        $basePayload = [
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 1,
+            'bathrooms' => 1,
+            'floor_area' => 30,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Rizal Street',
+            'scheduled_date' => now()->addDays(3)->toDateString(),
+            'scheduled_time' => '09:00',
+            'payment_method' => 'on_site_cash',
+            'service_plan' => 'one_time',
+        ];
+
+        $this->actingAs($client)
+            ->from(route('bookings.create'))
+            ->post(route('bookings.store'), $basePayload + ['service_latitude' => 7.9041])
+            ->assertRedirect(route('bookings.create'))
+            ->assertSessionHasErrors('service_longitude');
+
+        $this->actingAs($client)
+            ->from(route('bookings.create'))
+            ->post(route('bookings.store'), $basePayload + ['service_longitude' => 125.0926])
+            ->assertRedirect(route('bookings.create'))
+            ->assertSessionHasErrors('service_latitude');
+
+        $this->assertDatabaseCount('bookings', 0);
     }
 
     public function test_per_square_meter_booking_duration_scales_with_floor_area(): void
@@ -658,6 +706,8 @@ class BookingCreationTest extends TestCase
             'price' => 620,
             'status' => 'in_progress',
             'staff_id' => $staff->id,
+            'service_latitude' => 7.9041,
+            'service_longitude' => 125.0926,
         ]);
 
         BookingServiceProof::create([
@@ -684,6 +734,9 @@ class BookingCreationTest extends TestCase
         $response->assertSee('Proof of Service', false);
         $response->assertSee('Before Service Photos', false);
         $response->assertSee('Staff Action History', false);
+        $response->assertSee('id="client-location-map"', false);
+        $response->assertSee('Exact client pin saved', false);
+        $response->assertSee('Open in Google Maps', false);
     }
 
     public function test_client_can_create_a_subscription_booking_with_digital_payment(): void

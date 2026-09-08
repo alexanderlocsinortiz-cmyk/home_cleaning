@@ -362,6 +362,30 @@
                                 </div>
                                 <div class="text-base font-semibold text-slate-900">{{ $booking->street_address }}</div>
                                 <div class="mt-1 text-sm text-slate-500">{{ ucfirst($booking->barangay) }}, Valencia City</div>
+                                @if($isAdmin || $isStaff)
+                                    @if(filled($booking->service_latitude) && filled($booking->service_longitude))
+                                        <div class="mt-4 overflow-hidden rounded-2xl border border-blue-200 bg-white">
+                                            <div
+                                                id="client-location-map"
+                                                class="client-location-map"
+                                                data-lat="{{ $booking->service_latitude }}"
+                                                data-lng="{{ $booking->service_longitude }}"
+                                                aria-label="Client service location map"
+                                            ></div>
+                                            <div class="flex flex-wrap items-center justify-between gap-2 border-t border-blue-100 px-3 py-2">
+                                                <span class="text-[11px] font-semibold text-slate-500">Exact client pin saved</span>
+                                                <a href="{{ $directionsUrl }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                                    Open in Google Maps
+                                                </a>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+                                            No exact client pin was saved. Use the written address and ask the client to confirm the location.
+                                        </div>
+                                    @endif
+                                @endif
                                 @if($isStaff)
                                 <a href="{{ $directionsUrl }}" target="_blank" rel="noopener" class="mt-4 inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-100">
                                     <i class="fa-solid fa-route"></i>
@@ -1135,6 +1159,7 @@ let adminMap = null;
 let adminStaffMarker = null;
 let adminDestMarker = null;
 let adminLine = null;
+let clientLocationMap = null;
 
 function makeTileLayer() {
     return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1159,6 +1184,34 @@ function makeDestIcon() {
         iconAnchor: [13, 13],
         className: ''
     });
+}
+
+function initClientLocationMap() {
+    const mapEl = document.getElementById('client-location-map');
+
+    if (!mapEl || typeof L === 'undefined' || clientLocationMap) {
+        return;
+    }
+
+    const lat = Number(mapEl.dataset.lat);
+    const lng = Number(mapEl.dataset.lng);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return;
+    }
+
+    clientLocationMap = L.map(mapEl.id, {
+        scrollWheelZoom: true,
+        zoomControl: true,
+        dragging: true
+    });
+    makeTileLayer().addTo(clientLocationMap);
+    L.marker([lat, lng], { icon: makeDestIcon() })
+        .addTo(clientLocationMap)
+        .bindPopup('Client service location: ' + serviceAddress)
+        .openPopup();
+    clientLocationMap.setView([lat, lng], 17);
+    requestAnimationFrame(() => clientLocationMap.invalidateSize());
 }
 
 function updateClientStatus(text, color, background) {
@@ -1402,6 +1455,8 @@ function previewPhoto(input) {
         reader.readAsDataURL(input.files[0]);
     }
 }
+
+initClientLocationMap();
 
 if (['confirmed', 'in_progress'].includes(bookingStatus)) {
     pollLocation();

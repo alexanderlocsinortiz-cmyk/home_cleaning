@@ -12,6 +12,43 @@ class AdminStaffManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_admin_cannot_create_staff_with_invalid_phone_number(): void
+    {
+        $admin = $this->createUser('admin', 'admin-staff-phone@example.com', 'adminstaffphone');
+
+        $response = $this->actingAs($admin)->post(route('admin.staff.store'), [
+            'first_name' => 'Invalid',
+            'last_name' => 'Phone',
+            'email' => 'invalid-phone-staff@example.com',
+            'phone' => '0924252j5j5j355sgg',
+            'username' => 'invalidphone',
+            'password' => 'Password123!',
+        ]);
+
+        $response->assertSessionHasErrors('phone');
+        $this->assertDatabaseMissing('users', ['email' => 'invalid-phone-staff@example.com']);
+    }
+
+    public function test_admin_cannot_update_staff_with_invalid_phone_number(): void
+    {
+        $admin = $this->createUser('admin', 'admin-staff-update-phone@example.com', 'adminstaffupdatephone');
+        $staff = $this->createUser('staff', 'staff-update-phone@example.com', 'staffupdatephone');
+
+        $response = $this->actingAs($admin)->put(route('admin.staff.update', $staff), [
+            'first_name' => 'Staff',
+            'last_name' => 'User',
+            'email' => $staff->email,
+            'phone' => '0917-invalid',
+            'username' => $staff->username,
+        ]);
+
+        $response->assertSessionHasErrors('phone');
+        $this->assertDatabaseHas('users', [
+            'id' => $staff->id,
+            'phone' => '09171234567',
+        ]);
+    }
+
     public function test_admin_cannot_delete_staff_with_booking_history(): void
     {
         $admin = $this->createUser('admin', 'admin-staff-protect@example.com', 'adminstaffprotect');

@@ -17,7 +17,11 @@ Run on 2026-09-05 against the S3-compatible configuration available to this work
 - Probe cleanup passed: zero temporary health-check objects remained on either bucket.
 - Migration dry-runs found 216 private local files, 8 public local files, and 4 legacy booking-media records. No files were copied or deleted.
 
-These checks prove the currently configured endpoint and credentials, not Render production state. Selecting `s3_proof` (or an equivalent private proof disk) and migrating existing proof media is still required for the intended proof-prefix isolation. Render service variables, bucket policy, and the production cutover remain manual verification gates.
+These checks prove the currently configured endpoint and credentials, not the
+deployed production state. Selecting `s3_proof` (or an equivalent private proof
+disk) and migrating existing proof media is still required for the intended
+proof-prefix isolation. Deployment service variables, bucket policy, and the
+production cutover remain manual verification gates.
 
 ## Static and local checks
 
@@ -29,8 +33,8 @@ These checks prove the currently configured endpoint and credentials, not Render
 | Catalog and rating media use the public disk | Pass | Service images, rating photos, and the site logo use `public_uploads_disk` |
 | Migration preserves source files | Pass | `storage:migrate-local` copies and never deletes source files; automated test covers this |
 | Local dry-run completed | Pass | 216 private and 8 public files detected; 4 legacy booking-media records were reviewed without copying or deleting |
-| Render storage variables are declared | Pass | `render.yaml` declares separate private/public bucket and URL settings, endpoint, path-style, and prefix settings for web and worker |
-| Disk visibility contract is covered by an automated test | Pass | `tests/Unit/FilesystemConfigurationTest.php` asserts that `s3` has no public visibility while `s3_public` is public |
+| Deployment storage variables are documented | Pass | `config/filesystems.php` and `docs/OBJECT_STORAGE.md` define separate private/public bucket, URL, endpoint, path-style, and prefix settings |
+| Disk visibility contract is covered by an automated test | Pass | `tests/Unit/FilesystemConfigurationTest.php` asserts private object visibility for R2-compatible proof and public-media uploads |
 | Private download endpoint denies guests | Pass | `tests/Feature/CleanerApplicationTest.php` verifies an unauthenticated request is redirected before a sensitive document download |
 | Sensitive application uploads honor the configured private disk | Pass | `tests/Feature/CleanerApplicationTest.php` stores uploaded identity files on a configured private test disk |
 | Production bucket exists | Not verified | Requires provider dashboard or CLI access |
@@ -49,7 +53,7 @@ Do not make the entire bucket public. That would risk exposing government IDs, s
 
 1. Create separate private and public buckets, with separate prefixes inside them.
 2. Create least-privilege credentials limited to the required bucket and prefixes.
-3. Configure `FILESYSTEM_PRIVATE_DISK=s3`, `FILESYSTEM_PROOF_DISK=s3_proof`, and `FILESYSTEM_PUBLIC_DISK=s3_public` on web, worker, and backup-cron services, pointing them at the matching buckets.
+3. Configure `FILESYSTEM_PRIVATE_DISK=s3`, `FILESYSTEM_PROOF_DISK=s3_proof`, and `FILESYSTEM_PUBLIC_DISK=s3_public` on web, worker, and backup-cron services. When the primary S3 disk is provider-managed, configure the separate `R2_*` credentials and buckets for proof and public-media disks.
 4. Configure different `FILESYSTEM_PRIVATE_PREFIX`, `FILESYSTEM_PROOF_PREFIX`, and `FILESYSTEM_PUBLIC_PREFIX` values, then configure the same AWS region, bucket, endpoint, URL, and path-style setting on all services.
 5. In staging, run `php artisan storage:migrate-local --dry-run` and `php artisan storage:migrate-proof-media --include-ratings --dry-run`, then copy the files and record source/destination counts.
 6. Verify an admin can download a private document while an unauthenticated request receives no private file.

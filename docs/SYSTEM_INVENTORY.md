@@ -10,9 +10,9 @@ Inventory date: 2026-08-26.
 | Web UI | Blade templates, Tailwind CSS 4, Vite 7 |
 | Browser libraries | Axios, Chart.js, Leaflet, Font Awesome |
 | Database | PostgreSQL by default; migrations and tests also support SQLite |
-| Sessions/cache/queues | Database drivers in `.env.example`; Render configuration uses file sessions/cache and a database queue |
+| Sessions/cache/queues | Database drivers in `.env.example`; production requires shared session/cache storage and a running queue worker |
 | Authentication | Laravel session authentication for web; bearer `MobileApiToken` authentication for mobile |
-| Files | Public filesystem for service proof photos/videos and payout/application documents |
+| Files | Separate private/public disks for proof media, documents, payout evidence, and public catalog media |
 | Testing | PHPUnit 11 feature/unit tests; Laravel Pint for formatting |
 
 ## Product surfaces
@@ -35,7 +35,7 @@ Inventory date: 2026-08-26.
 | Google Maps | Address/location map and geocoding features when configured | `GOOGLE_MAPS_API_KEY` |
 | OSRM public router | Browser-side route estimates on booking tracking maps | hard-coded public routing URL in views |
 | SMTP/mail provider | Production email delivery | `MAIL_*` environment variables |
-| Render | Container deployment target | `render.yaml` and `Dockerfile` |
+| Deployment platform | Laravel Cloud or self-managed container infrastructure | `Dockerfile` and deployment environment settings |
 
 ## Attendance hardware
 
@@ -52,8 +52,8 @@ Inventory date: 2026-08-26.
 
 - The Docker image builds frontend assets and runs the Laravel application through the checked-in container configuration.
 - The default local queue driver is `database`; email jobs require a running queue worker to be processed asynchronously.
-- Render defines the web service and a separate `cleanflow-worker` background worker in `render.yaml`; live worker health and shared-secret configuration still require dashboard verification.
-- Production mail is configured as `log` in the current Render manifest, so real customer email delivery is not enabled by that manifest alone.
+- The web service needs a separate managed or self-managed queue worker; live worker health and shared-secret configuration still require deployment verification.
+- Production mail is not configured by source code alone; a real `MAIL_*` transport and delivery test are required.
 - PostgreSQL is the intended production database. The `.env` file must never be committed or copied into documentation because it may contain secrets.
 
 ## Hard risks and next checks

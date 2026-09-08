@@ -340,6 +340,62 @@ class LoginTest extends TestCase
         ])->assertRedirect(route('client.dashboard'));
     }
 
+    public function test_user_can_resend_password_reset_code_from_verify_page(): void
+    {
+        Notification::fake();
+
+        $user = $this->createUser([
+            'email' => 'resend-reset@example.com',
+            'username' => 'resendreset',
+        ]);
+
+        $this->withSession(['password_reset_email' => $user->email])
+            ->get(route('password.reset.verify'))
+            ->assertOk()
+            ->assertSee('Resend code')
+            ->assertSee(route('password.resend'), false);
+
+        $response = $this->withSession(['password_reset_email' => $user->email])
+            ->post(route('password.resend'));
+
+        $response->assertRedirect(route('password.reset.verify'));
+        $response->assertSessionHas('success', 'If that email exists, a new password reset code was sent.');
+        Notification::assertSentTo($user, ResetPasswordOtp::class);
+        $this->assertDatabaseHas('password_reset_tokens', [
+            'email' => $user->email,
+        ]);
+    }
+
+    public function test_password_reset_resend_requires_the_reset_session(): void
+    {
+        Notification::fake();
+
+        $response = $this->post(route('password.resend'));
+
+        $response->assertRedirect(route('password.request'));
+        Notification::assertNothingSent();
+    }
+
+    public function test_password_reset_resend_is_rate_limited(): void
+    {
+        Notification::fake();
+
+        $user = $this->createUser([
+            'email' => 'throttled-reset@example.com',
+            'username' => 'throttledreset',
+        ]);
+
+        for ($attempt = 1; $attempt <= 6; $attempt++) {
+            $this->withSession(['password_reset_email' => $user->email])
+                ->post(route('password.resend'))
+                ->assertRedirect(route('password.reset.verify'));
+        }
+
+        $this->withSession(['password_reset_email' => $user->email])
+            ->post(route('password.resend'))
+            ->assertTooManyRequests();
+    }
+
     public function test_expired_password_reset_code_is_rejected(): void
     {
         $user = $this->createUser([

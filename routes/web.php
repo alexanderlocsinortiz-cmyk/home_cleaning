@@ -68,6 +68,9 @@ Route::middleware('guest')->group(function () {
         ->middleware('throttle:6,1')
         ->name('password.email');
     Route::get('/forgot-password/verify', [AuthController::class, 'showResetPassword'])->name('password.reset.verify');
+    Route::post('/forgot-password/resend', [AuthController::class, 'resendPasswordResetCode'])
+        ->middleware('throttle:6,1')
+        ->name('password.resend');
     Route::post('/forgot-password/reset', [AuthController::class, 'resetPasswordWithCode'])
         ->middleware('throttle:6,1')
         ->name('password.update');

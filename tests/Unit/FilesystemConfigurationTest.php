@@ -6,7 +6,7 @@ use Tests\TestCase;
 
 class FilesystemConfigurationTest extends TestCase
 {
-    public function test_s3_upload_disks_keep_private_and_public_visibility_separate(): void
+    public function test_s3_upload_disks_use_private_object_visibility_for_r2_compatible_public_media(): void
     {
         $privateDisk = config('filesystems.disks.s3');
         $publicDisk = config('filesystems.disks.s3_public');
@@ -17,7 +17,7 @@ class FilesystemConfigurationTest extends TestCase
         $this->assertSame('s3', $proofDisk['driver']);
         $this->assertSame('private', $proofDisk['visibility']);
         $this->assertSame('s3', $publicDisk['driver']);
-        $this->assertSame('public', $publicDisk['visibility']);
+        $this->assertSame('private', $publicDisk['visibility']);
     }
 
     public function test_s3_upload_disks_use_separate_configurable_prefixes(): void

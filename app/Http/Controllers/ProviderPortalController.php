@@ -8,8 +8,11 @@ use App\Models\CleanerApplicationDocument;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class ProviderPortalController extends Controller
 {
@@ -367,16 +370,14 @@ class ProviderPortalController extends Controller
 
             $videoUploaded = false;
             if ($request->hasFile('completion_video')) {
-                $videoPath = $request->file('completion_video')->store('booking-proofs/after', config('filesystems.proof_uploads_disk'));
-
-                $booking->serviceProofs()->create([
-                    'uploaded_by' => $actor->id,
-                    'stage' => 'after',
-                    'media_type' => 'video',
-                    'file_path' => $videoPath,
-                    'original_name' => $request->file('completion_video')->getClientOriginalName(),
-                ]);
-
+                $this->storeProofBatch(
+                    $booking,
+                    [$request->file('completion_video')],
+                    'after',
+                    'video',
+                    $actor,
+                    'completion_video'
+                );
                 $videoUploaded = true;
             }
 
@@ -508,21 +509,72 @@ class ProviderPortalController extends Controller
         array $files,
         string $stage,
         string $mediaType,
-        User $uploadedBy
+        User $uploadedBy,
+        ?string $errorField = null
     ): int {
-        foreach ($files as $file) {
-            $path = $file->store('booking-proofs/'.$stage, config('filesystems.proof_uploads_disk'));
+        $disk = (string) config('filesystems.proof_uploads_disk');
+        $storedPaths = [];
 
-            $booking->serviceProofs()->create([
-                'uploaded_by' => $uploadedBy->id,
-                'stage' => $stage,
-                'media_type' => $mediaType,
-                'file_path' => $path,
-                'original_name' => $file->getClientOriginalName(),
-            ]);
+        try {
+            foreach ($files as $file) {
+                try {
+                    $path = $file->store('booking-proofs/'.$stage, $disk);
+                } catch (Throwable $exception) {
+                    $this->logProofStorageFailure($booking, $stage, $mediaType, $disk, $file, $exception);
+
+                    throw ValidationException::withMessages([
+                        $errorField ?: ($stage === 'before' ? 'before_photos' : 'after_photos') => 'We could not securely store the proof file. Please try again or contact an administrator.',
+                    ]);
+                }
+
+                if (! is_string($path) || trim($path) === '') {
+                    $exception = new \RuntimeException('Proof file storage returned an empty path.');
+                    $this->logProofStorageFailure($booking, $stage, $mediaType, $disk, $file, $exception);
+
+                    throw ValidationException::withMessages([
+                        $errorField ?: ($stage === 'before' ? 'before_photos' : 'after_photos') => 'We could not securely store the proof file. Please try again or contact an administrator.',
+                    ]);
+                }
+
+                $storedPaths[] = $path;
+
+                $booking->serviceProofs()->create([
+                    'uploaded_by' => $uploadedBy->id,
+                    'stage' => $stage,
+                    'media_type' => $mediaType,
+                    'file_path' => $path,
+                    'original_name' => $file->getClientOriginalName(),
+                ]);
+            }
+        } catch (Throwable $exception) {
+            if ($storedPaths !== []) {
+                try {
+                    Storage::disk($disk)->delete($storedPaths);
+                } catch (Throwable $cleanupException) {
+                    Log::warning('Booking proof cleanup failed after status update error.', [
+                        'booking_id' => $booking->id,
+                        'disk' => $disk,
+                        'error' => $cleanupException->getMessage(),
+                    ]);
+                }
+            }
+
+            throw $exception;
         }
 
         return count($files);
+    }
+
+    private function logProofStorageFailure(Booking $booking, string $stage, string $mediaType, string $disk, $file, Throwable $exception): void
+    {
+        Log::error('Booking proof upload failed.', [
+            'booking_id' => $booking->id,
+            'stage' => $stage,
+            'media_type' => $mediaType,
+            'disk' => $disk,
+            'original_name' => $file->getClientOriginalName(),
+            'error' => $exception->getMessage(),
+        ]);
     }
 
     private function createClientProofNotification(Booking $booking, string $event, array $payload = []): void

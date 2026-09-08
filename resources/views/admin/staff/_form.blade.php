@@ -27,7 +27,7 @@
     </div>
     <div>
         <label for="phone" class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Phone Number</label>
-        <input id="phone" type="text" name="phone" autocomplete="tel" value="{{ old('phone', optional($staff)->phone) }}" placeholder="09XXXXXXXXX" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
+        <input id="phone" type="tel" name="phone" autocomplete="tel" inputmode="numeric" pattern="09[0-9]{9}" maxlength="11" title="Enter an 11-digit Philippine mobile number starting with 09" value="{{ old('phone', optional($staff)->phone) }}" placeholder="09XXXXXXXXX" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100" @if(!isset($staff)) required @endif oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11)">
         @error('phone')
             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
         @enderror

@@ -8,6 +8,17 @@ async function fillContactDetails(page, { dateOfBirth = '1990-01-01', phone = '0
     await page.locator('#phone').fill(phone);
 }
 
+async function fillProviderLocation(page) {
+    const map = page.locator('#provider-location-map');
+
+    await expect(map).toBeVisible();
+    await expect(map.locator('.leaflet-control-zoom')).toBeVisible();
+    await page.locator('#location_area').selectOption({ index: 1 });
+    await map.click({ position: { x: 160, y: 160 } });
+    await expect(page.locator('#location_latitude')).not.toHaveValue('');
+    await expect(page.locator('#location_longitude')).not.toHaveValue('');
+}
+
 test('applicant can complete the cleaner application review flow', async ({ page }) => {
     await page.goto('/cleaners/apply');
 
@@ -18,6 +29,7 @@ test('applicant can complete the cleaner application review flow', async ({ page
     await page.locator('[data-step-next]').click();
 
     await expect(page.locator('[data-step-panel="2"]')).toBeVisible();
+    await fillProviderLocation(page);
     await page.locator('input[name="services_offered[]"]').first().check();
     await page.locator('input[name="available_days[]"]').first().check();
     await page.locator('[data-step-next]').click();
@@ -100,6 +112,8 @@ test('step two shows selection progress and explains missing choices', async ({ 
     await expect(page.locator('[data-service-count]')).toHaveText('0 selected');
     await expect(page.locator('[data-day-count]')).toHaveText('0 selected');
 
+    await fillProviderLocation(page);
+
     await page.locator('[data-step-next]').click();
     await expect(page.locator('[data-step-panel="2"]')).toBeVisible();
     await expect(page.locator('[data-form-warning]')).toHaveText('Choose at least one service before continuing.');
@@ -113,6 +127,7 @@ test('applicant cannot continue with an identity file larger than 5 MB', async (
     await page.goto('/cleaners/apply');
     await fillContactDetails(page);
     await page.locator('[data-step-next]').click();
+    await fillProviderLocation(page);
     await page.locator('input[name="services_offered[]"]').first().check();
     await page.locator('input[name="available_days[]"]').first().check();
     await page.locator('[data-step-next]').click();

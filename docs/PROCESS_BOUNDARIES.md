@@ -28,7 +28,7 @@ Moving everything into a queue would be a mistake: a booking could appear accept
 ## Separation already implemented
 
 - Queued email jobs use the `emails` queue.
-- A dedicated Render `cleanflow-worker` service runs the queue worker.
+- A dedicated managed or self-managed queue worker runs the queue worker.
 - Analytics charts use database-side aggregates.
 - Storage migration is a separate, non-destructive Artisan command.
 - High-frequency location writes are coalesced when the point has barely changed.
@@ -56,4 +56,3 @@ The process design is not the same as production verification. The queue worker,
 - `app/Http/Controllers/BookingController.php` — atomic booking creation and digital checkout redirect.
 - `app/Services/PaymongoCheckoutService.php` — bounded external payment requests.
 - `docs/API_LIMITS.md` — request and export limits.
-

@@ -9,7 +9,7 @@
 - [ ] Security dependencies up to date: `composer audit`
 
 ### Security Configuration
-- [ ] `APP_KEY` properly generated and unique
+- [ ] `APP_KEY` is set once and kept stable across web, worker, and scheduler processes
 - [ ] `APP_DEBUG` set to `false`
 - [ ] `APP_ENV` set to `production`
 - [ ] All sensitive environment variables configured
@@ -78,6 +78,10 @@ SESSION_DOMAIN=.example.com
 
 BROADCAST_CONNECTION=log
 FILESYSTEM_DISK=s3
+FILESYSTEM_PRIVATE_DISK=s3
+FILESYSTEM_PROOF_DISK=s3_proof
+FILESYSTEM_PUBLIC_DISK=s3_public
+DATABASE_BACKUP_DISK=s3
 QUEUE_CONNECTION=database
 
 CACHE_STORE=redis
@@ -96,12 +100,24 @@ MAIL_ENCRYPTION=tls
 MAIL_FROM_ADDRESS=noreply@cleanflow.example.com
 MAIL_FROM_NAME="Clean Flow"
 
-# AWS S3 (For file storage)
+# Primary S3 storage (for the main private disk and database backups)
 AWS_ACCESS_KEY_ID=your_aws_key
 AWS_SECRET_ACCESS_KEY=your_aws_secret
 AWS_DEFAULT_REGION=us-east-1
-AWS_BUCKET=your-bucket-name
+AWS_PRIVATE_BUCKET=your-private-bucket-name
+AWS_PUBLIC_BUCKET=your-public-bucket-name
 AWS_USE_PATH_STYLE_ENDPOINT=false
+
+# Cloudflare R2 (for booking proofs and public catalog media when the primary
+# S3 credentials are managed by Laravel Cloud or another provider)
+R2_ACCESS_KEY_ID=your_r2_access_key
+R2_SECRET_ACCESS_KEY=your_r2_secret
+R2_DEFAULT_REGION=auto
+R2_PRIVATE_BUCKET=cleanflow-private
+R2_PUBLIC_BUCKET=cleanflow-public
+R2_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+R2_PUBLIC_URL=https://<PUBLIC_BUCKET_SUBDOMAIN>.r2.dev
+R2_USE_PATH_STYLE_ENDPOINT=false
 
 # Custom Settings
 ATTENDANCE_TIMEZONE=Asia/Manila
@@ -148,8 +164,8 @@ sudo -u cleanflow npm run build
 **Configure Environment:**
 ```bash
 sudo -u cleanflow cp .env.example .env
-# Edit .env with production values
-sudo -u cleanflow php artisan key:generate
+# Edit .env with production values, including one stable APP_KEY generated
+# once in a secure environment. Do not run key:generate on an existing app.
 ```
 
 **Set Permissions:**
@@ -177,10 +193,13 @@ EOF
 sudo -u cleanflow php artisan migrate --force
 ```
 
-**Seed Initial Data:**
-```bash
-sudo -u cleanflow php artisan db:seed --force
-```
+**Production seed policy:**
+
+Do not run `php artisan db:seed --force` in production. The default seeders
+contain demo accounts and sample staff for local/staging testing. The staff
+seeder refuses to run in the production environment, but production data
+should still be created deliberately through reviewed migrations or the admin
+workflow.
 
 ---
 

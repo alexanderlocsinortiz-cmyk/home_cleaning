@@ -329,8 +329,8 @@ class MobileBookingController extends Controller
             'payment_method' => ['required', Rule::in(array_keys(Booking::paymentMethods()))],
             'barangay' => ['required', Rule::in(array_keys(config('cleanflow.barangays', [])))],
             'street_address' => ['required', 'string', 'max:255'],
-            'service_latitude' => ['nullable', 'numeric', 'between:-90,90'],
-            'service_longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'service_latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:service_longitude'],
+            'service_longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:service_latitude'],
             'scheduled_date' => ['required', 'date', 'after_or_equal:today'],
             'scheduled_time' => ['required', Rule::in(self::TIME_SLOTS)],
             'notes' => ['nullable', 'string', 'max:500'],
@@ -338,6 +338,8 @@ class MobileBookingController extends Controller
             'barangay.in' => 'The selected barangay is not within our service area.',
             'scheduled_date.after_or_equal' => 'Please select today or a future date.',
             'scheduled_time.in' => 'Please select one of the available booking times.',
+            'service_latitude.required_with' => 'Latitude and longitude must be provided together.',
+            'service_longitude.required_with' => 'Latitude and longitude must be provided together.',
         ]);
 
         $bookingTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');

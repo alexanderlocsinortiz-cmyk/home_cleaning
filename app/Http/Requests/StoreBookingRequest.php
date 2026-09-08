@@ -72,8 +72,8 @@ class StoreBookingRequest extends FormRequest
             ],
             'barangay' => ['required', Rule::in($validBarangays)],
             'street_address' => 'required|string|max:255',
-            'service_latitude' => 'nullable|numeric|between:-90,90',
-            'service_longitude' => 'nullable|numeric|between:-180,180',
+            'service_latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:service_longitude'],
+            'service_longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:service_latitude'],
             'preferred_staff_id' => [
                 'nullable',
                 Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'staff')),
@@ -154,6 +154,8 @@ class StoreBookingRequest extends FormRequest
             'service_plan.required' => 'Please choose whether this is a one-time booking or a subscription.',
             'subscription_frequency.required' => 'Please choose a recurring schedule for the subscription plan.',
             'subscription_occurrences.required' => 'Please choose how many visits should be scheduled for the subscription plan.',
+            'service_latitude.required_with' => 'Latitude and longitude must be provided together.',
+            'service_longitude.required_with' => 'Latitude and longitude must be provided together.',
         ];
     }
 }

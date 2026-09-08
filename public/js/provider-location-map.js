@@ -1,6 +1,14 @@
 (function () {
     'use strict';
 
+    const providerLocationMaps = new Set();
+
+    function invalidateProviderLocationMaps() {
+        providerLocationMaps.forEach((map) => map.invalidateSize());
+    }
+
+    window.cleanflowInvalidateProviderLocationMaps = invalidateProviderLocationMaps;
+
     function numberOrNull(value) {
         const number = Number(value);
 
@@ -35,6 +43,7 @@
                 maxZoom: config.maxZoom || 17,
             }).addTo(map);
             L.control.scale({ imperial: false }).addTo(map);
+            providerLocationMaps.add(map);
 
             const shell = element.closest('[data-provider-location-shell]') || element.parentElement;
             const areaInput = document.getElementById(element.dataset.areaInput || 'location_area');

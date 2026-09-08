@@ -24,16 +24,16 @@
 - [x] Identify architecture and process problems.
 - [x] Fix production `APP_KEY` handling and deployment secret management.
 - [x] Add a production queue worker configuration.
-- [x] Align Render database environment declarations and correct the cache variable name. Live values still require dashboard verification.
-- [x] Audit Render worker verification requirements. See `docs/QUEUE_WORKER_VERIFICATION.md`; dashboard and production test verification remain open.
-- [x] Remove the Render mailer default that could silently log queued emails. Both services now require dashboard-supplied mail settings; delivery verification remains open.
-- [ ] Verify the Render worker is running with shared production secrets. Static configuration exists, but live status and secret equality are unverified.
+- [x] Align deployment database environment declarations and correct the cache variable name. Live values still require dashboard verification.
+- [x] Audit queue-worker verification requirements. See `docs/QUEUE_WORKER_VERIFICATION.md`; dashboard and production test verification remain open.
+- [x] Remove the deployment mailer default that could silently log queued emails. Delivery verification remains open.
+- [ ] Verify the queue worker is running with shared production secrets. Static configuration exists, but live status and secret equality are unverified.
 - [x] Move synchronous email delivery behind queued jobs.
 - [x] Queue booking lifecycle emails (submission, status, and assignment).
 - [x] Audit durable object-storage readiness. See `docs/OBJECT_STORAGE_VERIFICATION.md`; production bucket configuration and migration remain open.
 - [x] Add a runtime object-storage probe. Run `php artisan storage:verify --probe` after production credentials are configured.
-- [x] Add explicit S3-compatible storage variables to the Render blueprint. Production values still require deployment configuration.
-- [x] Prepare Cloudflare R2 two-bucket configuration and setup instructions. Cloudflare bucket creation, Render secrets, and live probes remain open.
+- [x] Add explicit S3-compatible storage variables to the deployment configuration. Production values still require deployment configuration.
+- [x] Prepare Cloudflare R2 two-bucket configuration and setup instructions. Cloudflare bucket creation, deployment secrets, and live probes remain open.
 - [x] Add separate configurable private/public object-storage prefixes so bucket policies can isolate sensitive documents from public media. Production bucket policy and cutover remain open.
 - [x] Add a tested private cloud database-backup upload and scheduler-friendly command with retention pruning and temporary-file cleanup. Production bucket configuration and restore-drill evidence remain open.
 - [x] Add an automated private/public disk visibility contract test. Real bucket privacy testing remains open.

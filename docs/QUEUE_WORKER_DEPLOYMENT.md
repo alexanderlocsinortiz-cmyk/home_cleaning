@@ -1,35 +1,41 @@
 # Queue Worker Deployment
 
-The Render blueprint now defines a separate `cleanflow-worker` service running:
+This application sends OTP, booking, and other customer notifications through
+the `emails` queue. A web process alone does not process queued jobs.
+
+## Laravel Cloud
+
+1. Attach a managed queue to the target environment and name it `emails`.
+2. Configure the queue according to the current Laravel Cloud environment
+   settings. Do not set `QUEUE_CONNECTION` to a driver that is not available in
+   `config/queue.php` or supplied by the platform integration.
+3. Use the same `APP_KEY`, database connection, mail settings, and storage
+   settings on every process that can create or process jobs.
+4. Confirm the queue has a running worker and inspect **Monitoring → Queues**.
+
+The queue must use the same database and application environment as the web
+service. Otherwise the web process may write jobs that no worker can see, or a
+worker may process jobs against the wrong application data.
+
+## Self-managed infrastructure
+
+Run a dedicated worker process with:
 
 ```bash
-php artisan queue:work --queue=emails,default --tries=3 --timeout=120
+php artisan queue:work database --queue=emails,default --sleep=3 --tries=3 --timeout=120
 ```
 
-Before deploying the worker, configure the same runtime secrets and database connection values used by `cleanflow-app`. The worker manifest declares the required values as dashboard-supplied inputs:
+Keep the worker under a process supervisor, restart it after deployments, and
+run `php artisan queue:failed` during incident checks. Do not run a permanent
+worker inside the web request process.
 
-- `APP_KEY` — must be exactly the same value as the web service.
-- `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, `DB_SCHEMA`, and `DB_SSLMODE`.
-- `MAIL_*` values for the real mail provider.
-- Any `PAYMONGO_*`, `DAILY_*`, or other application settings needed by queued jobs.
+## Acceptance checks
 
-The worker uses the `starter` plan because Render does not provide the `free` plan for background workers. The web and worker services must also share the same S3 bucket settings when queued jobs need to access uploaded files.
+1. Register a controlled test client and confirm the verification email arrives.
+2. Request a password reset and confirm the OTP arrives.
+3. Create a controlled booking and confirm its notification is delivered.
+4. Verify the jobs are completed and no unexpected records remain in
+   `failed_jobs`.
+5. Run `php artisan cleanflow:verify --probe` in the deployed environment.
 
-The blueprint leaves `MAIL_*` values dashboard-supplied for both services. Configure the same real mail provider, sender address, and `APP_URL` in the web and worker environments. Do not use the Laravel `log` mailer as evidence that a customer email was delivered.
-
-For an existing Render service, `sync: false` does not re-prompt for values during a Blueprint sync. Open the `cleanflow-worker` Environment page and manually confirm that `APP_KEY`, all `DB_*` values, and the required `MAIL_*` values match the web service.
-
-Do not generate a separate `APP_KEY` for the worker. A different key would make encrypted sessions and data incompatible between services.
-
-After deployment, verify the worker is running and inspect failed jobs with:
-
-```bash
-php artisan queue:failed
-```
-
-Acceptance checks:
-
-1. The worker status is `Live` in Render.
-2. Its start command is `php artisan queue:work --queue=emails,default --tries=3 --timeout=120`.
-3. `APP_KEY` and the database connection values match `cleanflow-app` exactly.
-4. A test booking notification is processed and no unexpected row remains in `failed_jobs`.
+Never use the local `log` mailer as evidence that an email was delivered.

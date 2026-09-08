@@ -229,7 +229,44 @@ class BookingStatusWorkflowTest extends TestCase
         $this->assertDatabaseHas('notifications', [
             'user_id' => $client->id,
             'title' => 'Service started with proof',
+            'booking_id' => $booking->id,
         ]);
+    }
+
+    public function test_staff_proof_storage_failure_returns_a_validation_error_instead_of_server_error(): void
+    {
+        $client = $this->createUser('client', 'client-proof-storage-failure@example.com', 'clientproofstoragefailure');
+        $staff = $this->createUser('staff', 'staff-proof-storage-failure@example.com', 'staffproofstoragefailure');
+        $booking = $this->createBooking($client, $staff, 'confirmed');
+        $diskName = 'proof-failing';
+        $unwritableRoot = tempnam(storage_path('framework/testing'), 'proof-root-');
+
+        Config::set('filesystems.proof_uploads_disk', $diskName);
+        Config::set('filesystems.disks.'.$diskName, [
+            'driver' => 'local',
+            'root' => $unwritableRoot,
+            'throw' => false,
+        ]);
+
+        try {
+            $response = $this->actingAs($staff)
+                ->from(route('staff.bookings'))
+                ->patch(route('staff.bookings.status', $booking->id), [
+                    'status' => 'in_progress',
+                    'before_photos' => [
+                        $this->fakeImageUpload('before-proof.png'),
+                    ],
+                ]);
+
+            $response->assertRedirect(route('staff.bookings'));
+            $response->assertSessionHasErrors('before_photos');
+            $this->assertSame('confirmed', $booking->fresh()->status);
+            $this->assertDatabaseMissing('booking_service_proofs', [
+                'booking_id' => $booking->id,
+            ]);
+        } finally {
+            @unlink($unwritableRoot);
+        }
     }
 
     public function test_staff_cannot_mark_confirmed_booking_as_completed_directly(): void
