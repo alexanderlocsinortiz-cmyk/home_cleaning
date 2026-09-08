@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\MobileApiToken;
 use App\Models\SecurityEvent;
 use App\Models\User;
+use App\Support\StrongPassword;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class MobileAuthController extends Controller
@@ -36,7 +36,7 @@ class MobileAuthController extends Controller
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'phone' => ['required', 'regex:/^[0-9]{11}$/'],
             'date_of_birth' => ['required', 'date', 'before_or_equal:'.$minimumBirthDate],
-            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
+            'password' => ['required', 'confirmed', StrongPassword::rule()],
         ], [
             'date_of_birth.before_or_equal' => 'Clients must be at least 18 years old to register.',
             'phone.regex' => 'Phone number must contain exactly 11 digits.',

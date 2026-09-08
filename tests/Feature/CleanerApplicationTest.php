@@ -755,8 +755,8 @@ class CleanerApplicationTest extends TestCase
 
         $response = $this->post(route('provider.activate.store', ['token' => $token]), [
             'username' => 'provideractivate',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'CleanFlow!Provider123',
+            'password_confirmation' => 'CleanFlow!Provider123',
         ]);
 
         $response->assertRedirect(route('provider.dashboard'));
@@ -792,8 +792,8 @@ class CleanerApplicationTest extends TestCase
         $application->forceFill(['activation_token_expires_at' => now()->subMinute()])->save();
 
         $response = $this->post(route('provider.activate.store', ['token' => $token]), [
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'CleanFlow!Provider123',
+            'password_confirmation' => 'CleanFlow!Provider123',
         ]);
 
         $response->assertRedirect(route('provider.activate.invalid'));

@@ -23,8 +23,8 @@ class MobileAuthApiTest extends TestCase
             'email' => 'maria.mobile@example.com',
             'phone' => '09123456789',
             'date_of_birth' => '1999-01-10',
-            'password' => 'Password123',
-            'password_confirmation' => 'Password123',
+            'password' => 'CleanFlow!Mobile123',
+            'password_confirmation' => 'CleanFlow!Mobile123',
         ]);
 
         $response

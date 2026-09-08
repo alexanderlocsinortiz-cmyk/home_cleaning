@@ -5,9 +5,9 @@ namespace Tests\Feature;
 use App\Models\SiteSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class AdminSettingsAccessControlTest extends TestCase
@@ -152,12 +152,12 @@ class AdminSettingsAccessControlTest extends TestCase
             ->patch(route('admin.settings.general'), [
                 'website_name' => 'Home Cleaning Services',
                 'admin_current_password' => 'old-password',
-                'admin_new_password' => 'new-password-123',
-                'admin_new_password_confirmation' => 'new-password-123',
+                'admin_new_password' => 'CleanFlow!Admin123',
+                'admin_new_password_confirmation' => 'CleanFlow!Admin123',
             ])
             ->assertRedirect();
 
-        $this->assertTrue(Hash::check('new-password-123', $admin->fresh()->password));
+        $this->assertTrue(Hash::check('CleanFlow!Admin123', $admin->fresh()->password));
     }
 
     public function test_admin_settings_show_database_backup_action(): void
@@ -209,13 +209,13 @@ class AdminSettingsAccessControlTest extends TestCase
         $this->actingAs($admin)
             ->patch(route('admin.settings.database-backup.password'), [
                 'database_backup_admin_password' => 'admin-password',
-                'database_backup_new_password' => 'backup-password-123',
-                'database_backup_new_password_confirmation' => 'backup-password-123',
+                'database_backup_new_password' => 'CleanFlow!Backup123',
+                'database_backup_new_password_confirmation' => 'CleanFlow!Backup123',
             ])
             ->assertRedirect(route('admin.settings').'#database-backup')
             ->assertSessionHas('success');
 
-        $this->assertTrue(Hash::check('backup-password-123', SiteSetting::current()->database_backup_password_hash));
+        $this->assertTrue(Hash::check('CleanFlow!Backup123', SiteSetting::current()->database_backup_password_hash));
     }
 
     public function test_database_backup_password_validation_returns_to_database_backup_tab(): void
@@ -328,8 +328,8 @@ class AdminSettingsAccessControlTest extends TestCase
             ->patch(route('admin.settings.general'), [
                 'website_name' => 'Home Cleaning Services',
                 'admin_current_password' => 'wrong-password',
-                'admin_new_password' => 'new-password-123',
-                'admin_new_password_confirmation' => 'new-password-123',
+                'admin_new_password' => 'CleanFlow!Admin123',
+                'admin_new_password_confirmation' => 'CleanFlow!Admin123',
             ])
             ->assertRedirect(route('admin.settings'))
             ->assertSessionHasErrors('admin_current_password');

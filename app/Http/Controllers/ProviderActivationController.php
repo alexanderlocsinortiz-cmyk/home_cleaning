@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\CleanerApplication;
 use App\Models\User;
+use App\Support\StrongPassword;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 class ProviderActivationController extends Controller
 {
@@ -34,7 +34,7 @@ class ProviderActivationController extends Controller
         }
 
         $validated = $request->validate([
-            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
+            'password' => ['required', 'confirmed', StrongPassword::rule()],
             'username' => [
                 'nullable',
                 'string',

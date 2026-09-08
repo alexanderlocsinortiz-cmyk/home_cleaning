@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AccessRestrictionHistory;
 use App\Models\SiteSetting;
 use App\Models\User;
+use App\Support\StrongPassword;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -12,7 +13,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -70,7 +70,7 @@ class AdminSettingsController extends Controller
             'admin_email' => ['nullable', 'email', 'max:120'],
             'admin_phone' => ['nullable', 'string', 'max:30'],
             'admin_current_password' => ['nullable', 'string'],
-            'admin_new_password' => ['nullable', 'confirmed', Password::min(8)->letters()->numbers()],
+            'admin_new_password' => ['nullable', 'confirmed', StrongPassword::rule()],
         ]);
 
         if (filled($validated['admin_new_password'] ?? null)) {
@@ -206,7 +206,7 @@ class AdminSettingsController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'database_backup_admin_password' => ['required', 'string'],
-            'database_backup_new_password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
+            'database_backup_new_password' => ['required', 'confirmed', StrongPassword::rule()],
         ]);
 
         if ($validator->fails()) {

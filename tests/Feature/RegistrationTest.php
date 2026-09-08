@@ -22,8 +22,8 @@ class RegistrationTest extends TestCase
             'email' => 'jane@example.com',
             'phone' => '09171234567',
             'date_of_birth' => '2000-01-01',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'CleanFlow!Client123',
+            'password_confirmation' => 'CleanFlow!Client123',
         ]);
 
         $response->assertRedirect(route('verification.notice'));
@@ -83,7 +83,24 @@ class RegistrationTest extends TestCase
         $this->assertDatabaseMissing('users', ['email' => 'weak-password@example.com']);
     }
 
-    public function test_password_with_letters_numbers_and_symbols_is_accepted(): void
+    public function test_password_without_uppercase_and_symbol_is_rejected(): void
+    {
+        $response = $this->from(route('register'))->post(route('register.store'), [
+            'first_name' => 'Missing',
+            'last_name' => 'Requirements',
+            'email' => 'missing-requirements@example.com',
+            'phone' => '09171234571',
+            'date_of_birth' => '2000-01-01',
+            'password' => 'password1234',
+            'password_confirmation' => 'password1234',
+        ]);
+
+        $response->assertRedirect(route('register'));
+        $response->assertSessionHasErrors('password');
+        $this->assertDatabaseMissing('users', ['email' => 'missing-requirements@example.com']);
+    }
+
+    public function test_strong_password_is_accepted_during_registration(): void
     {
         Notification::fake();
 
@@ -93,8 +110,8 @@ class RegistrationTest extends TestCase
             'email' => 'strong-password@example.com',
             'phone' => '09171234570',
             'date_of_birth' => '2000-01-01',
-            'password' => '@Carla123hsne',
-            'password_confirmation' => '@Carla123hsne',
+            'password' => 'CleanFlow!Strong123',
+            'password_confirmation' => 'CleanFlow!Strong123',
         ]);
 
         $response->assertRedirect(route('verification.notice'));

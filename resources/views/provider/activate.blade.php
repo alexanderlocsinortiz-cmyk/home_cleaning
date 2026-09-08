@@ -58,16 +58,16 @@
                 <div>
                     <label for="password" class="block text-sm font-bold text-slate-800">Password</label>
                     <div class="relative mt-2">
-                        <input id="password" type="password" name="password" required minlength="8" autocomplete="new-password" aria-describedby="password-help" class="w-full rounded-xl border border-slate-200 px-4 py-3 pr-12 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                        <input id="password" type="password" name="password" required minlength="12" autocomplete="new-password" aria-describedby="password-help" class="w-full rounded-xl border border-slate-200 px-4 py-3 pr-12 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                         <button type="button" class="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-400 transition hover:text-blue-700" data-password-toggle="password" aria-label="Show password"><i class="fas fa-eye"></i></button>
                     </div>
-                    <div id="password-help" class="mt-1 text-xs text-slate-500">Use at least 8 characters. A longer passphrase is safer.</div>
+                    <div id="password-help" class="mt-1 text-xs text-slate-500">Use at least 12 characters with uppercase, lowercase, a number, and a symbol.</div>
                 </div>
 
                 <div>
                     <label for="password_confirmation" class="block text-sm font-bold text-slate-800">Confirm Password</label>
                     <div class="relative mt-2">
-                        <input id="password_confirmation" type="password" name="password_confirmation" required minlength="8" autocomplete="new-password" class="w-full rounded-xl border border-slate-200 px-4 py-3 pr-12 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                        <input id="password_confirmation" type="password" name="password_confirmation" required minlength="12" autocomplete="new-password" class="w-full rounded-xl border border-slate-200 px-4 py-3 pr-12 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                         <button type="button" class="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-400 transition hover:text-blue-700" data-password-toggle="password_confirmation" aria-label="Show password"><i class="fas fa-eye"></i></button>
                     </div>
                 </div>

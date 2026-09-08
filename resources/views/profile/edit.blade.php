@@ -148,13 +148,14 @@
                                 </div>
                                 <div>
                                     <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">New Password</label>
-                                    <input type="password" name="new_password" class="client-profile-input">
+                                    <input type="password" name="new_password" minlength="12" aria-describedby="profile-password-help" autocomplete="new-password" class="client-profile-input">
                                 </div>
                             </div>
                             <div>
                                 <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Confirm New Password</label>
-                                <input type="password" name="new_password_confirmation" class="client-profile-input">
+                                <input type="password" name="new_password_confirmation" minlength="12" autocomplete="new-password" class="client-profile-input">
                             </div>
+                            <p id="profile-password-help" class="text-xs text-slate-500">New passwords need at least 12 characters with uppercase, lowercase, a number, and a symbol.</p>
                         </div>
                     </div>
 

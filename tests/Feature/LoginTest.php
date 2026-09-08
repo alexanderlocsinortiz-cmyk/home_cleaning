@@ -322,21 +322,21 @@ class LoginTest extends TestCase
             ->withSession(['password_reset_email' => $user->email])
             ->post(route('password.update'), [
                 'code' => $code,
-                'password' => 'new-password-123',
-                'password_confirmation' => 'new-password-123',
+                'password' => 'CleanFlow!Reset123',
+                'password_confirmation' => 'CleanFlow!Reset123',
             ]);
 
         $resetResponse->assertRedirect(route('login'));
         $resetResponse->assertSessionHas('success', 'Password reset successful. You can now sign in.');
 
-        $this->assertTrue(Hash::check('new-password-123', $user->fresh()->password));
+        $this->assertTrue(Hash::check('CleanFlow!Reset123', $user->fresh()->password));
         $this->assertDatabaseMissing('password_reset_tokens', [
             'email' => $user->email,
         ]);
 
         $this->post(route('login.store'), [
             'email' => $user->email,
-            'password' => 'new-password-123',
+            'password' => 'CleanFlow!Reset123',
         ])->assertRedirect(route('client.dashboard'));
     }
 
@@ -359,8 +359,8 @@ class LoginTest extends TestCase
             ->from(route('password.reset.verify'))
             ->post(route('password.update'), [
                 'code' => $code,
-                'password' => 'new-password-123',
-                'password_confirmation' => 'new-password-123',
+                'password' => 'CleanFlow!Reset123',
+                'password_confirmation' => 'CleanFlow!Reset123',
             ]);
 
         $response->assertRedirect(route('password.reset.verify'));

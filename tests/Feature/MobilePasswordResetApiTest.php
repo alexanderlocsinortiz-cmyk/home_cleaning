@@ -44,17 +44,17 @@ class MobilePasswordResetApiTest extends TestCase
         $resetToken = $verification->json('reset_token');
 
         $this->postJson('/api/mobile/password/reset', [
-            'password' => 'new-password-123',
-            'password_confirmation' => 'new-password-123',
+            'password' => 'CleanFlow!Reset123',
+            'password_confirmation' => 'CleanFlow!Reset123',
             'reset_token' => $resetToken,
         ])->assertOk();
 
-        $this->assertTrue(Hash::check('new-password-123', $user->fresh()->password));
+        $this->assertTrue(Hash::check('CleanFlow!Reset123', $user->fresh()->password));
         $this->assertDatabaseMissing('password_reset_tokens', ['email' => $user->email]);
 
         $this->postJson('/api/mobile/password/reset', [
-            'password' => 'another-password-123',
-            'password_confirmation' => 'another-password-123',
+            'password' => 'CleanFlow!Another123',
+            'password_confirmation' => 'CleanFlow!Another123',
             'reset_token' => $resetToken,
         ])->assertUnprocessable()
             ->assertJsonValidationErrors('reset_token');
@@ -104,8 +104,8 @@ class MobilePasswordResetApiTest extends TestCase
 
         $this->postJson('/api/mobile/password/reset', [
             'reset_token' => $resetToken,
-            'password' => 'new-password-123',
-            'password_confirmation' => 'new-password-123',
+            'password' => 'CleanFlow!Reset123',
+            'password_confirmation' => 'CleanFlow!Reset123',
         ])->assertOk();
 
         $this->withHeader('Authorization', 'Bearer '.$oldToken)

@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Support\StrongPassword;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 class StaffController extends Controller
 {
@@ -52,7 +52,7 @@ class StaffController extends Controller
             'email' => 'required|email|unique:users,email',
             'phone' => 'required|string|max:20',
             'username' => 'required|string|unique:users,username',
-            'password' => ['required', Password::min(8)->letters()->numbers()],
+            'password' => ['required', StrongPassword::rule()],
         ]);
 
         User::create([
@@ -93,7 +93,7 @@ class StaffController extends Controller
             'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($staff->id)],
             'phone' => ['nullable', 'string', 'max:30'],
             'username' => ['required', 'string', 'min:5', 'max:20', Rule::unique('users', 'username')->ignore($staff->id)],
-            'password' => ['nullable', Password::min(8)->letters()->numbers()],
+            'password' => ['nullable', StrongPassword::rule()],
         ]);
 
         $staff->update([

@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\StrongPassword;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 class ProfileController extends Controller
 {
@@ -45,7 +45,7 @@ class ProfileController extends Controller
             'street' => ['required', 'string', 'max:255'],
             'barangay' => ['required', Rule::in($barangays)],
             'current_password' => ['nullable', 'string'],
-            'new_password' => ['nullable', 'confirmed', Password::min(8)->letters()->numbers()],
+            'new_password' => ['nullable', 'confirmed', StrongPassword::rule()],
         ], [
             'phone.regex' => 'Phone number must contain exactly 11 digits.',
         ]);

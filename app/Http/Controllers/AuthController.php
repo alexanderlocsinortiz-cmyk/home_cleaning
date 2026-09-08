@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Notifications\ResetPasswordOtp;
+use App\Support\StrongPassword;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -12,7 +13,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
@@ -45,7 +45,7 @@ class AuthController extends Controller
             'email' => ['required', 'email', 'unique:users,email'],
             'phone' => ['required', 'regex:/^[0-9]{11}$/'],
             'date_of_birth' => ['required', 'date', 'before_or_equal:'.$minimumBirthDate],
-            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
+            'password' => ['required', 'confirmed', StrongPassword::rule()],
         ], [
             'date_of_birth.before_or_equal' => 'Clients must be at least 18 years old to register.',
             'phone.regex' => 'Phone number must contain exactly 11 digits.',
@@ -177,7 +177,7 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'code' => ['required', 'digits:6'],
-            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
+            'password' => ['required', 'confirmed', StrongPassword::rule()],
         ]);
 
         $user = User::whereRaw('LOWER(email) = ?', [strtolower($sessionEmail)])->first();

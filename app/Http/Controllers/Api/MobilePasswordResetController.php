@@ -7,6 +7,7 @@ use App\Models\MobileApiToken;
 use App\Models\SecurityEvent;
 use App\Models\User;
 use App\Notifications\ResetPasswordOtp;
+use App\Support\StrongPassword;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class MobilePasswordResetController extends Controller
@@ -109,7 +109,7 @@ class MobilePasswordResetController extends Controller
     public function resetPassword(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
+            'password' => ['required', 'confirmed', StrongPassword::rule()],
             'reset_token' => ['required', 'string', 'size:64'],
         ]);
 
