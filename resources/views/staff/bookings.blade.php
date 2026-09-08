@@ -248,6 +248,7 @@
                     <span class="proof-upload-title">Before-service photos</span>
                     <span class="proof-upload-copy">Required before starting. Upload 1 to 4 photos, max 5 MB each.</span>
                     <span class="proof-upload-selected" data-empty-label="No before photos selected">No before photos selected</span>
+                    <button type="button" class="proof-upload-remove" data-remove-upload>Remove selected photos</button>
                     <span class="proof-upload-error"></span>
                   </span>
                   <input type="file" name="before_photos[]" accept="image/*" multiple data-required-message="Select at least one before-service photo before starting." class="status-file-input proof-upload-input">
@@ -291,6 +292,7 @@
                     <span class="proof-upload-title">After-service photos</span>
                     <span class="proof-upload-copy">Required to complete. Upload 1 to 4 photos, max 5 MB each.</span>
                     <span class="proof-upload-selected" data-empty-label="No after photos selected">No after photos selected</span>
+                    <button type="button" class="proof-upload-remove" data-remove-upload>Remove selected photos</button>
                     <span class="proof-upload-error"></span>
                   </span>
                   <input type="file" name="after_photos[]" accept="image/*" multiple data-required-message="Select at least one after-service photo before completing." class="status-file-input proof-upload-input">
@@ -301,6 +303,7 @@
                     <span class="proof-upload-title">Completion video</span>
                     <span class="proof-upload-copy">Optional video proof. Max {{ $proofMaxVideoMb }} MB. Total upload max {{ $proofMaxRequestMb }} MB.</span>
                     <span class="proof-upload-selected" data-empty-label="No video selected">No video selected</span>
+                    <button type="button" class="proof-upload-remove" data-remove-upload>Remove video</button>
                     <span class="proof-upload-error"></span>
                   </span>
                   <input type="file" name="completion_video" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo" data-max-file-mb="{{ $proofMaxVideoMb }}" class="status-file-input proof-upload-input">
@@ -744,6 +747,28 @@
     line-height: 1.35;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.proof-upload-remove {
+    display: none;
+    margin-top: 0.4rem;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: var(--sb-blue-700);
+    font-size: 0.67rem;
+    font-weight: 900;
+    line-height: 1.35;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.proof-upload-remove.is-visible {
+    display: inline-flex;
+}
+
+.proof-upload-remove:hover {
+    color: var(--sb-blue-900);
 }
 
 .proof-upload-error {
@@ -1283,6 +1308,34 @@ async function drawStaffRoute(mapId) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    function updateProofUploadSelection(input) {
+        const card = input.closest('.proof-upload-card');
+        const selectedLabel = card?.querySelector('.proof-upload-selected');
+        const removeButton = card?.querySelector('[data-remove-upload]');
+
+        if (!selectedLabel) {
+            return;
+        }
+
+        const files = Array.from(input.files || []);
+        if (files.length === 0) {
+            selectedLabel.textContent = selectedLabel.dataset.emptyLabel || 'No file selected';
+            removeButton?.classList.remove('is-visible');
+            return;
+        }
+
+        removeButton?.classList.add('is-visible');
+
+        if (files.length === 1) {
+            selectedLabel.textContent = files[0].name;
+            return;
+        }
+
+        selectedLabel.textContent = files.length + ' files selected: ' + files.slice(0, 2).map(function (file) {
+            return file.name;
+        }).join(', ') + (files.length > 2 ? '...' : '');
+    }
+
     document.querySelectorAll('.proof-upload-input').forEach(function (input) {
         input.addEventListener('change', function () {
             const card = input.closest('.proof-upload-card');
@@ -1298,20 +1351,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 errorLabel.textContent = '';
             }
 
-            const files = Array.from(input.files || []);
-            if (files.length === 0) {
-                selectedLabel.textContent = selectedLabel.dataset.emptyLabel || 'No file selected';
-                return;
-            }
+            updateProofUploadSelection(input);
+        });
 
-            if (files.length === 1) {
-                selectedLabel.textContent = files[0].name;
-                return;
-            }
-
-            selectedLabel.textContent = files.length + ' files selected: ' + files.slice(0, 2).map(function (file) {
-                return file.name;
-            }).join(', ') + (files.length > 2 ? '...' : '');
+        input.closest('.proof-upload-card')?.querySelector('[data-remove-upload]')?.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            input.value = '';
+            input.dispatchEvent(new Event('change', { bubbles: true }));
         });
     });
 

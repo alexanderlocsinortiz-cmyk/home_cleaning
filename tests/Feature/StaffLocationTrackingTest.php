@@ -71,6 +71,8 @@ class StaffLocationTrackingTest extends TestCase
         $bookingsResponse->assertSee('data-destination-lat="7.9073"', false);
         $bookingsResponse->assertSee('data-destination-lng="125.092"', false);
         $bookingsResponse->assertSee('Show route', false);
+        $bookingsResponse->assertSee('data-remove-upload', false);
+        $bookingsResponse->assertSee('Remove video', false);
     }
 
     public function test_provider_cannot_read_a_booking_location_from_the_shared_endpoint(): void
