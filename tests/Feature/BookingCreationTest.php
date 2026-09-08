@@ -143,6 +143,17 @@ class BookingCreationTest extends TestCase
         ]);
         $user->forceFill(['email_verified_at' => now()])->save();
 
+        $this->createVerifiedUser([
+            'email' => 'client-booking-capacity@example.com',
+            'username' => 'clientbookingcapacity',
+            'role' => 'staff',
+        ]);
+        $this->createVerifiedUser([
+            'email' => 'client-booking-capacity-two@example.com',
+            'username' => 'clientbookingcapacitytwo',
+            'role' => 'staff',
+        ]);
+
         $payload = [
             'service_type' => 'basic',
             'property_type' => 'apartment',
@@ -166,7 +177,7 @@ class BookingCreationTest extends TestCase
 
         $this->assertNotNull($booking);
         $this->assertSame($user->id, $booking->user_id);
-        $this->assertSame('pending', $booking->status);
+        $this->assertSame('confirmed', $booking->status);
         $this->assertSame('not_required', $booking->manual_review_status);
         $this->assertNull($booking->risk_reasons);
         $this->assertSame(2125.0, (float) $booking->price);
@@ -981,7 +992,7 @@ class BookingCreationTest extends TestCase
         $this->assertDatabaseCount('bookings', 2);
     }
 
-    public function test_client_cannot_book_a_time_slot_when_staff_capacity_is_full(): void
+    public function test_client_booking_is_sent_for_manual_review_when_staff_capacity_is_full(): void
     {
         $this->canonicalService([
             'name' => 'Basic Clean',
@@ -1037,9 +1048,17 @@ class BookingCreationTest extends TestCase
                 'scheduled_time' => '11:00',
             ]);
 
-        $response->assertRedirect(route('bookings.create'));
-        $response->assertSessionHasErrors('scheduled_time');
-        $this->assertDatabaseCount('bookings', 1);
+        $response->assertRedirect(route('bookings.index'));
+        $response->assertSessionHas('success', 'Your booking request has been submitted and is pending manual review before confirmation.');
+        $this->assertDatabaseCount('bookings', 2);
+
+        $newBooking = Booking::where('user_id', $newClient->id)->latest('id')->firstOrFail();
+        $this->assertSame('pending', $newBooking->status);
+        $this->assertSame('pending', $newBooking->manual_review_status);
+        $this->assertContains(
+            'Only 0 qualified cleaners are available for this schedule, but this booking requires 1.',
+            $newBooking->risk_reasons ?? []
+        );
     }
 
     public function test_client_with_missing_profile_details_is_redirected_to_profile_edit_before_booking(): void

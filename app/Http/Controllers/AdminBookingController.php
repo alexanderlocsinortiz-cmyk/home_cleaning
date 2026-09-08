@@ -919,10 +919,16 @@ class AdminBookingController extends Controller
         }
 
         $reviewStatus = $validated['review_status'];
+        $oldStatus = $booking->status;
 
         $booking->manual_review_status = $reviewStatus;
         $booking->reviewed_by = auth()->id();
         $booking->reviewed_at = now();
+
+        if ($reviewStatus === 'approved' && $booking->status === 'pending') {
+            $booking->setExpectedServiceWindow();
+            $booking->status = 'confirmed';
+        }
 
         if ($reviewStatus === 'blocked') {
             $booking->staff_id = null;
@@ -939,8 +945,18 @@ class AdminBookingController extends Controller
             'review_status' => $reviewStatus,
         ]);
 
+        if ($reviewStatus === 'approved' && $oldStatus !== 'confirmed') {
+            $booking->load(['user', 'staff', 'service', 'preferredStaff']);
+            $booking->logActivity(auth()->user(), 'status_updated', 'Manual review approval confirmed the booking.', [
+                'from_status' => $oldStatus,
+                'to_status' => 'confirmed',
+            ]);
+            SendBookingConfirmedEmail::dispatch($booking->id);
+            $this->createClientStatusNotification($booking, 'confirmed');
+        }
+
         $message = $reviewStatus === 'approved'
-            ? 'Booking cleared for normal scheduling and confirmation.'
+            ? 'Booking approved and confirmed. Assign cleaners before the service starts.'
             : 'Booking blocked during manual review and removed from the active queue.';
 
         return back()->with('success', $message);

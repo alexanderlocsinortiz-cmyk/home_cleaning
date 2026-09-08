@@ -222,6 +222,7 @@ class MobileBookingApiTest extends TestCase
     public function test_mobile_client_can_reschedule_own_booking(): void
     {
         $client = User::factory()->create(['email' => 'reschedule-mobile@example.com', 'password' => Hash::make('Password123')]);
+        User::factory()->create(['role' => 'staff']);
         $booking = Booking::factory()->create(['user_id' => $client->id, 'status' => 'pending', 'scheduled_time' => '08:00']);
         $token = $this->loginToken('reschedule-mobile@example.com');
         $date = now()->addDays(3)->toDateString();

@@ -73,27 +73,9 @@ class MobileBookingController extends Controller
             $validated['add_on_quantities'] ?? []
         );
 
-        $riskReasons = Booking::detectRiskReasons(
-            $user->id,
-            $validated['street_address'],
-            $validated['barangay'],
-            $validated['scheduled_date'],
-            $validated['scheduled_time']
-        );
-
-        if ($service->requiresScopeManualReview((int) $validated['floor_area'])) {
-            $riskReasons[] = 'Requested floor area exceeds the provisional measurable limit for this service.';
-        }
-
-        if (Booking::staffingRequiresManualReview((int) $pricing['required_cleaners'])) {
-            $riskReasons[] = Booking::staffingManualReviewReason((int) $pricing['required_cleaners']);
-        }
-
-        $manualReviewStatus = empty($riskReasons) ? 'not_required' : 'pending';
-
         try {
             $booking = Cache::lock(
-                'booking-slot:'.Booking::scheduleSlotKey($validated['scheduled_date'], $validated['scheduled_time']),
+                'booking-capacity-date:'.Booking::normalizeScheduleDate($validated['scheduled_date']),
                 10
             )->block(5, function () use (
                 $user,
@@ -101,23 +83,10 @@ class MobileBookingController extends Controller
                 $service,
                 $serviceDurationMinutes,
                 $pricing,
-                $riskReasons,
-                $manualReviewStatus
             ) {
                 if (Booking::clientHasScheduleConflict($user->id, $validated['scheduled_date'], $validated['scheduled_time'])) {
                     throw ValidationException::withMessages([
                         'scheduled_time' => ['You already have an active booking at this date and time.'],
-                    ]);
-                }
-
-                $hasExistingBooking = Booking::scheduleConflictQuery(
-                    $validated['scheduled_date'],
-                    $validated['scheduled_time'],
-                )->exists();
-
-                if (! Booking::slotHasCapacity($validated['scheduled_date'], $validated['scheduled_time']) && ! $hasExistingBooking) {
-                    throw ValidationException::withMessages([
-                        'scheduled_time' => ['This schedule is already full. Please choose another time.'],
                     ]);
                 }
 
@@ -126,11 +95,41 @@ class MobileBookingController extends Controller
                     $validated,
                     $service,
                     $serviceDurationMinutes,
-                    $pricing,
-                    $riskReasons,
-                    $manualReviewStatus
+                    $pricing
                 ) {
-                    return Booking::create([
+                    $riskReasons = Booking::detectRiskReasons(
+                        $user->id,
+                        $validated['street_address'],
+                        $validated['barangay'],
+                        $validated['scheduled_date'],
+                        $validated['scheduled_time']
+                    );
+
+                    if ($service->requiresScopeManualReview((int) $validated['floor_area'])) {
+                        $riskReasons[] = 'Requested floor area exceeds the provisional measurable limit for this service.';
+                    }
+
+                    if (Booking::staffingRequiresManualReview((int) $pricing['required_cleaners'])) {
+                        $riskReasons[] = Booking::staffingManualReviewReason((int) $pricing['required_cleaners']);
+                    }
+
+                    $availableCleaners = Booking::availableCleanerCountForSchedule(
+                        $validated['scheduled_date'],
+                        $validated['scheduled_time'],
+                        $serviceDurationMinutes
+                    );
+
+                    if ($availableCleaners < max(1, (int) $pricing['required_cleaners'])) {
+                        $riskReasons[] = Booking::capacityManualReviewReason(
+                            max(1, (int) $pricing['required_cleaners']),
+                            $availableCleaners
+                        );
+                    }
+
+                    $manualReviewStatus = empty($riskReasons) ? 'not_required' : 'pending';
+                    $status = $manualReviewStatus === 'not_required' ? 'confirmed' : 'pending';
+
+                    $booking = Booking::create([
                         'user_id' => $user->id,
                         'service_id' => $service->id,
                         'service_type' => $validated['service_type'],
@@ -150,7 +149,7 @@ class MobileBookingController extends Controller
                         'duration_minutes' => $serviceDurationMinutes,
                         'notes' => $validated['notes'] ?? null,
                         'service_plan' => 'one_time',
-                        'risk_reasons' => empty($riskReasons) ? null : $riskReasons,
+                        'risk_reasons' => empty($riskReasons) ? null : array_values(array_unique($riskReasons)),
                         'manual_review_status' => $manualReviewStatus,
                         'price' => $pricing['total'],
                         'base_price' => $pricing['base_price'],
@@ -163,9 +162,16 @@ class MobileBookingController extends Controller
                         'payment_status' => 'pending',
                         'payment_reference' => null,
                         'paid_at' => null,
-                        'status' => 'pending',
+                        'status' => $status,
                         'preferred_staff_status' => 'none',
                     ]);
+
+                    if ($status === 'confirmed') {
+                        $booking->setExpectedServiceWindow();
+                        $booking->save();
+                    }
+
+                    return $booking;
                 });
             });
         } catch (LockTimeoutException) {
@@ -177,9 +183,9 @@ class MobileBookingController extends Controller
         $booking->load(['service', 'cleanerApplication', 'payment']);
 
         return response()->json([
-            'message' => $manualReviewStatus === 'pending'
+            'message' => $booking->manual_review_status === 'pending'
                 ? 'Your booking request has been submitted and is pending manual review.'
-                : 'Your booking request has been received.',
+                : 'Your booking is confirmed. A cleaner will be assigned before the service starts.',
             'booking' => $this->bookingPayload($booking),
             'pricing' => $pricing,
             'formatted_total' => 'P'.number_format((float) $pricing['total'], 0),
@@ -219,7 +225,13 @@ class MobileBookingController extends Controller
         if ($booking->staff_id && Booking::staffHasScheduleConflict($booking->staff_id, $validated['scheduled_date'], $validated['scheduled_time'], $booking->id, (int) $booking->duration_minutes)) {
             return response()->json(['message' => 'The assigned cleaner is not available at that date and time.'], 422);
         }
-        if (! Booking::slotHasCapacity($validated['scheduled_date'], $validated['scheduled_time'], $booking->id)) {
+        if (! Booking::slotHasCapacity(
+            $validated['scheduled_date'],
+            $validated['scheduled_time'],
+            $booking->id,
+            max(1, (int) ($booking->required_cleaners ?: 1)),
+            (int) ($booking->duration_minutes ?: Service::DEFAULT_DURATION_MINUTES)
+        )) {
             return response()->json(['message' => 'That time slot is already fully booked.'], 422);
         }
 

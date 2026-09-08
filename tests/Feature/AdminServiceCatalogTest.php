@@ -216,7 +216,7 @@ class AdminServiceCatalogTest extends TestCase
         $service->refresh();
         $this->assertNull($service->image_path);
         Storage::disk($disk)->assertMissing($customPath);
-        $this->assertStringEndsWith('/images/services/deep.jpg', $service->image_url);
+        $this->assertStringEndsWith('/images/services/optimized/deep.jpg', $service->image_url);
     }
 
     public function test_admin_service_index_shows_package_badges_without_quick_add_templates(): void

@@ -96,7 +96,6 @@ class Booking extends Model
     ];
 
     public const STAFF_REQUIRED_STATUSES = [
-        'confirmed',
         'in_progress',
         'completed',
     ];
@@ -557,6 +556,11 @@ class Booking extends Model
         $maximum = (int) config('cleanflow.staffing.max_cleaners_per_booking', 20);
 
         return "This booking requires {$requiredCleaners} cleaners, exceeding the automatic staffing limit of {$maximum}.";
+    }
+
+    public static function capacityManualReviewReason(int $requiredCleaners, int $availableCleaners): string
+    {
+        return "Only {$availableCleaners} qualified cleaners are available for this schedule, but this booking requires {$requiredCleaners}.";
     }
 
     public function dispute(): HasOne
@@ -1989,12 +1993,89 @@ class Booking extends Model
         return max(1, User::where('role', 'staff')->count());
     }
 
+    /**
+     * Return the number of staff-role users whose schedule can still cover a
+     * booking window. Until staff qualifications are modelled separately, a
+     * staff-role user is treated as qualified for the service catalogue.
+     */
+    public static function availableCleanerCountForSchedule(
+        mixed $scheduledDate,
+        mixed $scheduledTime,
+        ?int $targetDurationMinutes = null,
+        ?int $exceptBookingId = null
+    ): int {
+        $totalStaff = User::where('role', 'staff')->count();
+
+        if ($totalStaff === 0) {
+            return 0;
+        }
+
+        $busyStaffIds = [];
+        $unassignedCleanerDemand = 0;
+
+        self::query()
+            ->whereIn('status', self::scheduleConflictStatuses())
+            ->where(function (Builder $query) {
+                $query
+                    ->whereNull('manual_review_status')
+                    ->orWhere('manual_review_status', '!=', 'blocked');
+            })
+            ->whereDate('scheduled_date', self::normalizeScheduleDate($scheduledDate))
+            ->when(
+                $exceptBookingId !== null,
+                fn (Builder $query) => $query->where('id', '!=', $exceptBookingId)
+            )
+            ->with('staffAssignments:id,booking_id,staff_id')
+            ->get([
+                'id',
+                'staff_id',
+                'required_cleaners',
+                'scheduled_date',
+                'scheduled_time',
+                'duration_minutes',
+                'status',
+            ])
+            ->each(function (Booking $existingBooking) use (&$busyStaffIds, &$unassignedCleanerDemand, $scheduledDate, $scheduledTime, $targetDurationMinutes): void {
+                if (! self::assignmentWindowsOverlap(
+                    $scheduledDate,
+                    $scheduledTime,
+                    $targetDurationMinutes,
+                    $existingBooking->scheduled_date,
+                    $existingBooking->scheduled_time,
+                    (int) ($existingBooking->duration_minutes ?: Service::durationForSlug($existingBooking->service_type))
+                )) {
+                    return;
+                }
+
+                $assignedStaffIds = collect([$existingBooking->staff_id])
+                    ->merge($existingBooking->staffAssignments->pluck('staff_id'))
+                    ->filter()
+                    ->map(fn ($staffId): int => (int) $staffId)
+                    ->unique()
+                    ->values();
+
+                $busyStaffIds = array_merge($busyStaffIds, $assignedStaffIds->all());
+
+                $requiredCleaners = max((int) ($existingBooking->required_cleaners ?: 1), 1);
+                $unassignedCleanerDemand += max(0, $requiredCleaners - $assignedStaffIds->count());
+            });
+
+        return max(0, $totalStaff - count(array_unique($busyStaffIds)) - $unassignedCleanerDemand);
+    }
+
     public static function slotHasCapacity(
         mixed $scheduledDate,
         mixed $scheduledTime,
-        ?int $exceptBookingId = null
+        ?int $exceptBookingId = null,
+        int $requiredCleaners = 1,
+        ?int $targetDurationMinutes = null
     ): bool {
-        return self::scheduleConflictQuery($scheduledDate, $scheduledTime, $exceptBookingId)->count() < self::scheduleCapacity();
+        return self::availableCleanerCountForSchedule(
+            $scheduledDate,
+            $scheduledTime,
+            $targetDurationMinutes,
+            $exceptBookingId
+        ) >= max(1, $requiredCleaners);
     }
 
     public static function clientHasScheduleConflict(

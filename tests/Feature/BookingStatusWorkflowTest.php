@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Booking;
-use App\Models\BookingStaffAssignment;
 use App\Models\BookingServiceProof;
+use App\Models\BookingStaffAssignment;
 use App\Models\CleanerApplication;
 use App\Models\Notification;
 use App\Models\User;
@@ -53,7 +53,7 @@ class BookingStatusWorkflowTest extends TestCase
         $this->assertSame($firstStaff->id, $booking->fresh()->staff_id);
     }
 
-    public function test_multi_cleaner_booking_cannot_be_confirmed_until_all_specialists_are_assigned(): void
+    public function test_multi_cleaner_booking_can_be_confirmed_before_specialists_are_assigned(): void
     {
         $admin = $this->createUser('admin', 'admin-specialist-confirm@example.com', 'adminspecialistconfirm');
         $client = $this->createUser('client', 'client-specialist-confirm@example.com', 'clientspecialistconfirm');
@@ -69,8 +69,8 @@ class BookingStatusWorkflowTest extends TestCase
             ]);
 
         $response->assertRedirect(route('admin.bookings'));
-        $response->assertSessionHasErrors('assignments');
-        $this->assertSame('pending', $booking->fresh()->status);
+        $response->assertSessionHasNoErrors();
+        $this->assertSame('confirmed', $booking->fresh()->status);
         $this->assertSame(0, BookingStaffAssignment::where('booking_id', $booking->id)->count());
     }
 
@@ -93,7 +93,7 @@ class BookingStatusWorkflowTest extends TestCase
         $response->assertDontSee('Kitchen and bathroom');
     }
 
-    public function test_admin_cannot_confirm_a_booking_without_assigning_staff(): void
+    public function test_admin_can_confirm_a_booking_without_assigning_staff(): void
     {
         $admin = $this->createUser('admin', 'admin-status@example.com', 'adminstatus');
         $client = $this->createUser('client', 'client-status@example.com', 'clientstatus');
@@ -106,8 +106,8 @@ class BookingStatusWorkflowTest extends TestCase
             ]);
 
         $response->assertRedirect(route('admin.bookings'));
-        $response->assertSessionHasErrors('staff_id');
-        $this->assertSame('pending', $booking->fresh()->status);
+        $response->assertSessionHasNoErrors();
+        $this->assertSame('confirmed', $booking->fresh()->status);
     }
 
     public function test_admin_can_confirm_booking_without_staff_when_marketplace_provider_accepted(): void
@@ -521,10 +521,11 @@ class BookingStatusWorkflowTest extends TestCase
             ]);
 
         $reviewResponse->assertRedirect(route('admin.bookings'));
-        $reviewResponse->assertSessionHas('success', 'Booking cleared for normal scheduling and confirmation.');
+        $reviewResponse->assertSessionHas('success', 'Booking approved and confirmed. Assign cleaners before the service starts.');
 
         $reviewedBooking = $booking->fresh();
         $this->assertSame('approved', $reviewedBooking->manual_review_status);
+        $this->assertSame('confirmed', $reviewedBooking->status);
         $this->assertSame($admin->id, $reviewedBooking->reviewed_by);
         $this->assertNotNull($reviewedBooking->reviewed_at);
 

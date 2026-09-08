@@ -555,7 +555,7 @@
                             </div>
                             <div>
                                 <div class="font-semibold text-yellow-800">Cleaner not yet assigned</div>
-                                <div class="mt-1 text-sm text-yellow-700">Our admin team will assign a cleaner as soon as your booking is confirmed.</div>
+                                <div class="mt-1 text-sm text-yellow-700">Your booking time is confirmed. Our admin team will assign a cleaner before the service starts.</div>
                             </div>
                         </div>
                     </div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CalculatePriceRequest;
 use App\Http\Requests\StoreBookingRequest;
+use App\Jobs\SendBookingConfirmedEmail;
 use App\Jobs\SendBookingSubmittedEmail;
 use App\Models\AttendanceLog;
 use App\Models\Booking;
@@ -186,24 +187,6 @@ class BookingController extends Controller
             $request->input('add_on_quantities', [])
         );
 
-        $riskReasons = Booking::detectRiskReasons(
-            $user->id,
-            $request->street_address,
-            $request->barangay,
-            $request->scheduled_date,
-            $request->scheduled_time
-        );
-
-        if ($service?->requiresScopeManualReview((int) $request->floor_area)) {
-            $riskReasons[] = 'Requested floor area exceeds the provisional measurable limit for this service.';
-        }
-
-        if (Booking::staffingRequiresManualReview((int) $pricing['required_cleaners'])) {
-            $riskReasons[] = Booking::staffingManualReviewReason((int) $pricing['required_cleaners']);
-        }
-
-        $manualReviewStatus = empty($riskReasons) ? 'not_required' : 'pending';
-
         $subscriptionGroupId = $servicePlan === 'subscription' ? (string) Str::uuid() : null;
 
         try {
@@ -214,8 +197,6 @@ class BookingController extends Controller
                 $pricing,
                 $service,
                 $serviceDurationMinutes,
-                $riskReasons,
-                $manualReviewStatus,
                 $preferredStaff,
                 $preferredStaffStatus,
                 $servicePlan,
@@ -236,8 +217,6 @@ class BookingController extends Controller
                     $pricing,
                     $service,
                     $serviceDurationMinutes,
-                    $riskReasons,
-                    $manualReviewStatus,
                     $preferredStaff,
                     $preferredStaffStatus,
                     $servicePlan,
@@ -251,8 +230,6 @@ class BookingController extends Controller
                         $pricing,
                         $service,
                         $serviceDurationMinutes,
-                        $riskReasons,
-                        $manualReviewStatus,
                         $preferredStaff,
                         $preferredStaffStatus,
                         $servicePlan,
@@ -271,7 +248,39 @@ class BookingController extends Controller
                             ) ? 'requested' : 'unavailable')
                             : $preferredStaffStatus;
 
-                        return Booking::create([
+                        $currentRiskReasons = Booking::detectRiskReasons(
+                            $user->id,
+                            $request->street_address,
+                            $request->barangay,
+                            $schedule['scheduled_date'],
+                            $schedule['scheduled_time']
+                        );
+
+                        if ($service?->requiresScopeManualReview((int) $request->floor_area)) {
+                            $currentRiskReasons[] = 'Requested floor area exceeds the provisional measurable limit for this service.';
+                        }
+
+                        if (Booking::staffingRequiresManualReview((int) $pricing['required_cleaners'])) {
+                            $currentRiskReasons[] = Booking::staffingManualReviewReason((int) $pricing['required_cleaners']);
+                        }
+
+                        $availableCleaners = Booking::availableCleanerCountForSchedule(
+                            $schedule['scheduled_date'],
+                            $schedule['scheduled_time'],
+                            $serviceDurationMinutes
+                        );
+
+                        if ($availableCleaners < max(1, (int) $pricing['required_cleaners'])) {
+                            $currentRiskReasons[] = Booking::capacityManualReviewReason(
+                                max(1, (int) $pricing['required_cleaners']),
+                                $availableCleaners
+                            );
+                        }
+
+                        $currentManualReviewStatus = empty($currentRiskReasons) ? 'not_required' : 'pending';
+                        $currentStatus = $currentManualReviewStatus === 'not_required' ? 'confirmed' : 'pending';
+
+                        $booking = Booking::create([
                             'user_id' => $user->id,
                             'service_id' => $service?->id,
                             'service_type' => $request->service_type,
@@ -295,8 +304,8 @@ class BookingController extends Controller
                             'subscription_occurrences' => $servicePlan === 'subscription' ? $subscriptionOccurrences : null,
                             'subscription_group_id' => $subscriptionGroupId,
                             'subscription_sequence' => $schedule['sequence'],
-                            'risk_reasons' => $index === 0 && ! empty($riskReasons) ? $riskReasons : null,
-                            'manual_review_status' => $index === 0 ? $manualReviewStatus : 'not_required',
+                            'risk_reasons' => empty($currentRiskReasons) ? null : array_values(array_unique($currentRiskReasons)),
+                            'manual_review_status' => $currentManualReviewStatus,
                             'price' => $pricing['total'],
                             'base_price' => $pricing['base_price'],
                             'property_fee' => $pricing['property_fee'],
@@ -308,10 +317,17 @@ class BookingController extends Controller
                             'payment_status' => $paymentDetails['payment_status'],
                             'payment_reference' => $paymentDetails['payment_reference'],
                             'paid_at' => $paymentDetails['paid_at'],
-                            'status' => 'pending',
+                            'status' => $currentStatus,
                             'preferred_staff_id' => $preferredStaff?->id,
                             'preferred_staff_status' => $currentPreferredStaffStatus,
                         ]);
+
+                        if ($currentStatus === 'confirmed') {
+                            $booking->setExpectedServiceWindow();
+                            $booking->save();
+                        }
+
+                        return $booking;
                     });
                 });
             });
@@ -332,14 +348,30 @@ class BookingController extends Controller
             $this->createSubscriptionPlanNotification($booking, $createdBookings->count());
         }
 
-        SendBookingSubmittedEmail::dispatch($booking->id);
+        $planRequiresManualReview = $createdBookings->contains(
+            fn (Booking $createdBooking): bool => $createdBooking->manual_review_status === 'pending'
+        );
 
-        $successMessage = $manualReviewStatus === 'pending'
+        if ($booking->status === 'confirmed' && ! $planRequiresManualReview) {
+            SendBookingConfirmedEmail::dispatch($booking->id);
+            $this->createNotification([
+                'user_id' => $booking->user_id,
+                'booking_id' => $booking->id,
+                'title' => 'Booking confirmed',
+                'message' => 'Booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' is confirmed for '.Carbon::parse($booking->scheduled_date)->format('F d, Y').' at '.Carbon::parse($booking->scheduled_time)->format('h:i A').'. Our admin team will assign your cleaner before the service starts.',
+                'type' => 'success',
+                'link' => route('bookings.show', $booking->id),
+            ]);
+        } else {
+            SendBookingSubmittedEmail::dispatch($booking->id);
+        }
+
+        $successMessage = $planRequiresManualReview
             ? 'Your booking request has been submitted and is pending manual review before confirmation.'
-            : 'Your booking request has been received. We will review your schedule and confirm it shortly.';
+            : 'Your booking is confirmed. Our admin team will assign a cleaner before the service starts.';
 
         if ($servicePlan === 'subscription') {
-            $successMessage = $manualReviewStatus === 'pending'
+            $successMessage = $planRequiresManualReview
                 ? 'Your subscription cleaning plan has been created. The first booking is pending manual review before confirmation.'
                 : 'Your subscription cleaning plan is active. '.$createdBookings->count().' visits were scheduled on a '.strtolower(Booking::subscriptionFrequencyLabel($subscriptionFrequency)).' plan.';
         }
@@ -823,7 +855,13 @@ class BookingController extends Controller
             ]);
         }
 
-        if (! Booking::slotHasCapacity($request->scheduled_date, $request->scheduled_time, $booking->id)) {
+        if (! Booking::slotHasCapacity(
+            $request->scheduled_date,
+            $request->scheduled_time,
+            $booking->id,
+            max(1, (int) ($booking->required_cleaners ?: 1)),
+            (int) ($booking->duration_minutes ?: Service::DEFAULT_DURATION_MINUTES)
+        )) {
             return back()->withErrors([
                 'scheduled_time' => 'That time slot is already fully booked.',
             ]);
@@ -922,7 +960,10 @@ class BookingController extends Controller
     private function withScheduleLocks(array $schedulePlan, callable $callback): mixed
     {
         $lockKeys = collect($schedulePlan)
-            ->map(fn (array $schedule) => 'booking-slot:'.Booking::scheduleSlotKey($schedule['scheduled_date'], $schedule['scheduled_time']))
+            ->flatMap(fn (array $schedule) => [
+                'booking-capacity-date:'.Booking::normalizeScheduleDate($schedule['scheduled_date']),
+                'booking-slot:'.Booking::scheduleSlotKey($schedule['scheduled_date'], $schedule['scheduled_time']),
+            ])
             ->unique()
             ->sort()
             ->values()
@@ -1068,14 +1109,6 @@ class BookingController extends Controller
                 return 'You already have an active booking on '.$formattedDate.' at '.$formattedTime.'. Please choose a different schedule plan.';
             }
 
-            $hasExistingBooking = Booking::scheduleConflictQuery(
-                $schedule['scheduled_date'],
-                $schedule['scheduled_time'],
-            )->exists();
-
-            if (! Booking::slotHasCapacity($schedule['scheduled_date'], $schedule['scheduled_time']) && ! $hasExistingBooking) {
-                return 'The selected schedule plan cannot be created because '.$formattedDate.' at '.$formattedTime.' is already fully booked.';
-            }
         }
 
         if (count($schedulePlan) > 1) {

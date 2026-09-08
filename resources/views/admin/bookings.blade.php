@@ -634,7 +634,7 @@
                                         <div class="flex items-start justify-between gap-3">
                                             <div>
                                                 <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-violet-700">Specialist task plan</div>
-                                                <p class="mt-1 text-[11px] leading-4 text-slate-600">This booking needs {{ $booking->required_cleaners }} cleaners. Assign each cleaner one work group before confirming it.</p>
+                                                <p class="mt-1 text-[11px] leading-4 text-slate-600">This confirmed booking needs {{ $booking->required_cleaners }} cleaners. Assign each cleaner one work group before the service starts.</p>
                                             </div>
                                             <span class="rounded-full bg-violet-100 px-2 py-1 text-[10px] font-bold text-violet-700">{{ $booking->staffAssignments->count() }}/{{ $booking->required_cleaners }}</span>
                                         </div>
