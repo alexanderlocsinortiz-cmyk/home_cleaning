@@ -494,6 +494,7 @@ class Booking extends Model
         'add_on_quantities' => 'array',
         'risk_reasons' => 'array',
         'scheduled_date' => 'date',
+        'location_updated_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'expected_started_at' => 'datetime',
         'expected_completed_at' => 'datetime',

@@ -90,4 +90,32 @@ class StaffLocationTrackingTest extends TestCase
             ->getJson(route('booking.location.current', $booking->id))
             ->assertForbidden();
     }
+
+    public function test_staff_can_send_repeated_location_updates_without_a_server_error(): void
+    {
+        $client = User::factory()->create(['role' => 'client']);
+        $staff = User::factory()->create(['role' => 'staff']);
+        $booking = Booking::factory()->create([
+            'user_id' => $client->id,
+            'staff_id' => $staff->id,
+            'status' => 'in_progress',
+        ]);
+
+        $this->actingAs($staff)
+            ->postJson(route('booking.location.update', $booking->id), [
+                'latitude' => 7.9073,
+                'longitude' => 125.092,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->actingAs($staff)
+            ->postJson(route('booking.location.update', $booking->id), [
+                'latitude' => 7.90731,
+                'longitude' => 125.09201,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('recorded', false);
+    }
 }
