@@ -117,7 +117,7 @@ class MobileStaffBookingController extends Controller
         $request->validate([
             'after_photos' => ['required', 'array', 'min:1', 'max:4'],
             'after_photos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'completion_video' => ['nullable', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm,video/x-msvideo', 'max:'.config('cleanflow.proof_uploads.max_video_kb', 10240)],
+            'completion_video' => ['nullable', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm,video/x-msvideo', 'max:'.config('cleanflow.proof_uploads.max_video_kb', 102400)],
             'proof_captured_at' => ['required', 'date'],
             'proof_latitude' => ['required', 'numeric', 'between:-90,90'],
             'proof_longitude' => ['required', 'numeric', 'between:-180,180'],

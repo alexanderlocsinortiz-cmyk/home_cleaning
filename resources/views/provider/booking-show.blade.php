@@ -12,7 +12,7 @@
     $assignmentAccepted = $booking->effectiveProviderAssignmentStatus() === 'accepted';
     $canStart = $assignmentAccepted && $booking->status === 'confirmed';
     $canComplete = $assignmentAccepted && $booking->status === 'in_progress';
-    $proofMaxVideoMb = (int) floor(config('cleanflow.proof_uploads.max_video_kb', 10240) / 1024);
+    $proofMaxVideoMb = (int) floor(config('cleanflow.proof_uploads.max_video_kb', 102400) / 1024);
     $hasClientPin = filled($booking->service_latitude) && filled($booking->service_longitude);
     $clientAddress = $booking->street_address.', '.ucfirst($booking->barangay).', Valencia City, Bukidnon';
     $statusLabel = ucfirst(str_replace('_', ' ', $booking->status));

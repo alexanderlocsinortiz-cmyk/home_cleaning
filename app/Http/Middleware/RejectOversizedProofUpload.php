@@ -11,7 +11,7 @@ class RejectOversizedProofUpload
     {
         if ($request->is('staff/bookings/*/status') || $request->is('provider/bookings/*/status')) {
             $contentLength = (int) $request->server('CONTENT_LENGTH', 0);
-            $maxRequestBytes = (int) config('cleanflow.proof_uploads.max_request_kb', 32768) * 1024;
+            $maxRequestBytes = (int) config('cleanflow.proof_uploads.max_request_kb', 131072) * 1024;
 
             if ($contentLength > $maxRequestBytes) {
                 $maxMegabytes = (int) floor($maxRequestBytes / 1024 / 1024);

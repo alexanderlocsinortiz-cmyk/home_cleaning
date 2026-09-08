@@ -314,7 +314,7 @@ Starts a confirmed booking and stores before-service proof photos. Mobile proof 
 
 **Form Fields:**
 - `after_photos[]` - required, 1 to 4 image files, JPG/PNG/WebP, max 5 MB each
-- `completion_video` - optional video proof, max size follows `PROOF_UPLOAD_MAX_REQUEST_KB`
+- `completion_video` - optional video proof, max size follows `PROOF_UPLOAD_MAX_VIDEO_KB` (100 MB by default)
 - `proof_captured_at` - required ISO 8601 timestamp from the mobile device
 - `proof_latitude` - required GPS latitude captured by the mobile device
 - `proof_longitude` - required GPS longitude captured by the mobile device

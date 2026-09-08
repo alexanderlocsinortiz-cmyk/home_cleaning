@@ -316,7 +316,7 @@ class ProviderPortalController extends Controller
             $request->validate([
                 'after_photos' => ['required', 'array', 'min:1', 'max:4'],
                 'after_photos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-                'completion_video' => ['nullable', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm,video/x-msvideo', 'max:'.config('cleanflow.proof_uploads.max_video_kb', 10240)],
+                'completion_video' => ['nullable', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm,video/x-msvideo', 'max:'.config('cleanflow.proof_uploads.max_video_kb', 102400)],
             ]);
         }
 

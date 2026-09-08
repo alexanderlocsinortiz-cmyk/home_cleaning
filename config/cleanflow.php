@@ -108,8 +108,9 @@ return [
         'max_clock_skew_seconds' => (int) env('IOT_MAX_CLOCK_SKEW_SECONDS', 300),
     ],
     'proof_uploads' => [
-        'max_request_kb' => (int) env('PROOF_UPLOAD_MAX_REQUEST_KB', 32768),
-        'max_video_kb' => (int) env('PROOF_UPLOAD_MAX_VIDEO_KB', 10240),
+        // Leave enough room for four 5 MB photos plus a 100 MB completion video.
+        'max_request_kb' => (int) env('PROOF_UPLOAD_MAX_REQUEST_KB', 131072),
+        'max_video_kb' => (int) env('PROOF_UPLOAD_MAX_VIDEO_KB', 102400),
     ],
     'privacy' => [
         // Rejected applications remain available for a limited review/dispute window,

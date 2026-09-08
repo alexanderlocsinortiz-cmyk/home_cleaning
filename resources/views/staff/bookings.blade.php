@@ -5,8 +5,8 @@
 
 @section('content')
 @php
-  $proofMaxVideoMb = (int) floor(config('cleanflow.proof_uploads.max_video_kb', 10240) / 1024);
-  $proofMaxRequestMb = (int) floor(config('cleanflow.proof_uploads.max_request_kb', 32768) / 1024);
+  $proofMaxVideoMb = (int) floor(config('cleanflow.proof_uploads.max_video_kb', 102400) / 1024);
+  $proofMaxRequestMb = (int) floor(config('cleanflow.proof_uploads.max_request_kb', 131072) / 1024);
 @endphp
 <div class="staff-bookings-page cleanflow-page-shell">
   <div class="cleanflow-hero mb-6 px-7 py-6 text-white">
@@ -1322,7 +1322,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            const maxRequestBytes = {{ config('cleanflow.proof_uploads.max_request_kb', 32768) * 1024 }};
+            const maxRequestBytes = {{ config('cleanflow.proof_uploads.max_request_kb', 131072) * 1024 }};
             let totalBytes = 0;
             let invalidCard = null;
 
