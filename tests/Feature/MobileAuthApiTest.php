@@ -75,6 +75,58 @@ class MobileAuthApiTest extends TestCase
             ->assertJsonPath('user.full_name', 'Ana Santos');
     }
 
+    public function test_unverified_mobile_client_can_request_and_complete_email_verification(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create([
+            'email' => 'verify-mobile@example.com',
+            'email_verified_at' => null,
+            'password' => Hash::make('Password123'),
+            'role' => 'client',
+        ]);
+        $token = $this->postJson('/api/mobile/login', [
+            'email' => $user->email,
+            'password' => 'Password123',
+        ])->assertOk()->json('token');
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/mobile/email-verification/send')
+            ->assertOk()
+            ->assertJsonPath('email_verified', false)
+            ->assertJsonPath('expires_in_minutes', 15);
+
+        $code = $user->fresh()->issueEmailVerificationCode();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/mobile/email-verification/verify', ['code' => $code])
+            ->assertOk()
+            ->assertJsonPath('email_verified', true)
+            ->assertJsonPath('user.email_verified', true);
+
+        $this->assertTrue($user->fresh()->hasVerifiedEmail());
+        $this->assertNull($user->fresh()->email_verification_code);
+    }
+
+    public function test_mobile_email_verification_requires_a_six_digit_code(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'verify-mobile-format@example.com',
+            'email_verified_at' => null,
+            'password' => Hash::make('Password123'),
+            'role' => 'client',
+        ]);
+        $token = $this->postJson('/api/mobile/login', [
+            'email' => $user->email,
+            'password' => 'Password123',
+        ])->json('token');
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/mobile/email-verification/verify', ['code' => '123'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('code');
+    }
+
     public function test_mobile_login_rejects_bad_password(): void
     {
         User::factory()->create([

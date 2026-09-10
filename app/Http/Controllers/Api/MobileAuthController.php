@@ -7,6 +7,7 @@ use App\Models\MobileApiToken;
 use App\Models\SecurityEvent;
 use App\Models\User;
 use App\Support\StrongPassword;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -147,6 +148,85 @@ class MobileAuthController extends Controller
     {
         return response()->json([
             'user' => $this->userPayload($request->user()),
+        ]);
+    }
+
+    public function sendVerificationCode(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Email is already verified.',
+                'email_verified' => true,
+            ]);
+        }
+
+        try {
+            $user->sendEmailVerificationNotification();
+        } catch (\Throwable $e) {
+            Log::error('Mobile email verification code could not be sent.', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'We could not send a verification code right now. Please try again.',
+            ], 503);
+        }
+
+        return response()->json([
+            'message' => 'A new verification code was sent to your email.',
+            'email_verified' => false,
+            'expires_in_minutes' => (int) config('auth.verification.expire', 15),
+        ]);
+    }
+
+    public function verifyEmail(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Email is already verified.',
+                'email_verified' => true,
+                'user' => $this->userPayload($user),
+            ]);
+        }
+
+        $validated = $request->validate([
+            'code' => ['required', 'digits:6'],
+        ]);
+
+        if ($user->email_verification_code === null || $user->email_verification_code_expires_at === null) {
+            throw ValidationException::withMessages([
+                'code' => ['No verification code is active right now. Request a new code to continue.'],
+            ]);
+        }
+
+        if ($user->emailVerificationCodeExpired()) {
+            throw ValidationException::withMessages([
+                'code' => ['The verification code has expired. Request a new code to continue.'],
+            ]);
+        }
+
+        if (! $user->hasMatchingEmailVerificationCode($validated['code'])) {
+            throw ValidationException::withMessages([
+                'code' => ['The verification code is invalid. Please try again.'],
+            ]);
+        }
+
+        if ($user->markEmailAsVerified()) {
+            event(new Verified($user));
+        }
+
+        $user->clearEmailVerificationCode();
+        $user->refresh();
+
+        return response()->json([
+            'message' => 'Email verified successfully.',
+            'email_verified' => true,
+            'user' => $this->userPayload($user),
         ]);
     }
 

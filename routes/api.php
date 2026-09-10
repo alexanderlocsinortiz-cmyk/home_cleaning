@@ -30,6 +30,10 @@ Route::prefix('mobile')->group(function () {
     // The operation-specific limits below are stricter where writes are costly.
     Route::middleware(['auth.mobile', 'throttle:60,1'])->group(function () {
         Route::get('/me', [MobileAuthController::class, 'me']);
+        Route::post('/email-verification/send', [MobileAuthController::class, 'sendVerificationCode'])
+            ->middleware('throttle:6,1');
+        Route::post('/email-verification/verify', [MobileAuthController::class, 'verifyEmail'])
+            ->middleware('throttle:10,1');
         Route::post('/logout', [MobileAuthController::class, 'logout']);
         Route::post('/logout-all', [MobileAuthController::class, 'logoutAll'])
             ->middleware('throttle:5,1');
