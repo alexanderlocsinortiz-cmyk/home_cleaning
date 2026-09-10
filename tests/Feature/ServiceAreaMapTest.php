@@ -61,6 +61,7 @@ class ServiceAreaMapTest extends TestCase
 
         $response->assertOk();
         $response->assertViewHas('barangays', config('cleanflow.service_areas'));
+        $this->assertSame(3, substr_count($response->getContent(), 'type="button" class="filter-btn'));
         $response->assertViewHas('stats', function (array $stats) {
             return $stats['barangays'] === count(config('cleanflow.service_areas'));
         });
@@ -74,6 +75,7 @@ class ServiceAreaMapTest extends TestCase
 
         $response->assertOk();
         $response->assertViewHas('barangays', config('cleanflow.service_areas'));
+        $this->assertSame(3, substr_count($response->getContent(), 'type="button" class="filter-btn'));
     }
 
     public function test_staff_service_area_map_uses_the_canonical_service_area_config(): void
@@ -84,6 +86,7 @@ class ServiceAreaMapTest extends TestCase
 
         $response->assertOk();
         $response->assertViewHas('barangays', config('cleanflow.service_areas'));
+        $this->assertSame(4, substr_count($response->getContent(), 'type="button" class="filter-btn'));
         $response->assertViewHas('stats', function (array $stats) {
             return $stats['barangays'] === count(config('cleanflow.service_areas'));
         });

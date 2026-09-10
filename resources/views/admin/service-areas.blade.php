@@ -70,9 +70,9 @@
                 <div>
                     <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Filter By Area Type</h3>
                     <div class="flex flex-wrap gap-2">
-                        <button class="filter-btn rounded-full border border-slate-200 bg-emerald-600 px-3 py-1 text-xs font-semibold text-white transition-colors" data-filter="all">All</button>
-                        <button class="filter-btn rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-emerald-600 hover:text-white" data-filter="residential">Residential</button>
-                        <button class="filter-btn rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-emerald-600 hover:text-white" data-filter="commercial">Commercial</button>
+                        <button type="button" class="filter-btn rounded-full border border-slate-200 bg-emerald-600 px-3 py-1 text-xs font-semibold text-white transition-colors" data-filter="all">All</button>
+                        <button type="button" class="filter-btn rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-emerald-600 hover:text-white" data-filter="residential">Residential</button>
+                        <button type="button" class="filter-btn rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-emerald-600 hover:text-white" data-filter="commercial">Commercial</button>
                     </div>
                 </div>
 

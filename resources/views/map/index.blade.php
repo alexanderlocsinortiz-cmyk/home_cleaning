@@ -27,9 +27,9 @@
             <div>
                 <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Filter by Area Type</h4>
                 <div class="flex flex-wrap gap-2">
-                    <button class="filter-btn px-3 py-1 rounded-full border border-gray-300 bg-emerald-600 text-white text-xs font-medium transition-colors" data-filter="all">All</button>
-                    <button class="filter-btn px-3 py-1 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-emerald-600 hover:text-white text-xs font-medium transition-colors" data-filter="residential">Residential</button>
-                    <button class="filter-btn px-3 py-1 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-emerald-600 hover:text-white text-xs font-medium transition-colors" data-filter="commercial">Commercial</button>
+                    <button type="button" class="filter-btn px-3 py-1 rounded-full border border-gray-300 bg-emerald-600 text-white text-xs font-medium transition-colors" data-filter="all">All</button>
+                    <button type="button" class="filter-btn px-3 py-1 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-emerald-600 hover:text-white text-xs font-medium transition-colors" data-filter="residential">Residential</button>
+                    <button type="button" class="filter-btn px-3 py-1 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-emerald-600 hover:text-white text-xs font-medium transition-colors" data-filter="commercial">Commercial</button>
                 </div>
             </div>
 
