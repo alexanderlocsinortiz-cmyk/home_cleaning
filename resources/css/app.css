@@ -969,16 +969,13 @@ input[type='radio'] {
 }
 
 .home-page .instant-quote-summary {
-    position: sticky;
-    top: 6.5rem;
+    position: static;
     align-self: start;
 }
 
 .home-page .instant-quote-mobile-sheet {
-    position: fixed;
-    inset-inline: 1rem;
-    bottom: 1rem;
-    z-index: 45;
+    position: static;
+    margin-top: 1.5rem;
 }
 
 .home-page .instant-quote-mobile-sheet__inner {

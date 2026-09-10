@@ -644,15 +644,14 @@
                     </div>
                 </div>
             </div>
-            <div class="instant-quote-mobile-sheet lg:hidden">
+            <div class="instant-quote-mobile-sheet lg:hidden" data-instant-quote-mobile-summary>
                 <div class="instant-quote-mobile-sheet__inner">
-                    <div class="flex items-start justify-between gap-4">
+                    <div class="flex items-start gap-4">
                         <div class="min-w-0">
                             <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-700">Total Estimate</div>
                             <div id="iq_mobile_total" class="mt-2 truncate text-2xl font-extrabold tracking-tight text-slate-900">&#8369;{{ number_format($defaultInstantQuoteTotal, 0) }}</div>
                             <div class="mt-1 text-[11px] text-slate-500">Live estimate while you compare add-ons and home size.</div>
                         </div>
-                        <div class="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-700">Sticky</div>
                     </div>
                     <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50/95 p-4">
                         <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">Live Breakdown</div>
