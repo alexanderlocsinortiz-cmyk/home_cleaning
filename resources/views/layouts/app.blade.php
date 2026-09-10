@@ -61,7 +61,7 @@
 
                 <div class="flex items-center gap-2 md:hidden">
                     <a href="{{ $bookNowLink }}" class="rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700">Book Now</a>
-                    <button class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" id="nav-hamburger" type="button" aria-expanded="false" aria-controls="mobile-nav-menu" onclick="toggleMobileNav()">
+                    <button class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" id="nav-hamburger" type="button" aria-label="Toggle website navigation" aria-expanded="false" aria-controls="mobile-nav-menu" onclick="toggleMobileNav()">
                         <svg id='hamburger-open' xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24' stroke='#1E40AF' stroke-width='2'>
                             <path stroke-linecap='round' stroke-linejoin='round' d='M4 6h16M4 12h16M4 18h16'/>
                         </svg>

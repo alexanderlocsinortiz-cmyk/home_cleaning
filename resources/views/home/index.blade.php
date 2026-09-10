@@ -526,7 +526,7 @@
             <div class="section-heading mx-auto mb-12 max-w-3xl text-center reveal-on-scroll">
                 <h2 class="section-title text-3xl font-bold text-slate-900 lg:text-5xl">Get your instant quote</h2>
                 <p class="section-subtitle mt-4 text-lg leading-8 text-slate-500">
-                    Build the price live. The total stays visible while you compare packages, home size, and add-ons.
+                    Build the price live while you compare packages, home size, and add-ons.
                 </p>
             </div>
             <div class="mt-12 reveal-on-scroll">

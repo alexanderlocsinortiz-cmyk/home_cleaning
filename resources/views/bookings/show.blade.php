@@ -885,14 +885,14 @@
 
                         <div>
                             <label class="mb-2 block text-sm font-medium text-slate-700">Add a Photo (optional)</label>
-                            <input type="file" name="photo" accept="image/*" id="photo-input" class="hidden" onchange="previewPhoto(this)">
+                            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" id="photo-input" class="hidden" onchange="previewPhoto(this)">
                             <div onclick="document.getElementById('photo-input').click()" class="cursor-pointer rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center transition hover:border-emerald-300 hover:bg-emerald-50/40">
                                 <div id="photo-placeholder">
                                     <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm"><i class="fa-solid fa-camera text-lg"></i></div>
                                     <div class="mt-3 text-sm font-medium text-slate-700">Click to upload a review photo</div>
                                     <div class="mt-1 text-xs text-slate-500">JPG, PNG, or WEBP up to 5MB</div>
                                 </div>
-                                <img id="photo-preview" src="" class="mx-auto hidden max-h-56 rounded-2xl border border-slate-200 object-cover">
+                                <img id="photo-preview" src="" alt="Review photo preview" class="mx-auto hidden max-h-56 rounded-2xl border border-slate-200 object-cover">
                             </div>
                             @error('photo')
                             <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
@@ -926,8 +926,15 @@
                 </div>
                 @endif
 
-                @if($isClient && $booking->status === 'pending' && !$booking->staff_id)
-                <div class="flex justify-end">
+                @if($isClient && $booking->clientCanCancel())
+                <div class="space-y-3">
+                    @if($paymentStatus === 'paid' && in_array($paymentMethod, ['gcash', 'maya'], true))
+                    <div class="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-blue-900">
+                        <div class="font-semibold">Online payment refund</div>
+                        <p class="mt-1 text-xs leading-5 text-blue-800">Cancelling will request a refund to the same GCash or Maya account. The booking is cancelled only after the refund request is accepted, and PayMongo may take time to show the funds.</p>
+                    </div>
+                    @endif
+                    <div class="flex justify-end">
                     <form action="{{ route('bookings.cancel', $booking->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to cancel this booking? This action cannot be undone.')">
                         @csrf
                         @method('PATCH')
@@ -936,6 +943,7 @@
                             Cancel Booking
                         </button>
                     </form>
+                    </div>
                 </div>
                 @endif
             </div>

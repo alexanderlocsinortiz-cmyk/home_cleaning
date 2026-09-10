@@ -61,6 +61,7 @@
                 class="staff-mobile-hamburger mr-2.5 h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
                 id="provider-sidebar-toggle"
                 type="button"
+                aria-label="Toggle cleaner navigation"
                 aria-controls="provider-sidebar"
                 aria-expanded="false"
                 onclick="toggleProviderSidebar()">

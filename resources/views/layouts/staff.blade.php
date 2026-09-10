@@ -60,6 +60,7 @@
                 class="staff-mobile-hamburger mr-2.5 h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
                 id="staff-sidebar-toggle"
                 type="button"
+                aria-label="Toggle staff navigation"
                 aria-controls="staff-sidebar"
                 aria-expanded="false"
                 onclick="toggleStaffSidebar()">
@@ -73,7 +74,7 @@
                     <p class="page-subtitle text-sm text-slate-500">@yield('page-subtitle', 'Welcome to Home Cleaning Service Staff')</p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <a href="{{ route('staff.notifications') }}" class="relative flex h-9 w-9 items-center justify-center rounded-[10px] bg-slate-100 text-slate-500 transition hover:bg-blue-100 hover:text-blue-700">
+                    <a href="{{ route('staff.notifications') }}" aria-label="Open staff notifications" class="relative flex h-9 w-9 items-center justify-center rounded-[10px] bg-slate-100 text-slate-500 transition hover:bg-blue-100 hover:text-blue-700">
                         <i class="fas fa-bell text-base"></i>
                         @if($unreadNotifCount > 0)
                         <span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">{{ $unreadNotifCount > 9 ? '9+' : $unreadNotifCount }}</span>

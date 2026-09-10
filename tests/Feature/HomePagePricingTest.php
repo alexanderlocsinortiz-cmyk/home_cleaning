@@ -61,6 +61,8 @@ class HomePagePricingTest extends TestCase
         $response->assertSee('Post Construction Cleaning', false);
         $response->assertSee('Instant Quote', false);
         $response->assertSee('Estimate your cleaning total in seconds', false);
+        $response->assertSee('Build the price live while you compare packages, home size, and add-ons.', false);
+        $response->assertSee('aria-label="Toggle website navigation"', false);
         $response->assertSee('Continue with Estimate of', false);
         $response->assertSee('Calculation:', false);
         $response->assertSee('Basic', false);

@@ -17,6 +17,7 @@ test('instant quote summaries stay in normal page flow', async ({ page }) => {
         await expect(summary).toHaveCSS('position', 'static');
 
         if (viewport.width < 1024) {
+            await expect(page.locator('#nav-hamburger')).toHaveAttribute('aria-label', 'Toggle website navigation');
             await expect(summary).not.toContainText('Sticky');
         }
     }

@@ -667,6 +667,8 @@ class BookingCreationTest extends TestCase
         $response->assertSee('Refrigerator Interior Cleaning – Small', false);
         $response->assertSee('Payment', false);
         $response->assertSee('GCash', false);
+        $response->assertSee('Online payment refund', false);
+        $response->assertSee('Cancelling will request a refund', false);
         $response->assertSee('Subscription Plan', false);
     }
 

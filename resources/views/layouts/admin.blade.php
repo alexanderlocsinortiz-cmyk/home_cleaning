@@ -97,6 +97,7 @@
                 class="admin-mobile-hamburger mr-3 h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
                 id="admin-sidebar-toggle"
                 type="button"
+                aria-label="Toggle admin navigation"
                 aria-controls="admin-sidebar"
                 aria-expanded="false"
                 onclick="toggleSidebar()">
