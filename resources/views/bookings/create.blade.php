@@ -1157,6 +1157,7 @@ function normalizeBarangayName(value) {
     return String(value || '')
         .toLowerCase()
         .replace(/^barangay\s+/i, '')
+        .replace(/[-_]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 }
@@ -1240,8 +1241,12 @@ function setBarangaySelect(value) {
         return false;
     }
 
+    const changed = barangaySelect.value !== option.value;
     barangaySelect.value = option.value;
-    barangaySelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+    if (changed) {
+        barangaySelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
 
     return true;
 }
@@ -1531,6 +1536,7 @@ function showLocationPreview(lat, lng, results = [], options = {}) {
     const barangayPreview = document.getElementById('barangay-preview-text');
     const serviceCenterDistance = document.getElementById('service-center-distance');
     const confirmButton = document.getElementById('confirm-current-location');
+    const barangayWasSet = setBarangaySelect(detectedBarangay);
 
     pendingLocation = {
         lat,
@@ -1559,7 +1565,7 @@ function showLocationPreview(lat, lng, results = [], options = {}) {
 
     if (barangayPreview) {
         barangayPreview.textContent = detectedBarangay
-            ? `Detected barangay: ${detectedBarangay}`
+            ? `Detected and selected barangay: ${detectedBarangay}`
             : 'Barangay could not be detected. Select the barangay yourself.';
     }
 
@@ -1570,9 +1576,13 @@ function showLocationPreview(lat, lng, results = [], options = {}) {
 
     setLocationStatus(
         bestAddress
-            ? 'Drag the pin or tap the map if needed. Confirm it to fill the street details and barangay.'
-            : 'Drag the pin or tap the map if needed. Confirming saves the pin and detected barangay, but you still need to type street details manually.',
-        bestAddress ? 'success' : 'warning'
+            ? (barangayWasSet
+                ? 'Drag the pin or tap the map if needed. The detected barangay is already selected; confirm to save this location.'
+                : 'Drag the pin or tap the map if needed. Confirm it to fill the street details, then select the barangay manually.')
+            : (barangayWasSet
+                ? 'Drag the pin or tap the map if needed. The detected barangay is already selected; confirm the pin and type street details manually.'
+                : 'Drag the pin or tap the map if needed. Confirm the pin, type street details manually, and select the barangay.'),
+        barangayWasSet ? 'success' : 'warning'
     );
 }
 

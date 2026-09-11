@@ -66,6 +66,8 @@ class BookingCreationTest extends TestCase
         $response->assertDontSee('is recorded immediately with a payment reference', false);
         $response->assertSee('Package features are a summary, not a promise that every possible task is included.', false);
         $response->assertSee('Street / Purok / House Details', false);
+        $response->assertSee('Detected and selected barangay:', false);
+        $response->assertSee('const barangayWasSet = setBarangaySelect(detectedBarangay);', false);
         foreach (['floor_area', 'scheduled_date', 'scheduled_time', 'barangay', 'street_address'] as $requiredField) {
         $this->assertMatchesRegularExpression(
                 '/name="'.preg_quote($requiredField, '/').'"[^>]*\brequired\b/s',
