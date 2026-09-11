@@ -233,8 +233,8 @@
                                         @if ($booking->staff)
                                             <div class="font-medium text-slate-900">{{ $booking->staff->first_name }} {{ $booking->staff->last_name }}</div>
                                             <div class="text-xs text-slate-500">Assigned cleaner</div>
-                                        @elseif ($booking->preferredStaff)
-                                            <div class="font-medium text-slate-700">{{ $booking->preferredStaff->first_name }} {{ $booking->preferredStaff->last_name }}</div>
+                                        @elseif ($booking->preferredStaff || $booking->preferredCleanerApplication)
+                                            <div class="font-medium text-slate-700">{{ $booking->preferredCleanerApplication?->business_name ?: ($booking->preferredCleanerApplication?->user?->full_name ?: $booking->preferredStaff?->full_name) }}</div>
                                             <div class="text-xs text-slate-500">Preferred cleaner requested</div>
                                         @else
                                             <div class="italic text-slate-400">Cleaner not assigned yet</div>
@@ -327,11 +327,11 @@
                                             <span class="text-sm italic text-slate-400">Cleaner not assigned yet</span>
                                         @endif
 
-                                        @if ($booking->preferredStaff)
+                                        @if ($booking->preferredStaff || $booking->preferredCleanerApplication)
                                             <div class="mt-2 text-xs text-slate-500">
                                                 Preferred Cleaner:
                                                 <span class="font-semibold text-slate-700">
-                                                    {{ $booking->preferredStaff->first_name }} {{ $booking->preferredStaff->last_name }}
+                                                    {{ $booking->preferredCleanerApplication?->business_name ?: ($booking->preferredCleanerApplication?->user?->full_name ?: $booking->preferredStaff?->full_name) }}
                                                 </span>
                                             </div>
                                         @endif

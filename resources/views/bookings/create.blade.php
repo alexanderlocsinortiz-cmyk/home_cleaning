@@ -489,8 +489,8 @@
                     <div class="flex items-start gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">5</div>
                         <div>
-                            <h2 class="text-lg font-bold text-slate-900">Preferred Cleaner</h2>
-                            <p class="text-sm text-slate-500">Add a cleaner request if you already have someone in mind. We'll honor it when the slot is still open.</p>
+                    <h2 class="text-lg font-bold text-slate-900">Preferred Cleaner</h2>
+                            <p class="text-sm text-slate-500">Choose an approved and activated cleaner who covers your barangay and is free for this schedule.</p>
                         </div>
                     </div>
                     <span class="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-700">Optional</span>
@@ -498,16 +498,16 @@
 
                 <div>
                     <label class="mb-2 block text-sm font-semibold text-slate-700">Preferred Cleaner (optional)</label>
-                    <select name="preferred_staff_id" id="preferred-staff-select" data-selected="{{ old('preferred_staff_id') }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                    <select name="preferred_cleaner_application_id" id="preferred-cleaner-select" data-selected="{{ old('preferred_cleaner_application_id') }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                         <option value="">No specific cleaner</option>
-                        @foreach($preferredCleaners as $cleaner)
-                        <option value="{{ $cleaner->id }}" {{ (string) old('preferred_staff_id') === (string) $cleaner->id ? 'selected' : '' }}>
-                            {{ $cleaner->first_name }} {{ $cleaner->last_name }}{{ $cleaner->barangay ? ' - ' . ucfirst($cleaner->barangay) : '' }}
+                        @foreach($preferredProviderApplications as $provider)
+                        <option value="{{ $provider->id }}" {{ (string) old('preferred_cleaner_application_id') === (string) $provider->id ? 'selected' : '' }}>
+                            {{ $provider->business_name ?: ($provider->user?->full_name ?: $provider->email) }}
                         </option>
                         @endforeach
                     </select>
                     <div id="preferred-cleaner-note" class="mt-2 text-xs leading-5 text-slate-500">Pick a date and time to see cleaners available for that slot.</div>
-                    @error('preferred_staff_id')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
+                    @error('preferred_cleaner_application_id')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                 </div>
             </section>
 
@@ -877,10 +877,86 @@ function staffConflictsWithSelectedSlot(staffId, dateValue, timeValue) {
     });
 }
 
+function selectedRequiredCleaners() {
+    const serviceType = document.querySelector('input[name="service_type"]:checked')?.value;
+    const floorArea = Number.parseInt(document.querySelector('input[name="floor_area"]')?.value || 0, 10);
+    const scope = serviceScope[serviceType] || {};
+    const capacity = Number(scope.capacity_sqm_per_cleaner || 0);
+
+    return capacity > 0 && floorArea > 0 ? Math.max(1, Math.ceil(floorArea / capacity)) : 1;
+}
+
+function normalizeProviderArea(value) {
+    return String(value || '').toLowerCase().replace(/[_-]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function providerCoversSelectedBarangay(provider, barangay) {
+    const target = normalizeProviderArea(barangay);
+    const coverage = (provider.coverage || []).map(normalizeProviderArea).filter(Boolean);
+    const serviceArea = normalizeProviderArea(provider.serviceArea);
+
+    if (!target) {
+        return false;
+    }
+
+    return coverage.includes(target)
+        || (coverage.includes('valencia city') && validBarangays.map(normalizeProviderArea).includes(target))
+        || (coverage.length === 0 && serviceArea === 'valencia city' && validBarangays.map(normalizeProviderArea).includes(target))
+        || (coverage.length === 0 && serviceArea === target);
+}
+
+function selectedDateWeekday(dateValue) {
+    if (!dateValue) {
+        return '';
+    }
+
+    const date = new Date(`${dateValue}T12:00:00`);
+
+    return Number.isNaN(date.getTime())
+        ? ''
+        : date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+}
+
+function providerHasDailyCapacity(providerId, dateValue) {
+    const provider = (scheduleAvailability.providers || []).find((item) => Number(item.id) === Number(providerId));
+    const dailyLimit = Number(provider?.maxDailyBookings || 0);
+
+    if (!provider || !dailyLimit) {
+        return true;
+    }
+
+    const assignedCount = (scheduleAvailability.providerAssignments || []).filter((assignment) =>
+        Number(assignment.providerId) === Number(providerId) && assignment.date === dateValue
+    ).length;
+
+    return assignedCount < dailyLimit;
+}
+
+function providerConflictsWithSelectedSlot(providerId, dateValue, timeValue) {
+    if (!dateValue || !timeValue) {
+        return false;
+    }
+
+    const selectedStart = minutesFromTime(timeValue);
+    const selectedEnd = selectedStart + selectedServiceDuration() + Number(scheduleAvailability.restMinutes || 60);
+
+    return (scheduleAvailability.providerAssignments || []).some((assignment) => {
+        if (Number(assignment.providerId) !== Number(providerId) || assignment.date !== dateValue) {
+            return false;
+        }
+
+        const assignmentStart = minutesFromTime(assignment.time);
+        const assignmentEnd = assignmentStart + Number(assignment.duration || 120) + Number(scheduleAvailability.restMinutes || 60);
+
+        return selectedStart < assignmentEnd && assignmentStart < selectedEnd;
+    });
+}
+
 function refreshPreferredCleaners() {
     const dateInput = document.querySelector('input[name="scheduled_date"]');
     const timeSelect = document.getElementById('scheduled-time-select');
-    const cleanerSelect = document.getElementById('preferred-staff-select');
+    const barangaySelect = document.getElementById('barangay-select');
+    const cleanerSelect = document.getElementById('preferred-cleaner-select');
     const note = document.getElementById('preferred-cleaner-note');
 
     if (!dateInput || !timeSelect || !cleanerSelect) {
@@ -889,52 +965,54 @@ function refreshPreferredCleaners() {
 
     const selectedDate = dateInput.value;
     const selectedTime = timeSelect.value;
+    const selectedBarangay = barangaySelect?.value || '';
     const previousSelection = cleanerSelect.value || cleanerSelect.dataset.selected || '';
-    const staff = scheduleAvailability.staff || [];
-    const todayValue = currentBookingDateValue();
+    const providers = scheduleAvailability.providers || [];
+    const requiredCleaners = selectedRequiredCleaners();
+    const selectedWeekday = selectedDateWeekday(selectedDate);
+    const availableProviders = selectedDate && selectedTime && selectedBarangay
+        ? providers.filter((provider) => {
+            const availableDays = (provider.availableDays || []).map((day) => String(day).toLowerCase());
+            const teamSize = Number(provider.teamSize || 1);
 
-    const availableStaff = staff.filter((cleaner) => {
-        if (selectedDate === todayValue && !cleaner.presentToday) {
-            return false;
-        }
-
-        return !staffConflictsWithSelectedSlot(cleaner.id, selectedDate, selectedTime);
-    });
+            return providerCoversSelectedBarangay(provider, selectedBarangay)
+                && (!availableDays.length || availableDays.includes(selectedWeekday))
+                && teamSize >= requiredCleaners
+                && providerHasDailyCapacity(provider.id, selectedDate)
+                && !providerConflictsWithSelectedSlot(provider.id, selectedDate, selectedTime);
+        })
+        : [];
 
     cleanerSelect.innerHTML = '';
 
     const emptyOption = document.createElement('option');
     emptyOption.value = '';
-    emptyOption.textContent = availableStaff.length > 0 ? 'No specific cleaner' : 'No cleaner available for this slot';
+    emptyOption.textContent = availableProviders.length > 0 ? 'No specific cleaner' : 'No approved cleaner available for this slot';
     cleanerSelect.appendChild(emptyOption);
 
-    availableStaff.forEach((cleaner) => {
+    availableProviders.forEach((provider) => {
         const option = document.createElement('option');
-        option.value = cleaner.id;
-        option.textContent = cleaner.barangay
-            ? `${cleaner.name} - ${cleaner.barangay.charAt(0).toUpperCase()}${cleaner.barangay.slice(1)}`
-            : cleaner.name;
-        option.selected = String(cleaner.id) === String(previousSelection);
+        option.value = provider.id;
+        option.textContent = provider.teamSize > 1
+            ? `${provider.name} - ${provider.teamSize} cleaners`
+            : provider.name;
+        option.selected = String(provider.id) === String(previousSelection);
         cleanerSelect.appendChild(option);
     });
 
-    if (!availableStaff.some((cleaner) => String(cleaner.id) === String(previousSelection))) {
+    if (!availableProviders.some((provider) => String(provider.id) === String(previousSelection))) {
         cleanerSelect.value = '';
     }
 
-    cleanerSelect.disabled = availableStaff.length === 0;
+    cleanerSelect.disabled = availableProviders.length === 0;
 
     if (note) {
         if (!selectedDate || !selectedTime) {
-            note.textContent = selectedDate === todayValue
-                ? 'Select a future time to show cleaners who are punched in and free today.'
-                : 'Pick a date and time to see cleaners available for that slot.';
-        } else if (availableStaff.length === 0) {
-            note.textContent = 'No preferred cleaner is available for the selected date and time. You can still submit without a preferred cleaner.';
-        } else if (selectedDate === todayValue) {
-            note.textContent = `Showing ${availableStaff.length} cleaner${availableStaff.length === 1 ? '' : 's'} punched in and free for this time today.`;
+            note.textContent = 'Pick a date, time, and barangay to see approved cleaners available for that slot.';
+        } else if (availableProviders.length === 0) {
+            note.textContent = 'No approved and activated cleaner covers this barangay and schedule. You can still submit without a preferred cleaner.';
         } else {
-            note.textContent = `Showing ${availableStaff.length} cleaner${availableStaff.length === 1 ? '' : 's'} without a conflict for this schedule.`;
+            note.textContent = `Showing ${availableProviders.length} approved cleaner${availableProviders.length === 1 ? '' : 's'} covering this barangay and free for this schedule.`;
         }
     }
 }
@@ -2006,6 +2084,15 @@ document.querySelectorAll('input[name="scheduled_date"], select[name="scheduled_
     input.addEventListener('change', function () {
         refreshScheduleDependentFields();
         updatePrice();
+    });
+});
+
+document.querySelectorAll('select[name="barangay"], input[name="floor_area"]').forEach((input) => {
+    input.addEventListener('change', function () {
+        refreshPreferredCleaners();
+    });
+    input.addEventListener('input', function () {
+        refreshPreferredCleaners();
     });
 });
 

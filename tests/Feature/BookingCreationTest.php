@@ -6,6 +6,7 @@ use App\Models\AttendanceLog;
 use App\Models\Booking;
 use App\Models\BookingActivityLog;
 use App\Models\BookingServiceProof;
+use App\Models\CleanerApplication;
 use App\Models\Service;
 use App\Models\User;
 use Carbon\Carbon;
@@ -1760,6 +1761,123 @@ class BookingCreationTest extends TestCase
         $this->assertSame('requested', $booking->preferred_staff_status);
 
         Carbon::setTestNow();
+    }
+
+    public function test_booking_form_lists_approved_activated_provider_for_matching_future_schedule(): void
+    {
+        $this->canonicalService([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $client = $this->createVerifiedUser([
+            'email' => 'provider-list-client@example.com',
+            'username' => 'providerlistclient',
+        ]);
+        $providerUser = $this->createVerifiedUser([
+            'first_name' => 'Bright',
+            'last_name' => 'Provider',
+            'email' => 'provider-list-user@example.com',
+            'username' => 'providerlistuser',
+            'role' => 'provider',
+        ]);
+        $scheduledDate = now()->addDays(2)->toDateString();
+        $provider = CleanerApplication::create([
+            'applicant_type' => CleanerApplication::TYPE_INDIVIDUAL,
+            'business_name' => 'Bright Provider Cleaning',
+            'contact_person' => 'Bright Provider',
+            'email' => 'provider-list-application@example.com',
+            'phone' => '09171234567',
+            'service_area' => 'Valencia City',
+            'coverage_barangays' => ['Poblacion'],
+            'team_size' => 1,
+            'services_offered' => 'Basic Cleaning',
+            'available_days' => [strtolower(Carbon::parse($scheduledDate)->format('l'))],
+            'max_daily_bookings' => 2,
+            'status' => CleanerApplication::STATUS_APPROVED,
+            'user_id' => $providerUser->id,
+            'activated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($client)->get(route('bookings.create'));
+
+        $response->assertOk();
+        $availability = $response->viewData('preferredCleanerAvailability');
+        $this->assertContains($provider->id, collect($availability['providers'])->pluck('id')->all());
+        $response->assertSee('preferred_cleaner_application_id', false);
+        $response->assertSee('Bright Provider Cleaning', false);
+    }
+
+    public function test_client_can_request_an_approved_provider_and_the_request_is_rechecked_on_submit(): void
+    {
+        $this->canonicalService([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $client = $this->createVerifiedUser([
+            'email' => 'provider-request-client@example.com',
+            'username' => 'providerrequestclient',
+        ]);
+        $providerUser = $this->createVerifiedUser([
+            'first_name' => 'Requested',
+            'last_name' => 'Provider',
+            'email' => 'provider-request-user@example.com',
+            'username' => 'providerrequestuser',
+            'role' => 'provider',
+        ]);
+        $scheduledDate = now()->addDays(2)->toDateString();
+        $provider = CleanerApplication::create([
+            'applicant_type' => CleanerApplication::TYPE_INDIVIDUAL,
+            'business_name' => 'Requested Provider Cleaning',
+            'contact_person' => 'Requested Provider',
+            'email' => 'provider-request-application@example.com',
+            'phone' => '09171234567',
+            'service_area' => 'Valencia City',
+            'coverage_barangays' => ['Poblacion'],
+            'team_size' => 1,
+            'services_offered' => 'Basic Cleaning',
+            'available_days' => [strtolower(Carbon::parse($scheduledDate)->format('l'))],
+            'max_daily_bookings' => 2,
+            'status' => CleanerApplication::STATUS_APPROVED,
+            'user_id' => $providerUser->id,
+            'activated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($client)->post(route('bookings.store'), [
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 1,
+            'bathrooms' => 1,
+            'floor_area' => 30,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Provider Street',
+            'scheduled_date' => $scheduledDate,
+            'scheduled_time' => '09:00',
+            'preferred_cleaner_application_id' => $provider->id,
+            'payment_method' => 'on_site_cash',
+            'service_plan' => 'one_time',
+        ]);
+
+        $response->assertRedirect(route('bookings.index'));
+        $response->assertSessionHas('info');
+
+        $booking = Booking::where('user_id', $client->id)->latest('id')->firstOrFail();
+        $this->assertSame($provider->id, $booking->preferred_cleaner_application_id);
+        $this->assertSame('requested', $booking->preferred_cleaner_status);
+        $this->assertNull($booking->preferred_staff_id);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $client->id,
+            'booking_id' => $booking->id,
+            'title' => 'Preferred cleaner request received',
+            'type' => 'info',
+        ]);
     }
 
     private function createVerifiedUser(array $overrides): User

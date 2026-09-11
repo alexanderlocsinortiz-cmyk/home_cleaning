@@ -504,6 +504,8 @@ class Booking extends Model
         'dispute_resolved_at',
         'preferred_staff_id',
         'preferred_staff_status',
+        'preferred_cleaner_application_id',
+        'preferred_cleaner_status',
         'current_latitude',
         'current_longitude',
         'location_updated_at',
@@ -1135,6 +1137,11 @@ class Booking extends Model
     public function preferredStaff()
     {
         return $this->belongsTo(User::class, 'preferred_staff_id');
+    }
+
+    public function preferredCleanerApplication()
+    {
+        return $this->belongsTo(CleanerApplication::class, 'preferred_cleaner_application_id');
     }
 
     public function providerPayoutProcessor()
@@ -2008,6 +2015,12 @@ class Booking extends Model
     public function hasPreferredStaffRequest(): bool
     {
         return $this->preferred_staff_id !== null && $this->preferred_staff_status !== 'none';
+    }
+
+    public function hasPreferredCleanerRequest(): bool
+    {
+        return $this->preferred_cleaner_application_id !== null
+            && $this->preferred_cleaner_status !== 'none';
     }
 
     public function hasBeforeServiceProof(): bool

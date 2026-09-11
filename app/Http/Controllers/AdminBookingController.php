@@ -38,11 +38,11 @@ class AdminBookingController extends Controller
             ? $request->get('filter')
             : '';
 
-        $activeBookingsQuery = Booking::with(['user', 'staff', 'staffAssignments.staff', 'cleanerApplication', 'service', 'payment', 'reviewedBy', 'preferredStaff'])
+        $activeBookingsQuery = Booking::with(['user', 'staff', 'staffAssignments.staff', 'cleanerApplication', 'preferredCleanerApplication.user', 'service', 'payment', 'reviewedBy', 'preferredStaff'])
             ->withCount(['beforeServiceProofs', 'afterServiceProofs'])
             ->whereIn('status', ['pending', 'confirmed', 'in_progress']);
 
-        $completedBookingsQuery = Booking::with(['user', 'staff', 'staffAssignments.staff', 'cleanerApplication', 'service', 'payment', 'rating', 'reviewedBy', 'preferredStaff'])
+        $completedBookingsQuery = Booking::with(['user', 'staff', 'staffAssignments.staff', 'cleanerApplication', 'preferredCleanerApplication.user', 'service', 'payment', 'rating', 'reviewedBy', 'preferredStaff'])
             ->whereIn('status', ['completed', 'cancelled']);
 
         $filteredActiveBookingsQuery = (clone $activeBookingsQuery)
@@ -131,7 +131,7 @@ class AdminBookingController extends Controller
 
     public function updateBookingProvider(Request $request, $id)
     {
-        $booking = Booking::with('cleanerApplication')->findOrFail($id);
+        $booking = Booking::with(['cleanerApplication', 'preferredCleanerApplication.user'])->findOrFail($id);
         $oldCleanerApplicationId = $booking->cleaner_application_id;
 
         $validated = $request->validate([
@@ -170,6 +170,40 @@ class AdminBookingController extends Controller
                     'cleaner_application_id' => 'This marketplace provider has reached their daily booking limit for '.Carbon::parse($booking->scheduled_date)->format('F d, Y').'.',
                 ]);
             }
+
+            $availableDays = collect($provider->available_days ?: [])
+                ->map(fn ($day): string => strtolower((string) $day))
+                ->filter()
+                ->values();
+
+            if ($availableDays->isNotEmpty()
+                && ! $availableDays->contains(strtolower(Carbon::parse($booking->scheduled_date)->format('l')))
+            ) {
+                return back()->withErrors([
+                    'cleaner_application_id' => 'This marketplace provider does not accept bookings on '.Carbon::parse($booking->scheduled_date)->format('l').'.',
+                ]);
+            }
+
+            $providerCapacity = $provider->isTeam()
+                ? max(1, (int) ($provider->team_size ?: 1))
+                : 1;
+
+            if ($providerCapacity < max(1, (int) ($booking->required_cleaners ?: 1))) {
+                return back()->withErrors([
+                    'cleaner_application_id' => 'This marketplace provider does not have enough cleaners for this booking.',
+                ]);
+            }
+
+            if ($provider->hasScheduleConflictFor(
+                $booking->scheduled_date,
+                $booking->scheduled_time,
+                (int) ($booking->duration_minutes ?: Service::durationForSlug($booking->service_type)),
+                $booking->id,
+            )) {
+                return back()->withErrors([
+                    'cleaner_application_id' => 'This marketplace provider is already assigned to an overlapping booking. Choose another provider.',
+                ]);
+            }
         }
 
         if ((int) ($newCleanerApplicationId ?? 0) === (int) ($oldCleanerApplicationId ?? 0)) {
@@ -180,13 +214,18 @@ class AdminBookingController extends Controller
         $booking->provider_assignment_status = $newCleanerApplicationId ? 'pending' : null;
         $booking->provider_assignment_responded_at = null;
         $booking->provider_assignment_notes = null;
+        if ($booking->preferred_cleaner_application_id && $newCleanerApplicationId) {
+            $booking->preferred_cleaner_status = (int) $newCleanerApplicationId === (int) $booking->preferred_cleaner_application_id
+                ? 'assigned'
+                : 'alternate_assigned';
+        }
         if ($newCleanerApplicationId) {
             $booking->forceFill($booking->calculateMarketplaceCommission());
         } else {
             $booking->clearMarketplaceCommission();
         }
         $booking->save();
-        $booking->load(['user', 'service', 'cleanerApplication']);
+        $booking->load(['user', 'service', 'cleanerApplication', 'preferredCleanerApplication.user']);
 
         $booking->logActivity(auth()->user(), 'marketplace_provider_assigned', 'Marketplace provider assignment updated.', [
             'from_cleaner_application_id' => $oldCleanerApplicationId,
@@ -312,6 +351,10 @@ class AdminBookingController extends Controller
                 : 'alternate_assigned';
         }
 
+        if ($booking->preferred_cleaner_application_id && $newStaffId) {
+            $booking->preferred_cleaner_status = 'alternate_assigned';
+        }
+
         if ($newPaymentStatus === 'paid' && $booking->payment?->method === 'on_site_cash') {
             if ($booking->payment?->cash_proof_path && $booking->payment?->cash_proof_status !== 'approved') {
                 return back()->withErrors([
@@ -394,7 +437,7 @@ class AdminBookingController extends Controller
             ]);
         }
 
-        $booking->load(['user', 'staff', 'service', 'preferredStaff']);
+        $booking->load(['user', 'staff', 'service', 'preferredStaff', 'preferredCleanerApplication.user']);
 
         if ($newStatus === 'confirmed') {
             SendBookingConfirmedEmail::dispatch($booking->id);

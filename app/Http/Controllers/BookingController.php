@@ -34,7 +34,7 @@ class BookingController extends Controller
         $user = $this->requireVerifiedClient();
 
         $bookings = Booking::where('user_id', $user->id)
-            ->with(['staff', 'staffAssignments:id,booking_id,staff_id', 'service', 'preferredStaff', 'payment'])
+            ->with(['staff', 'staffAssignments:id,booking_id,staff_id', 'service', 'preferredStaff', 'preferredCleanerApplication', 'payment'])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
@@ -66,6 +66,12 @@ class BookingController extends Controller
             'barangay' => $user->barangay,
             'street_address' => $user->street,
         ];
+        $preferredProviderApplications = CleanerApplication::with('user')
+            ->where('status', CleanerApplication::STATUS_APPROVED)
+            ->whereNotNull('user_id')
+            ->whereNotNull('activated_at')
+            ->orderBy('business_name')
+            ->get();
         $preferredCleaners = User::where('role', 'staff')
             ->orderBy('first_name')
             ->orderBy('last_name')
@@ -82,6 +88,15 @@ class BookingController extends Controller
                 'barangay' => $staff->barangay,
                 'presentToday' => in_array((int) $staff->id, $presentTodayStaffIds, true),
             ])->values(),
+            'providers' => $preferredProviderApplications->map(fn (CleanerApplication $provider) => [
+                'id' => $provider->id,
+                'name' => $provider->business_name ?: ($provider->user?->full_name ?: $provider->email),
+                'coverage' => array_values($provider->coverage_barangays ?: []),
+                'serviceArea' => $provider->service_area,
+                'availableDays' => array_values($provider->available_days ?: []),
+                'maxDailyBookings' => (int) ($provider->max_daily_bookings ?: 0),
+                'teamSize' => $provider->isTeam() ? max(1, (int) ($provider->team_size ?: 1)) : 1,
+            ])->values(),
             'assignments' => Booking::query()
                 ->with(['service', 'staffAssignments:id,booking_id,staff_id'])
                 ->whereIn('status', Booking::staffAssignmentConflictStatuses())
@@ -96,6 +111,23 @@ class BookingController extends Controller
                         'status' => $booking->status,
                     ]))
                 ->values(),
+            'providerAssignments' => Booking::query()
+                ->whereNotNull('cleaner_application_id')
+                ->whereIn('status', Booking::ACTIVE_SCHEDULE_STATUSES)
+                ->where(function ($query): void {
+                    $query->whereNull('provider_assignment_status')
+                        ->orWhereIn('provider_assignment_status', ['pending', 'accepted']);
+                })
+                ->whereDate('scheduled_date', '>=', $bookingNow->toDateString())
+                ->get(['id', 'cleaner_application_id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'service_type', 'status'])
+                ->map(fn (Booking $booking) => [
+                    'providerId' => (int) $booking->cleaner_application_id,
+                    'date' => Booking::normalizeScheduleDate($booking->scheduled_date),
+                    'time' => Carbon::parse($booking->scheduled_time)->format('H:i'),
+                    'duration' => (int) ($booking->duration_minutes ?: Service::durationForSlug($booking->service_type)),
+                    'status' => $booking->status,
+                ])
+                ->values(),
             'serviceDurations' => $services->mapWithKeys(fn (Service $service) => [
                 $service->slug => (int) ($service->duration_minutes ?: Service::durationForSlug($service->slug)),
             ]),
@@ -107,6 +139,7 @@ class BookingController extends Controller
             'services',
             'pricingConfig',
             'preferredCleaners',
+            'preferredProviderApplications',
             'servicePackages',
             'paymentMethods',
             'servicePlans',
@@ -154,6 +187,8 @@ class BookingController extends Controller
 
         $preferredStaff = null;
         $preferredStaffStatus = 'none';
+        $preferredCleanerApplication = null;
+        $preferredCleanerStatus = 'none';
         $service = Service::where('slug', $request->service_type)->where('is_active', true)->first();
 
         if (! $service) {
@@ -181,6 +216,14 @@ class BookingController extends Controller
             }
         }
 
+        if ($request->filled('preferred_cleaner_application_id')) {
+            $preferredCleanerApplication = CleanerApplication::with('user')
+                ->where('status', CleanerApplication::STATUS_APPROVED)
+                ->whereNotNull('user_id')
+                ->whereNotNull('activated_at')
+                ->find($request->preferred_cleaner_application_id);
+        }
+
         $pricing = Booking::calculatePrice(
             $request->service_type,
             $request->property_type,
@@ -190,6 +233,17 @@ class BookingController extends Controller
             $request->input('add_ons', []),
             $request->input('add_on_quantities', [])
         );
+
+        if ($preferredCleanerApplication) {
+            $preferredCleanerStatus = $this->preferredCleanerApplicationIsAvailable(
+                $preferredCleanerApplication,
+                $request->scheduled_date,
+                $request->scheduled_time,
+                $request->barangay,
+                $serviceDurationMinutes,
+                max(1, (int) $pricing['required_cleaners']),
+            ) ? 'requested' : 'unavailable';
+        }
 
         $subscriptionGroupId = $servicePlan === 'subscription' ? (string) Str::uuid() : null;
 
@@ -203,6 +257,8 @@ class BookingController extends Controller
                 $serviceDurationMinutes,
                 $preferredStaff,
                 $preferredStaffStatus,
+                $preferredCleanerApplication,
+                $preferredCleanerStatus,
                 $servicePlan,
                 $subscriptionFrequency,
                 $subscriptionOccurrences,
@@ -223,6 +279,8 @@ class BookingController extends Controller
                     $serviceDurationMinutes,
                     $preferredStaff,
                     $preferredStaffStatus,
+                    $preferredCleanerApplication,
+                    $preferredCleanerStatus,
                     $servicePlan,
                     $subscriptionFrequency,
                     $subscriptionOccurrences,
@@ -236,6 +294,8 @@ class BookingController extends Controller
                         $serviceDurationMinutes,
                         $preferredStaff,
                         $preferredStaffStatus,
+                        $preferredCleanerApplication,
+                        $preferredCleanerStatus,
                         $servicePlan,
                         $subscriptionFrequency,
                         $subscriptionOccurrences,
@@ -251,6 +311,17 @@ class BookingController extends Controller
                                 $serviceDurationMinutes
                             ) ? 'requested' : 'unavailable')
                             : $preferredStaffStatus;
+
+                        $currentPreferredCleanerStatus = $preferredCleanerApplication
+                            ? ($this->preferredCleanerApplicationIsAvailable(
+                                $preferredCleanerApplication,
+                                $schedule['scheduled_date'],
+                                $schedule['scheduled_time'],
+                                $request->barangay,
+                                $serviceDurationMinutes,
+                                max(1, (int) $pricing['required_cleaners']),
+                            ) ? 'requested' : 'unavailable')
+                            : $preferredCleanerStatus;
 
                         $currentRiskReasons = Booking::detectRiskReasons(
                             $user->id,
@@ -324,6 +395,8 @@ class BookingController extends Controller
                             'status' => $currentStatus,
                             'preferred_staff_id' => $preferredStaff?->id,
                             'preferred_staff_status' => $currentPreferredStaffStatus,
+                            'preferred_cleaner_application_id' => $preferredCleanerApplication?->id,
+                            'preferred_cleaner_status' => $currentPreferredCleanerStatus,
                         ]);
 
                         if ($currentStatus === 'confirmed') {
@@ -345,7 +418,7 @@ class BookingController extends Controller
 
         /** @var Booking $booking */
         $booking = $createdBookings->first();
-        $booking->load(['user', 'service', 'preferredStaff']);
+        $booking->load(['user', 'service', 'preferredStaff', 'preferredCleanerApplication.user']);
         $this->createPreferredCleanerRequestNotification($booking);
 
         if ($servicePlan === 'subscription') {
@@ -388,6 +461,14 @@ class BookingController extends Controller
 
         if ($preferredStaffStatus === 'unavailable' && $preferredStaff) {
             $redirect->with('warning', 'Your preferred cleaner '.$preferredStaff->full_name.' is already booked for that schedule. Another available cleaner will be assigned during confirmation.');
+        }
+
+        if ($booking->preferredCleanerApplication && $booking->preferred_cleaner_status === 'requested') {
+            $redirect->with('info', 'We received your preferred cleaner request for '.$this->preferredCleanerName($booking->preferredCleanerApplication).'. We will prioritize this request during confirmation if the schedule remains available.');
+        }
+
+        if ($booking->preferredCleanerApplication && $booking->preferred_cleaner_status === 'unavailable') {
+            $redirect->with('warning', 'Your preferred cleaner '.$this->preferredCleanerName($booking->preferredCleanerApplication).' is no longer available for that schedule. Another available cleaner will be assigned during confirmation.');
         }
 
         if (Booking::isDigitalPaymentMethod($booking->payment?->method ?? 'on_site_cash') && (bool) config('services.paymongo.checkout_redirect_enabled', true)) {
@@ -608,6 +689,7 @@ class BookingController extends Controller
             'service',
             'payment',
             'preferredStaff',
+            'preferredCleanerApplication.user',
             'serviceProofs.uploader',
             'activityLogs.actor',
             'messages.sender',
@@ -1067,25 +1149,34 @@ class BookingController extends Controller
 
     private function createPreferredCleanerRequestNotification(Booking $booking): void
     {
-        if (! $booking->preferredStaff) {
+        if (! $booking->preferredStaff && ! $booking->preferredCleanerApplication) {
             return;
         }
 
-        if ($booking->preferred_staff_status === 'requested') {
+        $preferredName = $booking->preferredCleanerApplication
+            ? $this->preferredCleanerName($booking->preferredCleanerApplication)
+            : $booking->preferredStaff->full_name;
+        $preferredStatus = $booking->preferredCleanerApplication
+            ? $booking->preferred_cleaner_status
+            : $booking->preferred_staff_status;
+
+        if ($preferredStatus === 'requested') {
             $this->createNotification([
                 'user_id' => $booking->user_id,
+                'booking_id' => $booking->id,
                 'title' => 'Preferred cleaner request received',
-                'message' => 'We noted your preferred cleaner request for '.$booking->preferredStaff->full_name.' on booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).'. We will try to honor it during confirmation if the schedule remains open.',
+                'message' => 'We noted your preferred cleaner request for '.$preferredName.' on booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).'. We will try to honor it during confirmation if the schedule remains open.',
                 'type' => 'info',
                 'link' => route('bookings.show', $booking->id),
             ]);
         }
 
-        if ($booking->preferred_staff_status === 'unavailable') {
+        if ($preferredStatus === 'unavailable') {
             $this->createNotification([
                 'user_id' => $booking->user_id,
+                'booking_id' => $booking->id,
                 'title' => 'Preferred cleaner unavailable',
-                'message' => $booking->preferredStaff->full_name.' is not available for booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' at your chosen schedule. Another available cleaner will be assigned during confirmation.',
+                'message' => $preferredName.' is not available for booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' at your chosen schedule. Another available cleaner will be assigned during confirmation.',
                 'type' => 'warning',
                 'link' => route('bookings.show', $booking->id),
             ]);
@@ -1235,6 +1326,53 @@ class BookingController extends Controller
             null,
             $serviceDurationMinutes
         );
+    }
+
+    private function preferredCleanerApplicationIsAvailable(
+        CleanerApplication $provider,
+        mixed $scheduledDate,
+        mixed $scheduledTime,
+        string $barangay,
+        int $serviceDurationMinutes,
+        int $requiredCleaners = 1,
+    ): bool {
+        if ($provider->status !== CleanerApplication::STATUS_APPROVED
+            || ! $provider->user_id
+            || ! $provider->activated_at
+            || ! $provider->isAvailableForAssignment()
+            || ! $provider->coversBarangay($barangay)
+        ) {
+            return false;
+        }
+
+        $bookingTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+        $scheduleDate = Carbon::parse($scheduledDate, $bookingTimezone);
+        $availableDays = collect($provider->available_days ?: [])
+            ->map(fn ($day): string => strtolower((string) $day))
+            ->filter()
+            ->values();
+
+        if ($availableDays->isNotEmpty() && ! $availableDays->contains(strtolower($scheduleDate->format('l')))) {
+            return false;
+        }
+
+        $providerCapacity = $provider->isTeam()
+            ? max(1, (int) ($provider->team_size ?: 1))
+            : 1;
+
+        if ($providerCapacity < max(1, $requiredCleaners)
+            || ! $provider->hasDailyCapacityFor($scheduleDate->toDateString())
+            || $provider->hasScheduleConflictFor($scheduleDate->toDateString(), $scheduledTime, $serviceDurationMinutes)
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function preferredCleanerName(CleanerApplication $provider): string
+    {
+        return $provider->business_name ?: ($provider->user?->full_name ?: $provider->email);
     }
 
     private function presentStaffIdsForDate(string $localDate): array

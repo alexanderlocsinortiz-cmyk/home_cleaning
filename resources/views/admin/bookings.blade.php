@@ -358,6 +358,7 @@
                             $bookingIsToday = $scheduledDate->isToday();
                             $reviewLocked = in_array($booking->manual_review_status, ['pending', 'blocked'], true);
                             $requestedCleaner = $booking->preferredStaff;
+                            $requestedProvider = $booking->preferredCleanerApplication;
                             $scheduleMeta = match (true) {
                                 $scheduledDate->isToday() => ['label' => 'Today', 'class' => 'bg-blue-50 text-blue-700'],
                                 $scheduledDate->isPast() => ['label' => 'Overdue', 'class' => 'bg-danger-50 text-danger-700'],
@@ -476,14 +477,17 @@
 
                             <div class="rounded-2xl border border-slate-200 bg-white p-4">
                                 <div class="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Assignment</div>
-                                @if($requestedCleaner)
+                                @if($requestedCleaner || $requestedProvider)
                                     <div class="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
                                         <div class="text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-700">Preferred cleaner</div>
-                                        <div class="mt-1 text-sm font-semibold leading-5 text-slate-900">{{ $requestedCleaner->display_name }}</div>
-                                        @if(isset($preferredStatusLabels[$booking->preferred_staff_status]))
+                                        <div class="mt-1 text-sm font-semibold leading-5 text-slate-900">{{ $requestedProvider?->business_name ?: ($requestedProvider?->user?->full_name ?: $requestedCleaner?->display_name) }}</div>
+                                        @php
+                                            $requestedStatus = $requestedProvider ? $booking->preferred_cleaner_status : $booking->preferred_staff_status;
+                                        @endphp
+                                        @if(isset($preferredStatusLabels[$requestedStatus]))
                                             <div class="mt-2">
-                                                <span class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold {{ $preferredStatusClasses[$booking->preferred_staff_status] }}">
-                                                    {{ $preferredStatusLabels[$booking->preferred_staff_status] }}
+                                                <span class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold {{ $preferredStatusClasses[$requestedStatus] }}">
+                                                    {{ $preferredStatusLabels[$requestedStatus] }}
                                                 </span>
                                             </div>
                                         @endif

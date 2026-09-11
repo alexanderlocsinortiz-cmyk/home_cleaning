@@ -618,18 +618,19 @@
                     </div>
                     @endif
 
-                    @if($booking->preferredStaff)
+                    @if($booking->preferredStaff || $booking->preferredCleanerApplication)
                     <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
                         <div class="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">Preferred Cleaner</div>
-                        <div class="mt-2 text-base font-semibold text-slate-900">{{ $booking->preferredStaff->full_name }}</div>
+                        <div class="mt-2 text-base font-semibold text-slate-900">{{ $booking->preferredCleanerApplication?->business_name ?: ($booking->preferredCleanerApplication?->user?->full_name ?: $booking->preferredStaff?->full_name) }}</div>
                         <div class="mt-1 text-sm text-slate-600">
-                            @if($booking->preferred_staff_status === 'requested')
+                            @php $preferredStatus = $booking->preferredCleanerApplication ? $booking->preferred_cleaner_status : $booking->preferred_staff_status; @endphp
+                            @if($preferredStatus === 'requested')
                                 Your request has been recorded and is waiting for final assignment.
-                            @elseif($booking->preferred_staff_status === 'unavailable')
+                            @elseif($preferredStatus === 'unavailable')
                                 This cleaner was not available for your selected date and time, so another available cleaner will be assigned.
-                            @elseif($booking->preferred_staff_status === 'assigned')
+                            @elseif($preferredStatus === 'assigned')
                                 Your preferred cleaner was successfully assigned to this booking.
-                            @elseif($booking->preferred_staff_status === 'alternate_assigned')
+                            @elseif($preferredStatus === 'alternate_assigned')
                                 A different cleaner was assigned because your preferred cleaner could not take this booking.
                             @else
                                 No preferred cleaner update is available yet.

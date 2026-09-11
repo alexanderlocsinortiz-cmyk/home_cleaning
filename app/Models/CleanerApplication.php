@@ -478,6 +478,31 @@ class CleanerApplication extends Model
         return $this->activeAssignmentCountForDate($scheduledDate, $exceptBookingId) < $this->max_daily_bookings;
     }
 
+    public function hasScheduleConflictFor(
+        mixed $scheduledDate,
+        mixed $scheduledTime,
+        ?int $targetDurationMinutes = null,
+        ?int $exceptBookingId = null
+    ): bool {
+        return $this->bookings()
+            ->whereIn('status', Booking::ACTIVE_SCHEDULE_STATUSES)
+            ->where(function ($query): void {
+                $query->whereNull('provider_assignment_status')
+                    ->orWhereIn('provider_assignment_status', ['pending', 'accepted']);
+            })
+            ->whereDate('scheduled_date', Booking::normalizeScheduleDate($scheduledDate))
+            ->when($exceptBookingId !== null, fn ($query) => $query->where('id', '!=', $exceptBookingId))
+            ->get(['id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'service_type'])
+            ->contains(fn (Booking $booking): bool => Booking::assignmentWindowsOverlap(
+                $scheduledDate,
+                $scheduledTime,
+                $targetDurationMinutes,
+                $booking->scheduled_date,
+                $booking->scheduled_time,
+                (int) ($booking->duration_minutes ?: Service::durationForSlug($booking->service_type)),
+            ));
+    }
+
     public function dailyCapacityLabel(mixed $scheduledDate, ?int $exceptBookingId = null): ?string
     {
         if (! $this->max_daily_bookings) {

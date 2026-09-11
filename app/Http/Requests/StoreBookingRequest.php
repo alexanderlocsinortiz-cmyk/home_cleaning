@@ -80,6 +80,13 @@ class StoreBookingRequest extends FormRequest
                 'nullable',
                 Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'staff')),
             ],
+            'preferred_cleaner_application_id' => [
+                'nullable',
+                Rule::exists('cleaner_applications', 'id')->where(fn ($query) => $query
+                    ->where('status', \App\Models\CleanerApplication::STATUS_APPROVED)
+                    ->whereNotNull('user_id')
+                    ->whereNotNull('activated_at')),
+            ],
             'scheduled_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$bookingToday],
             'scheduled_time' => ['required', Rule::in($timeSlots)],
             'notes' => 'nullable|string|max:500',
