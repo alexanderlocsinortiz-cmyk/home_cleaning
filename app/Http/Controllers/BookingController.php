@@ -112,6 +112,7 @@ class BookingController extends Controller
                     ]))
                 ->values(),
             'providerAssignments' => Booking::query()
+                ->with('service:id,slug')
                 ->whereNotNull('cleaner_application_id')
                 ->whereIn('status', Booking::ACTIVE_SCHEDULE_STATUSES)
                 ->where(function ($query): void {
@@ -119,12 +120,12 @@ class BookingController extends Controller
                         ->orWhereIn('provider_assignment_status', ['pending', 'accepted']);
                 })
                 ->whereDate('scheduled_date', '>=', $bookingNow->toDateString())
-                ->get(['id', 'cleaner_application_id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'service_type', 'status'])
+                ->get(['id', 'cleaner_application_id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'service_id', 'status'])
                 ->map(fn (Booking $booking) => [
                     'providerId' => (int) $booking->cleaner_application_id,
                     'date' => Booking::normalizeScheduleDate($booking->scheduled_date),
                     'time' => Carbon::parse($booking->scheduled_time)->format('H:i'),
-                    'duration' => (int) ($booking->duration_minutes ?: Service::durationForSlug($booking->service_type)),
+                    'duration' => (int) ($booking->duration_minutes ?: Service::durationForSlug($booking->service?->slug)),
                     'status' => $booking->status,
                 ])
                 ->values(),

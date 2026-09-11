@@ -492,14 +492,15 @@ class CleanerApplication extends Model
             })
             ->whereDate('scheduled_date', Booking::normalizeScheduleDate($scheduledDate))
             ->when($exceptBookingId !== null, fn ($query) => $query->where('id', '!=', $exceptBookingId))
-            ->get(['id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'service_type'])
+            ->with('service:id,slug')
+            ->get(['id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'service_id'])
             ->contains(fn (Booking $booking): bool => Booking::assignmentWindowsOverlap(
                 $scheduledDate,
                 $scheduledTime,
                 $targetDurationMinutes,
                 $booking->scheduled_date,
                 $booking->scheduled_time,
-                (int) ($booking->duration_minutes ?: Service::durationForSlug($booking->service_type)),
+                (int) ($booking->duration_minutes ?: Service::durationForSlug($booking->service?->slug)),
             ));
     }
 
