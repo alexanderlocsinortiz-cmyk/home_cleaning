@@ -1,4 +1,4 @@
-const STATIC_CACHE = 'cleanflow-static-v10';
+const STATIC_CACHE = 'cleanflow-static-v11';
 const RUNTIME_CACHE = 'cleanflow-runtime-v9';
 const APP_SHELL_FILES = [
     '/offline.html',

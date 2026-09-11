@@ -25,3 +25,10 @@ test('install banner is limited to the homepage and remembers dismissal', async 
     await dispatchInstallPrompt(page);
     await expect(page.getByText('Install CleanFlow')).toBeHidden();
 });
+
+test('service worker cache version changes with the install prompt code', async ({ request }) => {
+    const response = await request.get('/sw.js');
+
+    expect(response.ok()).toBeTruthy();
+    expect(await response.text()).toContain("cleanflow-static-v11");
+});
