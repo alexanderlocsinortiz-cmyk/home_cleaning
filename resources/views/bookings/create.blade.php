@@ -970,7 +970,8 @@ function refreshPreferredCleaners() {
     const providers = scheduleAvailability.providers || [];
     const requiredCleaners = selectedRequiredCleaners();
     const selectedWeekday = selectedDateWeekday(selectedDate);
-    const availableProviders = selectedDate && selectedTime && selectedBarangay
+    const hasCompleteSchedule = Boolean(selectedDate && selectedTime && selectedBarangay);
+    const availableProviders = hasCompleteSchedule
         ? providers.filter((provider) => {
             const availableDays = (provider.availableDays || []).map((day) => String(day).toLowerCase());
             const teamSize = Number(provider.teamSize || 1);
@@ -987,7 +988,11 @@ function refreshPreferredCleaners() {
 
     const emptyOption = document.createElement('option');
     emptyOption.value = '';
-    emptyOption.textContent = availableProviders.length > 0 ? 'No specific cleaner' : 'No approved cleaner available for this slot';
+    emptyOption.textContent = !hasCompleteSchedule
+        ? 'Select date, time, and barangay first'
+        : availableProviders.length > 0
+            ? 'No specific cleaner'
+            : 'No approved cleaner available for this slot';
     cleanerSelect.appendChild(emptyOption);
 
     availableProviders.forEach((provider) => {
@@ -1004,7 +1009,7 @@ function refreshPreferredCleaners() {
         cleanerSelect.value = '';
     }
 
-    cleanerSelect.disabled = availableProviders.length === 0;
+    cleanerSelect.disabled = !hasCompleteSchedule || availableProviders.length === 0;
 
     if (note) {
         if (!selectedDate || !selectedTime) {
