@@ -382,6 +382,11 @@
                             <p class="mt-1 text-sm leading-6 text-slate-600">Creates the backup, uploads it to the configured private backup disk, confirms it exists, and removes the temporary local copy. Older backups beyond the retention count are pruned.</p>
                         </div>
                     </div>
+                    @if(str_starts_with((string) session('success'), 'Database backup uploaded to private cloud storage:'))
+                        <div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold leading-6 text-emerald-800" role="status">
+                            {{ session('success') }}
+                        </div>
+                    @endif
                     <label class="mt-4 block">
                         <span class="text-sm font-bold text-slate-700">Database backup password</span>
                         <input type="password" name="database_backup_password" autocomplete="off" class="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" required>

@@ -343,6 +343,44 @@ class AdminSettingsAccessControlTest extends TestCase
         $this->assertCount(1, $files);
         $this->assertMatchesRegularExpression('/database-backups\/cleanflow-sqlite-.*\.(sqlite|sql)$/', $files[0]);
         $this->assertNotEmpty(Storage::disk('remote-backup')->get($files[0]));
+
+        $this->actingAs($admin)
+            ->get(route('admin.settings'))
+            ->assertOk()
+            ->assertSee('Database backup uploaded to private cloud storage: database-backups/', false);
+    }
+
+    public function test_admin_cannot_upload_database_backup_with_wrong_backup_password(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'password' => Hash::make('admin-password'),
+        ]);
+        SiteSetting::current()->update([
+            'database_backup_password_hash' => Hash::make('backup-password-123'),
+        ]);
+
+        config([
+            'filesystems.disks.remote-backup' => [
+                'driver' => 'local',
+                'root' => storage_path('framework/testing/remote-backup-wrong-password'),
+            ],
+            'filesystems.database_backup_disk' => 'remote-backup',
+            'filesystems.database_backup_prefix' => 'database-backups',
+        ]);
+        Storage::fake('remote-backup');
+
+        $response = $this->actingAs($admin)
+            ->post(route('admin.settings.database-backup.cloud'), [
+                'database_backup_password' => 'wrong-password',
+            ]);
+
+        $response->assertRedirect(route('admin.settings').'#database-backup')
+            ->assertSessionHasErrors([
+                'database_backup_password' => 'Database backup password is incorrect.',
+            ]);
+
+        $this->assertSame([], Storage::disk('remote-backup')->allFiles());
     }
 
     public function test_database_backup_cloud_command_uploads_to_private_disk(): void
