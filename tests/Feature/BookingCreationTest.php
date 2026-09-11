@@ -76,6 +76,9 @@ class BookingCreationTest extends TestCase
             );
         }
         $response->assertSee('Preferred Cleaner (optional)', false);
+        $response->assertSee('preferred_staff_id', false);
+        $response->assertSee('Company staff — Valencia City coverage', false);
+        $response->assertSee('Attendance and schedule conflicts are checked for today; admin confirms the final assignment.', false);
         $response->assertSee('Payment and Service Plan', false);
         $response->assertSee('Cash on Service Day', false);
         $response->assertSee('Subscription Plan', false);
@@ -209,6 +212,37 @@ class BookingCreationTest extends TestCase
             $secondaryStaff->id,
             collect($availability['assignments'])->pluck('staffId')->all()
         );
+    }
+
+    public function test_booking_form_lists_internal_staff_as_an_optional_preference(): void
+    {
+        $this->canonicalService([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $client = $this->createVerifiedUser([
+            'email' => 'staff-preference-client@example.com',
+            'username' => 'staffpreferenceclient',
+        ]);
+        $staff = $this->createVerifiedUser([
+            'first_name' => 'Valencia',
+            'last_name' => 'Cleaner',
+            'email' => 'staff-preference-cleaner@example.com',
+            'username' => 'staffpreferencecleaner',
+            'role' => 'staff',
+            'city' => 'Valencia City',
+        ]);
+
+        $response = $this->actingAs($client)->get(route('bookings.create'));
+
+        $response->assertOk();
+        $response->assertSee('value="staff:'.$staff->id.'"', false);
+        $response->assertSee('Valencia Cleaner', false);
+        $response->assertSee('Company staff — Valencia City coverage', false);
     }
 
     public function test_authenticated_client_can_create_a_booking_with_calculated_price(): void

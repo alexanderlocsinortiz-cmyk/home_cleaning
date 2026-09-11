@@ -489,8 +489,8 @@
                     <div class="flex items-start gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">5</div>
                         <div>
-                    <h2 class="text-lg font-bold text-slate-900">Preferred Cleaner</h2>
-                            <p class="text-sm text-slate-500">Choose an approved and activated cleaner who covers your barangay and is free for this schedule.</p>
+                            <h2 class="text-lg font-bold text-slate-900">Preferred Cleaner</h2>
+                            <p class="text-sm text-slate-500">Optionally request a company staff cleaner or an approved marketplace provider who covers your barangay and municipality.</p>
                         </div>
                     </div>
                     <span class="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-700">Optional</span>
@@ -498,15 +498,28 @@
 
                 <div>
                     <label class="mb-2 block text-sm font-semibold text-slate-700">Preferred Cleaner (optional)</label>
-                    <select name="preferred_cleaner_application_id" id="preferred-cleaner-select" data-selected="{{ old('preferred_cleaner_application_id') }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                    <input type="hidden" name="preferred_staff_id" id="preferred-staff-id" value="{{ old('preferred_staff_id') }}">
+                    <input type="hidden" name="preferred_cleaner_application_id" id="preferred-provider-id" value="{{ old('preferred_cleaner_application_id') }}">
+                    <select id="preferred-cleaner-select" data-selected="{{ old('preferred_staff_id') ? 'staff:'.old('preferred_staff_id') : (old('preferred_cleaner_application_id') ? 'provider:'.old('preferred_cleaner_application_id') : '') }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                         <option value="">No specific cleaner</option>
+                        <optgroup label="Company staff — Valencia City coverage">
+                        @foreach($preferredCleaners as $cleaner)
+                        <option value="staff:{{ $cleaner->id }}" {{ (string) old('preferred_staff_id') === (string) $cleaner->id ? 'selected' : '' }}>
+                            {{ $cleaner->display_name }}
+                        </option>
+                        @endforeach
+                        </optgroup>
+                        <optgroup label="Approved marketplace providers">
                         @foreach($preferredProviderApplications as $provider)
-                        <option value="{{ $provider->id }}" {{ (string) old('preferred_cleaner_application_id') === (string) $provider->id ? 'selected' : '' }}>
+                        <option value="provider:{{ $provider->id }}" {{ (string) old('preferred_cleaner_application_id') === (string) $provider->id ? 'selected' : '' }}>
                             {{ $provider->business_name ?: ($provider->user?->full_name ?: $provider->email) }}
                         </option>
                         @endforeach
+                        </optgroup>
                     </select>
-                    <div id="preferred-cleaner-note" class="mt-2 text-xs leading-5 text-slate-500">Pick a date and time to see cleaners available for that slot.</div>
+                    <div id="preferred-cleaner-note" class="mt-2 text-xs leading-5 text-slate-500">Pick a date, time, and barangay to see company staff and approved marketplace providers available for that slot.</div>
+                    <div class="mt-2 text-xs leading-5 text-slate-500">Company staff cover the configured Valencia City barangays. Attendance and schedule conflicts are checked for today; admin confirms the final assignment.</div>
+                    @error('preferred_staff_id')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                     @error('preferred_cleaner_application_id')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                 </div>
             </section>
@@ -966,6 +979,8 @@ function refreshPreferredCleaners() {
     const timeSelect = document.getElementById('scheduled-time-select');
     const barangaySelect = document.getElementById('barangay-select');
     const cleanerSelect = document.getElementById('preferred-cleaner-select');
+    const staffField = document.getElementById('preferred-staff-id');
+    const providerField = document.getElementById('preferred-provider-id');
     const note = document.getElementById('preferred-cleaner-note');
 
     if (!dateInput || !timeSelect || !cleanerSelect) {
@@ -976,10 +991,21 @@ function refreshPreferredCleaners() {
     const selectedTime = timeSelect.value;
     const selectedBarangay = barangaySelect?.value || '';
     const previousSelection = cleanerSelect.value || cleanerSelect.dataset.selected || '';
+    const staff = scheduleAvailability.staff || [];
     const providers = scheduleAvailability.providers || [];
     const requiredCleaners = selectedRequiredCleaners();
     const selectedWeekday = selectedDateWeekday(selectedDate);
+    const todayValue = currentBookingDateValue();
     const hasCompleteSchedule = Boolean(selectedDate && selectedTime && selectedBarangay);
+    const availableStaff = hasCompleteSchedule
+        ? staff.filter((cleaner) => {
+            if (selectedDate === todayValue && !cleaner.presentToday) {
+                return false;
+            }
+
+            return !staffConflictsWithSelectedSlot(cleaner.id, selectedDate, selectedTime);
+        })
+        : [];
     const availableProviders = hasCompleteSchedule
         ? providers.filter((provider) => {
             const availableDays = (provider.availableDays || []).map((day) => String(day).toLowerCase());
@@ -992,6 +1018,7 @@ function refreshPreferredCleaners() {
                 && !providerConflictsWithSelectedSlot(provider.id, selectedDate, selectedTime);
         })
         : [];
+    const availableCleanerCount = availableStaff.length + availableProviders.length;
 
     cleanerSelect.innerHTML = '';
 
@@ -999,34 +1026,67 @@ function refreshPreferredCleaners() {
     emptyOption.value = '';
     emptyOption.textContent = !hasCompleteSchedule
         ? 'Select date, time, and barangay first'
-        : availableProviders.length > 0
+        : availableCleanerCount > 0
             ? 'No specific cleaner'
-            : 'No approved cleaner available for this slot';
+            : 'No cleaner available for this slot';
     cleanerSelect.appendChild(emptyOption);
 
-    availableProviders.forEach((provider) => {
-        const option = document.createElement('option');
-        option.value = provider.id;
-        option.textContent = provider.teamSize > 1
-            ? `${provider.name} - ${provider.teamSize} cleaners`
-            : provider.name;
-        option.selected = String(provider.id) === String(previousSelection);
-        cleanerSelect.appendChild(option);
-    });
+    if (availableStaff.length > 0) {
+        const staffGroup = document.createElement('optgroup');
+        staffGroup.label = 'Company staff — Valencia City coverage';
 
-    if (!availableProviders.some((provider) => String(provider.id) === String(previousSelection))) {
+        availableStaff.forEach((cleaner) => {
+            const option = document.createElement('option');
+            option.value = `staff:${cleaner.id}`;
+            option.textContent = cleaner.name;
+            option.selected = option.value === previousSelection;
+            staffGroup.appendChild(option);
+        });
+
+        cleanerSelect.appendChild(staffGroup);
+    }
+
+    if (availableProviders.length > 0) {
+        const providerGroup = document.createElement('optgroup');
+        providerGroup.label = 'Approved marketplace providers';
+
+        availableProviders.forEach((provider) => {
+            const option = document.createElement('option');
+            option.value = `provider:${provider.id}`;
+            option.textContent = provider.teamSize > 1
+                ? `${provider.name} - ${provider.teamSize} cleaners`
+                : provider.name;
+            option.selected = option.value === previousSelection;
+            providerGroup.appendChild(option);
+        });
+
+        cleanerSelect.appendChild(providerGroup);
+    }
+
+    const selectedOptionStillAvailable = availableStaff.some((cleaner) => `staff:${cleaner.id}` === previousSelection)
+        || availableProviders.some((provider) => `provider:${provider.id}` === previousSelection);
+
+    if (!selectedOptionStillAvailable) {
         cleanerSelect.value = '';
     }
 
-    cleanerSelect.disabled = !hasCompleteSchedule || availableProviders.length === 0;
+    if (staffField && providerField) {
+        const selection = selectedOptionStillAvailable ? previousSelection : '';
+        staffField.value = selection.startsWith('staff:') ? selection.slice(6) : '';
+        providerField.value = selection.startsWith('provider:') ? selection.slice(9) : '';
+    }
+
+    cleanerSelect.disabled = !hasCompleteSchedule || availableCleanerCount === 0;
 
     if (note) {
         if (!selectedDate || !selectedTime) {
-            note.textContent = 'Pick a date, time, and barangay to see approved cleaners available for that slot.';
-        } else if (availableProviders.length === 0) {
-            note.textContent = 'No approved and activated cleaner covers this barangay and schedule. You can still submit without a preferred cleaner.';
+            note.textContent = 'Pick a date, time, and barangay to see company staff and approved marketplace providers available for that slot.';
+        } else if (availableCleanerCount === 0) {
+            note.textContent = 'No company staff or approved marketplace provider is available for this slot. You can still submit without a preferred cleaner.';
         } else {
-            note.textContent = `Showing ${availableProviders.length} approved cleaner${availableProviders.length === 1 ? '' : 's'} covering this barangay and free for this schedule.`;
+            const staffLabel = `${availableStaff.length} compan${availableStaff.length === 1 ? 'y staff member' : 'y staff members'}`;
+            const providerLabel = `${availableProviders.length} marketplace provider${availableProviders.length === 1 ? '' : 's'}`;
+            note.textContent = `Showing ${staffLabel} and ${providerLabel} covering this barangay and free for this schedule.`;
         }
     }
 }
@@ -2140,6 +2200,19 @@ document.querySelectorAll('input[data-add-on-quantity]').forEach((input) => {
 
 document.getElementById('use-current-location')?.addEventListener('click', useCurrentLocation);
 document.getElementById('confirm-current-location')?.addEventListener('click', confirmCurrentLocation);
+document.getElementById('preferred-cleaner-select')?.addEventListener('change', function () {
+    const staffField = document.getElementById('preferred-staff-id');
+    const providerField = document.getElementById('preferred-provider-id');
+    const selection = this.value || '';
+
+    if (staffField) {
+        staffField.value = selection.startsWith('staff:') ? selection.slice(6) : '';
+    }
+
+    if (providerField) {
+        providerField.value = selection.startsWith('provider:') ? selection.slice(9) : '';
+    }
+});
 
 if (!document.querySelector('input[name="service_type"]:checked')) {
     const firstService = document.querySelector('input[name="service_type"]');
