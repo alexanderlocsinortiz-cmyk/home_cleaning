@@ -259,8 +259,13 @@ class CleanerApplication extends Model
             $coverageAreas = collect($this->coverage_barangays)
                 ->map(fn (string $area) => self::normalizeCoverageText($area));
 
+            if ($coverageAreas->contains(fn (string $area): bool => self::isAllBukidnonCoverage($area))) {
+                return true;
+            }
+
             return $coverageAreas->contains($target)
-                || ($coverageAreas->contains('valencia city') && $valenciaBarangays->contains($target));
+                || ($coverageAreas->contains(fn (string $area): bool => self::isValenciaWideCoverage($area))
+                    && $valenciaBarangays->contains($target));
         }
 
         $coverage = self::normalizeCoverageText($this->service_area);
@@ -269,8 +274,12 @@ class CleanerApplication extends Model
             return false;
         }
 
-        if (in_array($coverage, ['valencia city', 'all valencia city', 'all barangays', 'valencia city bukidnon', 'all bukidnon cities and municipalities'], true)) {
+        if (self::isAllBukidnonCoverage($coverage)) {
             return true;
+        }
+
+        if (self::isValenciaWideCoverage($coverage)) {
+            return $valenciaBarangays->contains($target);
         }
 
         $areas = collect(preg_split('/[,;\/|]+/', $coverage) ?: [])
@@ -279,7 +288,25 @@ class CleanerApplication extends Model
             ->values();
 
         return $areas->contains($target)
-            || ($areas->contains('valencia city') && $valenciaBarangays->contains($target));
+            || ($areas->contains(fn (string $area): bool => self::isAllBukidnonCoverage($area)))
+            || ($areas->contains(fn (string $area): bool => self::isValenciaWideCoverage($area))
+                && $valenciaBarangays->contains($target));
+    }
+
+    private static function isValenciaWideCoverage(string $coverage): bool
+    {
+        return in_array($coverage, [
+            'valencia',
+            'valencia city',
+            'all valencia city',
+            'all barangays',
+            'valencia city bukidnon',
+        ], true);
+    }
+
+    private static function isAllBukidnonCoverage(string $coverage): bool
+    {
+        return $coverage === 'all bukidnon cities and municipalities';
     }
 
     public function coverageLabel(): string

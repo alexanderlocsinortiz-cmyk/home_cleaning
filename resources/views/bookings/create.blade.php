@@ -894,14 +894,23 @@ function providerCoversSelectedBarangay(provider, barangay) {
     const target = normalizeProviderArea(barangay);
     const coverage = (provider.coverage || []).map(normalizeProviderArea).filter(Boolean);
     const serviceArea = normalizeProviderArea(provider.serviceArea);
+    const valenciaBarangays = validBarangays.map(normalizeProviderArea);
+    const isValenciaWideCoverage = (value) => [
+        'valencia',
+        'valencia city',
+        'all valencia city',
+        'all barangays',
+        'valencia city bukidnon',
+        'all bukidnon cities and municipalities',
+    ].includes(value);
 
     if (!target) {
         return false;
     }
 
     return coverage.includes(target)
-        || (coverage.includes('valencia city') && validBarangays.map(normalizeProviderArea).includes(target))
-        || (coverage.length === 0 && serviceArea === 'valencia city' && validBarangays.map(normalizeProviderArea).includes(target))
+        || (coverage.some(isValenciaWideCoverage) && valenciaBarangays.includes(target))
+        || (coverage.length === 0 && isValenciaWideCoverage(serviceArea) && valenciaBarangays.includes(target))
         || (coverage.length === 0 && serviceArea === target);
 }
 

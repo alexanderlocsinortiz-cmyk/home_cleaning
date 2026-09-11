@@ -211,6 +211,26 @@ class CleanerApplicationTest extends TestCase
         $this->assertFalse($application->coversBarangay('Malaybalay City'));
     }
 
+    public function test_legacy_valencia_service_area_without_coverage_matches_valencia_barangay_bookings(): void
+    {
+        $application = CleanerApplication::create([
+            'applicant_type' => CleanerApplication::TYPE_INDIVIDUAL,
+            'business_name' => 'Legacy Valencia Cleaner',
+            'contact_person' => 'Juan Reyes',
+            'email' => 'legacy-valencia-cleaner@example.com',
+            'phone' => '09171234568',
+            'service_area' => 'valencia',
+            'coverage_barangays' => null,
+            'years_experience' => 2,
+            'services_offered' => 'Basic Cleaning',
+            'status' => CleanerApplication::STATUS_APPROVED,
+        ]);
+
+        $this->assertTrue($application->coversBarangay('Poblacion'));
+        $this->assertTrue($application->coversBarangay('Bagontaas'));
+        $this->assertFalse($application->coversBarangay('Malaybalay City'));
+    }
+
     public function test_specific_coverage_requires_at_least_one_bukidnon_area(): void
     {
         Storage::fake('local');
