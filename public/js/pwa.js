@@ -1,5 +1,7 @@
 (function () {
     const storageKey = 'cleanflow-ios-install-hint-dismissed';
+    const installDismissalStorageKey = 'cleanflow-install-banner-dismissed-until';
+    const installDismissalCooldownMs = 30 * 24 * 60 * 60 * 1000;
     const isSecureOrigin = window.isSecureContext
         || window.location.hostname === 'localhost'
         || window.location.hostname === '127.0.0.1';
@@ -22,6 +24,35 @@
 
     function isStandalone() {
         return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
+    function isHomePage() {
+        return window.location.pathname === '/' || window.location.pathname === '';
+    }
+
+    function hasInstallDismissalCooldown() {
+        if (!canUseLocalStorage()) {
+            return false;
+        }
+
+        const dismissedUntil = Number(localStorage.getItem(installDismissalStorageKey));
+
+        if (Number.isFinite(dismissedUntil) && dismissedUntil > Date.now()) {
+            return true;
+        }
+
+        localStorage.removeItem(installDismissalStorageKey);
+
+        return false;
+    }
+
+    function rememberInstallDismissal() {
+        if (canUseLocalStorage()) {
+            localStorage.setItem(
+                installDismissalStorageKey,
+                String(Date.now() + installDismissalCooldownMs)
+            );
+        }
     }
 
     function createActionButton(label, onClick) {
@@ -82,7 +113,7 @@
     }
 
     function showInstallBanner() {
-        if (!deferredPrompt || isStandalone() || installBanner) {
+        if (!deferredPrompt || !isHomePage() || isStandalone() || installBanner || hasInstallDismissalCooldown()) {
             return;
         }
 
@@ -91,17 +122,32 @@
             'Add Home Cleaning Service to your phone or desktop for faster access and an app-like experience.',
             'Install app',
             async function () {
-                if (!deferredPrompt) {
+                const promptEvent = deferredPrompt;
+
+                if (!promptEvent) {
                     return;
                 }
 
-                deferredPrompt.prompt();
-                await deferredPrompt.userChoice;
+                let outcome = 'dismissed';
+
+                try {
+                    promptEvent.prompt();
+                    outcome = (await promptEvent.userChoice)?.outcome ?? 'dismissed';
+                } catch (error) {
+                    console.warn('Install prompt failed:', error);
+                }
+
                 deferredPrompt = null;
+
+                if (outcome !== 'accepted') {
+                    rememberInstallDismissal();
+                }
+
                 hideBanner(installBanner);
                 installBanner = null;
             },
             function () {
+                rememberInstallDismissal();
                 hideBanner(installBanner);
                 installBanner = null;
             }
@@ -114,7 +160,7 @@
         const isiOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
         const storageAllowed = canUseLocalStorage();
 
-        if (!isiOS || isStandalone() || iosBanner || (storageAllowed && localStorage.getItem(storageKey) === '1')) {
+        if (!isiOS || !isHomePage() || isStandalone() || iosBanner || (storageAllowed && localStorage.getItem(storageKey) === '1')) {
             return;
         }
 
