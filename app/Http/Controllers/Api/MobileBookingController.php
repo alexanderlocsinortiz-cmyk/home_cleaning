@@ -18,7 +18,6 @@ use Illuminate\Validation\ValidationException;
 class MobileBookingController extends Controller
 {
     private const TIME_SLOTS = [
-        '07:00',
         '08:00',
         '09:00',
         '10:00',

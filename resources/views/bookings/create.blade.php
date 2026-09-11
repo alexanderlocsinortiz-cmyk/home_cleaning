@@ -41,7 +41,7 @@
         ->values();
     $googleMapsApiKey = config('services.google.maps_api_key');
     $bookingNow = $bookingNow ?? now(config('cleanflow.attendance_timezone', 'Asia/Manila'));
-    $timeSlots = $timeSlots ?? ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
+    $timeSlots = $timeSlots ?? ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
     $profileAddress = $profileAddress ?? ['barangay' => auth()->user()?->barangay, 'street_address' => auth()->user()?->street];
     $selectedBarangay = old('barangay', $profileAddress['barangay'] ?? '');
     $selectedStreetAddress = old('street_address', $profileAddress['street_address'] ?? '');
