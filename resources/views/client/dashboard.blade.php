@@ -5,7 +5,8 @@
 @php
     $user = auth()->user();
     $initials = $user->initials;
-    $hour = now()->hour;
+    $dashboardNow = \Carbon\Carbon::now(config('cleanflow.attendance_timezone', 'Asia/Manila'));
+    $hour = $dashboardNow->hour;
     $greeting = $hour < 12 ? 'Good Morning' : ($hour < 17 ? 'Good Afternoon' : 'Good Evening');
     $totalBookings = $bookings->count();
     $completedBookings = $bookings->where('status', 'completed')->count();
@@ -24,6 +25,7 @@
     $paymentStatusClasses = [
         'pending' => 'bg-amber-100 text-amber-700',
         'paid'    => 'bg-emerald-100 text-emerald-700',
+        'refunded' => 'bg-blue-100 text-blue-700',
     ];
     $stats = [
         [
@@ -108,7 +110,7 @@
         <div class="cleanflow-alert cleanflow-alert--warning flex items-start gap-3">
             <i class="fas fa-triangle-exclamation mt-0.5"></i>
             <div>
-                <div class="text-sm font-semibold">Preferred cleaner update</div>
+                <div class="text-sm font-semibold">Booking update</div>
                 <div class="text-sm">{{ session('warning') }}</div>
             </div>
         </div>
@@ -136,7 +138,7 @@
                             Client Dashboard
                         </span>
                         <h1 class="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">{{ $greeting }}, {{ $user->display_name }}.</h1>
-                        <div class="mt-2 text-sm font-medium text-white/75">{{ now()->format('l, F d, Y') }}</div>
+                        <div class="mt-2 text-sm font-medium text-white/75">{{ $dashboardNow->format('l, F d, Y') }}</div>
                         <p class="mt-3 max-w-2xl text-sm leading-6 text-white/85">Track your latest bookings, cleaner updates, payment status, and next service steps from one calm workspace.</p>
                         <div class="mt-4 flex flex-wrap items-center gap-3 text-sm text-white/80">
                             <span>{{ $userBarangayLabel === 'Not set' ? 'Profile details not set yet' : $userBarangayLabel . ', Valencia City' }}</span>
@@ -222,7 +224,7 @@
                         </div>
                         <div class="flex items-center justify-between gap-4 sm:justify-end">
                             <div class="text-right">
-                                <div class="text-base font-bold text-slate-900">&#8369;{{ number_format($booking->price, 0) }}</div>
+                                <div class="text-base font-bold text-slate-900">&#8369;{{ number_format((float) $booking->price, 2) }}</div>
                                 <div class="text-xs text-slate-500">Total price</div>
                             </div>
                             <a href="{{ route('bookings.show', $booking->id) }}" class="text-sm font-medium text-blue-600 hover:underline">View &rarr;</a>
@@ -265,7 +267,7 @@
                         </div>
                         <div class="flex items-center justify-between gap-4">
                             <span class="text-sm text-slate-500">Member Since</span>
-                            <span class="text-sm font-semibold text-slate-900">{{ $user->created_at->format('M Y') }}</span>
+                            <span class="text-sm font-semibold text-slate-900">{{ $user->created_at?->copy()->timezone($dashboardTimezone)->format('M Y') }}</span>
                         </div>
                         <div class="flex items-center justify-between gap-4">
                             <span class="text-sm text-slate-500">Completion</span>

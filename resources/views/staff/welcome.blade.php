@@ -202,7 +202,9 @@
 
 @section('content')
 @php
-    $greeting = now()->hour < 12 ? 'Good Morning' : (now()->hour < 17 ? 'Good Afternoon' : 'Good Evening');
+    $dashboardTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+    $dashboardNow = \Carbon\Carbon::now($dashboardTimezone);
+    $greeting = $dashboardNow->hour < 12 ? 'Good Morning' : ($dashboardNow->hour < 17 ? 'Good Afternoon' : 'Good Evening');
     $initials = $user->initials;
     $completionRate = $totalBookings > 0 ? round(($completedBookings / $totalBookings) * 100, 1) : 0;
 
@@ -227,7 +229,7 @@
         ],
         [
             'label' => 'Earnings',
-            'value' => 'P' . number_format($totalEarnings, 0),
+            'value' => 'P' . number_format($totalEarnings, 2),
             'icon' => 'fa-wallet',
             'variant' => 'earnings',
         ],
@@ -304,7 +306,7 @@
                             {{ $initials }}
                         </div>
                         <div class="space-y-2">
-                            <p class="text-sm text-blue-200">{{ now()->format('l, F d Y') }}</p>
+                            <p class="text-sm text-blue-200">{{ $dashboardNow->format('l, F d Y') }}</p>
                             <h1 class="text-2xl font-black tracking-tight sm:text-3xl">
                                 {{ $greeting }}, {{ $user->display_name }}!
                             </h1>
@@ -337,7 +339,7 @@
                         <div class="mt-1 text-xs uppercase tracking-[0.18em] text-blue-200">Active jobs</div>
                     </div>
                     <div class="staff-hero-metric">
-                        <div class="text-2xl font-black">P{{ number_format($totalEarnings, 0) }}</div>
+                        <div class="text-2xl font-black">P{{ number_format($totalEarnings, 2) }}</div>
                         <div class="mt-1 text-xs uppercase tracking-[0.18em] text-blue-200">Earnings</div>
                     </div>
                 </div>
@@ -444,7 +446,8 @@
                     <div class="active-assignment-list px-5 py-5 sm:px-6 sm:py-6">
                         @foreach ($assignedBookings as $booking)
                             @php
-                                $isToday = \Carbon\Carbon::parse($booking->scheduled_date)->isToday();
+                                $bookingDate = \Carbon\Carbon::parse($booking->scheduled_date->toDateString(), $dashboardTimezone);
+                                $isToday = $bookingDate->isSameDay($dashboardNow);
                             @endphp
                             <article class="active-assignment-card">
                                 <div class="flex items-start justify-between gap-4">
@@ -475,7 +478,7 @@
                                 <div class="assignment-meta mt-5">
                                     <div class="assignment-meta-item">
                                         <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Schedule</p>
-                                        <p class="mt-2 text-sm font-semibold text-slate-900">{{ \Carbon\Carbon::parse($booking->scheduled_date)->format('M d, Y') }}</p>
+                                        <p class="mt-2 text-sm font-semibold text-slate-900">{{ $bookingDate->format('M d, Y') }}</p>
                                         <p class="mt-1 text-sm text-slate-500">{{ \Carbon\Carbon::parse($booking->scheduled_time)->format('h:i A') }}</p>
                                     </div>
                                     <div class="assignment-meta-item">
@@ -581,11 +584,12 @@ function startTracking(bookingId) {
     watchIds[bookingId] = navigator.geolocation.watchPosition(
         async (position) => {
             try {
-                await fetch(locationUpdateUrl, {
+                const response = await fetch(locationUpdateUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify({
                         latitude: position.coords.latitude,
@@ -595,8 +599,17 @@ function startTracking(bookingId) {
                         heading: position.coords.heading
                     })
                 });
+
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => null);
+                    throw new Error(payload?.message || 'We could not save your location. Please try again.');
+                }
             } catch (error) {
                 console.error('Location update failed:', error);
+                navigator.geolocation.clearWatch(watchIds[bookingId]);
+                delete watchIds[bookingId];
+                setTrackingButtonState(button, false);
+                alert(error.message || 'We could not share your location. Please try again.');
             }
         },
         (error) => {

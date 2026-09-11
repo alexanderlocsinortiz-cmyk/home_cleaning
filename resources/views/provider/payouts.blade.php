@@ -6,6 +6,7 @@
 
 @section('content')
 @php
+    $payoutTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
     $payoutSetupLabel = $application->payoutVerificationStatusLabel();
     $payoutSetupClass = $application->payoutVerificationBadgeClass();
 @endphp
@@ -178,7 +179,7 @@
                                                 <div><span class="font-bold text-slate-700">Ref:</span> {{ $booking->provider_payout_reference }}</div>
                                             @endif
                                             @if($booking->provider_payout_paid_at)
-                                                <div><span class="font-bold text-slate-700">Paid:</span> {{ $booking->provider_payout_paid_at->format('M d, Y h:i A') }}</div>
+                                                <div><span class="font-bold text-slate-700">Paid:</span> {{ $booking->provider_payout_paid_at->copy()->timezone($payoutTimezone)->format('M d, Y h:i A') }}</div>
                                             @endif
                                         </div>
                                     @endif

@@ -13,11 +13,107 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class AdminBookingManagementPageTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_admin_booking_queue_uses_the_business_timezone_for_today(): void
+    {
+        $this->travelTo(Carbon::parse('2026-05-31 18:00:00', 'UTC'));
+
+        $admin = $this->createUser('admin', 'admin-bookings-timezone@example.com', 'adminbookingstimezone');
+        $client = $this->createUser('client', 'client-bookings-timezone@example.com', 'clientbookingstimezone');
+        $booking = $this->createBooking($client, null, 'confirmed', '2026-06-01', '09:00');
+
+        $response = $this->actingAs($admin)->get(route('admin.bookings', [
+            'tab' => 'active',
+            'filter' => 'today',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT));
+        $response->assertViewHas('queueCounts.today', 1);
+    }
+
+    public function test_datetime_local_payment_and_payout_values_are_saved_in_utc_from_business_time(): void
+    {
+        $admin = $this->createUser('admin', 'admin-datetime-zone@example.com', 'admindatetimezone');
+        $client = $this->createUser('client', 'client-datetime-zone@example.com', 'clientdatetimezone');
+        $cashBooking = $this->createBooking($client, null, 'confirmed', '2026-06-11', '09:00');
+
+        $cashBooking->payment()->update([
+            'method' => 'on_site_cash',
+            'status' => 'pending',
+            'amount' => $cashBooking->price,
+            'currency' => 'PHP',
+            'provider' => 'manual',
+        ]);
+
+        $this->actingAs($admin)->patch(route('admin.bookings.payment', $cashBooking->id), [
+            'payment_status' => 'paid',
+            'payment_collected_amount' => '1200.00',
+            'payment_collected_at' => '2026-06-10T12:30',
+        ])->assertSessionHas('success', 'Payment status updated successfully.');
+
+        $this->assertSame(
+            '2026-06-10 04:30:00',
+            $cashBooking->fresh()->payment->collected_at->format('Y-m-d H:i:s')
+        );
+
+        $provider = $this->createCleanerApplication(CleanerApplication::STATUS_APPROVED);
+        $this->verifyProviderPayoutSetup($provider, $admin);
+        $payoutBooking = $this->createBooking($client, null, 'completed', '2026-06-09', '09:00');
+        $payoutBooking->forceFill(array_merge($payoutBooking->calculateMarketplaceCommission(), [
+            'cleaner_application_id' => $provider->id,
+            'payment_status' => 'paid',
+            'provider_payout_status' => 'ready',
+        ]))->save();
+        $payoutBooking->payment()->update([
+            'method' => 'gcash',
+            'status' => 'paid',
+            'amount' => $payoutBooking->price,
+            'currency' => 'PHP',
+            'provider' => 'paymongo',
+            'paid_at' => '2026-06-09 01:00:00',
+        ]);
+
+        $this->actingAs($admin)->patch(route('admin.bookings.payout', $payoutBooking->id), [
+            'provider_payout_status' => 'paid',
+            'provider_payout_reference' => 'GCASH-DATETIME-001',
+            'provider_payout_paid_at' => '2026-06-08T15:30',
+        ])->assertSessionHas('success', 'Provider payout status updated.');
+
+        $this->assertSame('2026-06-08 07:30:00', $payoutBooking->fresh()->provider_payout_paid_at->format('Y-m-d H:i:s'));
+    }
+
+    public function test_admin_cannot_record_a_future_cash_collection_time(): void
+    {
+        $admin = $this->createUser('admin', 'admin-future-payment@example.com', 'adminfuturepayment');
+        $client = $this->createUser('client', 'client-future-payment@example.com', 'clientfuturepayment');
+        $booking = $this->createBooking($client, null, 'confirmed', '2026-06-11', '09:00');
+
+        $booking->payment()->update([
+            'method' => 'on_site_cash',
+            'status' => 'pending',
+            'amount' => $booking->price,
+            'currency' => 'PHP',
+            'provider' => 'manual',
+        ]);
+
+        $futureBusinessTime = Carbon::now(config('cleanflow.attendance_timezone'))->addHour()->format('Y-m-d\\TH:i');
+
+        $this->actingAs($admin)->patch(route('admin.bookings.payment', $booking->id), [
+            'payment_status' => 'paid',
+            'payment_collected_amount' => '1200.00',
+            'payment_collected_at' => $futureBusinessTime,
+        ])->assertSessionHasErrors('payment_collected_at');
+
+        $this->assertSame('pending', $booking->fresh()->payment->status);
+        $this->assertNull($booking->fresh()->payment->collected_at);
+    }
 
     public function test_admin_bookings_page_defaults_to_active_operational_queue(): void
     {
@@ -46,7 +142,8 @@ class AdminBookingManagementPageTest extends TestCase
         $admin = $this->createUser('admin', 'admin-future-assignment@example.com', 'adminfutureassignment');
         $client = $this->createUser('client', 'client-future-assignment@example.com', 'clientfutureassignment');
         $staff = $this->createUser('staff', 'staff-future-assignment@example.com', 'stafffutureassignment');
-        $booking = $this->createBooking($client, null, 'pending', now()->addDay()->toDateString(), '09:00');
+        $futureBusinessDate = Carbon::now(config('cleanflow.attendance_timezone'))->addDay()->toDateString();
+        $booking = $this->createBooking($client, null, 'pending', $futureBusinessDate, '09:00');
 
         $response = $this->actingAs($admin)->get(route('admin.bookings'));
 

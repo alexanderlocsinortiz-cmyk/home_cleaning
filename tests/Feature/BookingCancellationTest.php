@@ -6,6 +6,8 @@ use App\Models\Booking;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class BookingCancellationTest extends TestCase
@@ -59,6 +61,28 @@ class BookingCancellationTest extends TestCase
         $this->assertSame('confirmed', $booking->fresh()->status);
     }
 
+    public function test_client_can_cancel_confirmed_unassigned_online_booking_before_payment_without_refund(): void
+    {
+        $client = $this->createVerifiedClient('client-confirmed-online-cancel@example.com', 'clientconfirmedonlinecancel');
+        $booking = $this->createBooking($client, null, 'confirmed');
+        $booking->payment->forceFill([
+            'method' => 'gcash',
+            'status' => 'pending',
+            'provider' => 'paymongo',
+            'amount' => 1200,
+        ])->save();
+
+        $response = $this->actingAs($client)
+            ->from(route('bookings.index'))
+            ->patch(route('bookings.cancel', $booking->id));
+
+        $response->assertRedirect(route('bookings.index'));
+        $response->assertSessionHas('success');
+        $this->assertSame('cancelled', $booking->fresh()->status);
+        $this->assertSame('pending', $booking->fresh()->payment->status);
+        $this->assertSame('none', $booking->fresh()->payment->refund_status);
+    }
+
     public function test_client_cannot_cancel_other_clients_booking(): void
     {
         $client = $this->createVerifiedClient('client-owner@example.com', 'clientowner');
@@ -75,7 +99,7 @@ class BookingCancellationTest extends TestCase
     {
         $admin = $this->createAdmin('admin-cancel@example.com', 'admincancel');
         $client = $this->createVerifiedClient('client-admin-cancel@example.com', 'clientadmincancel');
-        $booking = $this->createBooking($client, null, 'pending');
+        $booking = $this->createBooking($client, null, 'confirmed');
 
         $response = $this->actingAs($admin)
             ->from(route('admin.bookings'))
@@ -87,6 +111,42 @@ class BookingCancellationTest extends TestCase
         $response->assertSessionHas('success');
 
         $this->assertSame('cancelled', $booking->fresh()->status);
+    }
+
+    public function test_admin_cancellation_refunds_paid_online_booking(): void
+    {
+        Config::set('services.paymongo.secret_key', 'sk_test_secret');
+        Config::set('services.paymongo.api_url', 'https://api.paymongo.test');
+        Http::fake([
+            'api.paymongo.test/v1/refunds' => Http::response([
+                'data' => [
+                    'id' => 'ref_admin_cancel',
+                    'attributes' => ['status' => 'succeeded', 'amount' => 120000],
+                ],
+            ], 201),
+        ]);
+
+        $admin = $this->createAdmin('admin-paid-cancel@example.com', 'adminpaidcancel');
+        $client = $this->createVerifiedClient('client-admin-paid-cancel@example.com', 'clientadminpaidcancel');
+        $booking = $this->createBooking($client, null, 'confirmed');
+        $booking->payment->forceFill([
+            'method' => 'gcash',
+            'status' => 'paid',
+            'provider' => 'paymongo',
+            'provider_payment_id' => 'pay_admin_cancel',
+            'amount' => 1200,
+            'paid_at' => now(),
+        ])->save();
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.status', $booking->id), ['status' => 'cancelled']);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHas('success');
+        $this->assertSame('cancelled', $booking->fresh()->status);
+        $this->assertSame('refunded', $booking->fresh()->payment->status);
+        $this->assertSame('succeeded', $booking->fresh()->payment->refund_status);
     }
 
     public function test_admin_cannot_skip_status_to_cancel_completed_booking(): void
@@ -123,6 +183,81 @@ class BookingCancellationTest extends TestCase
             'user_id' => $client->id,
             'title' => 'Booking cancelled',
         ]);
+    }
+
+    public function test_client_cancelling_paid_online_booking_refunds_before_cancelling(): void
+    {
+        Config::set('services.paymongo.secret_key', 'sk_test_secret');
+        Config::set('services.paymongo.api_url', 'https://api.paymongo.test');
+        Http::fake([
+            'api.paymongo.test/v1/refunds' => Http::response([
+                'data' => [
+                    'id' => 'ref_test_123',
+                    'attributes' => ['status' => 'succeeded', 'amount' => 120000],
+                ],
+            ], 201),
+        ]);
+
+        $client = $this->createVerifiedClient('client-paid-cancel@example.com', 'clientpaidcancel');
+        $booking = $this->createBooking($client, null, 'pending');
+        $booking->payment->forceFill([
+            'method' => 'gcash',
+            'status' => 'paid',
+            'provider' => 'paymongo',
+            'provider_payment_id' => 'pay_test_123',
+            'amount' => 1200,
+            'paid_at' => now(),
+        ])->save();
+
+        $response = $this->actingAs($client)
+            ->from(route('bookings.index'))
+            ->patch(route('bookings.cancel', $booking->id));
+
+        $response->assertRedirect(route('bookings.index'));
+        $response->assertSessionHas('success');
+
+        $payment = $booking->fresh()->payment;
+        $this->assertSame('cancelled', $booking->fresh()->status);
+        $this->assertSame('refunded', $payment->status);
+        $this->assertSame('succeeded', $payment->refund_status);
+        $this->assertSame('ref_test_123', $payment->refund_reference);
+
+        Http::assertSent(function ($request) use ($payment): bool {
+            return $request->url() === 'https://api.paymongo.test/v1/refunds'
+                && $request->header('Idempotency-Key')[0] === 'cleanflow-refund-payment-'.$payment->id.'-120000'
+                && $request->data()['data']['attributes']['amount'] === 120000
+                && $request->data()['data']['attributes']['payment_id'] === 'pay_test_123';
+        });
+    }
+
+    public function test_client_cancellation_stays_pending_when_online_refund_fails(): void
+    {
+        Config::set('services.paymongo.secret_key', 'sk_test_secret');
+        Config::set('services.paymongo.api_url', 'https://api.paymongo.test');
+        Http::fake([
+            'api.paymongo.test/v1/refunds' => Http::response(['errors' => [['code' => 'payment_not_refundable']]], 422),
+        ]);
+
+        $client = $this->createVerifiedClient('client-refund-fail@example.com', 'clientrefundfail');
+        $booking = $this->createBooking($client, null, 'pending');
+        $booking->payment->forceFill([
+            'method' => 'maya',
+            'status' => 'paid',
+            'provider' => 'paymongo',
+            'provider_payment_id' => 'pay_test_fail',
+            'amount' => 1200,
+            'paid_at' => now(),
+        ])->save();
+
+        $response = $this->actingAs($client)
+            ->from(route('bookings.index'))
+            ->patch(route('bookings.cancel', $booking->id));
+
+        $response->assertRedirect(route('bookings.index'));
+        $response->assertSessionHasErrors('cancel');
+        $this->assertSame('pending', $booking->fresh()->status);
+        $this->assertSame('paid', $booking->fresh()->payment->status);
+        $this->assertSame('failed', $booking->fresh()->payment->refund_status);
     }
 
     private function createVerifiedClient(string $email, string $username): User

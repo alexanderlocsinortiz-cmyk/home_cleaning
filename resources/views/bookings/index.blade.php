@@ -20,6 +20,7 @@
     $paymentStatusClasses = [
         'pending' => 'border border-amber-200 bg-amber-50 text-amber-700',
         'paid' => 'border border-emerald-200 bg-emerald-50 text-emerald-700',
+        'refunded' => 'border border-blue-200 bg-blue-50 text-blue-700',
     ];
 
     $stats = [
@@ -89,7 +90,7 @@
             <div class="cleanflow-alert cleanflow-alert--warning flex items-start gap-3">
                 <i class="fas fa-triangle-exclamation mt-0.5 text-base"></i>
                 <div>
-                    <p class="text-sm font-semibold">Preferred cleaner update.</p>
+                    <p class="text-sm font-semibold">Booking update.</p>
                     <p class="mt-1 text-sm text-amber-800/80">{{ session('warning') }}</p>
                 </div>
             </div>
@@ -174,7 +175,95 @@
             </div>
 
             @if ($bookings->count())
-                <div class="overflow-x-auto">
+                <div class="divide-y divide-slate-100 lg:hidden" aria-label="Mobile booking list">
+                    @foreach ($bookings as $booking)
+                        <article class="px-4 py-5 sm:px-6">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex min-w-0 items-start gap-3">
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-blue-700">
+                                        <i class="fas fa-broom text-sm"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <a href="{{ route('bookings.show', $booking->id) }}" class="font-mono text-xs font-bold text-blue-600 hover:underline">
+                                            CF-{{ str_pad($booking->id, 5, '0', STR_PAD_LEFT) }}
+                                        </a>
+                                        <h3 class="mt-1 truncate text-base font-bold text-slate-900">{{ $booking->service_label }}</h3>
+                                        <p class="mt-1 text-xs text-slate-500">
+                                            @if ($booking->isSubscription())
+                                                {{ $booking->subscriptionSummary() }} &middot; Visit {{ $booking->subscription_sequence }}
+                                            @else
+                                                One-time cleaning service
+                                            @endif
+                                        </p>
+                                    </div>
+                                </div>
+                                <span class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $statusClasses[$booking->status] ?? 'border border-slate-200 bg-slate-50 text-slate-600' }}">
+                                    {{ ucwords(str_replace('_', ' ', $booking->status)) }}
+                                </span>
+                            </div>
+
+                            <div class="mt-5 grid grid-cols-2 gap-3 rounded-2xl bg-slate-50 p-4">
+                                <div>
+                                    <div class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Schedule</div>
+                                    <div class="mt-1 text-sm font-semibold text-slate-900">{{ \Carbon\Carbon::parse($booking->scheduled_date)->format('M d, Y') }}</div>
+                                    <div class="text-xs text-slate-500">{{ \Carbon\Carbon::parse($booking->scheduled_time)->format('h:i A') }}</div>
+                                </div>
+                                <div>
+                                    <div class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Total</div>
+                                    <div class="mt-1 text-sm font-semibold text-slate-900">&#8369;{{ number_format((float) $booking->price, 2) }}</div>
+                                    <div class="mt-1">
+                                        <span class="rounded-full px-2 py-1 text-[11px] font-semibold {{ $paymentStatusClasses[$booking->payment?->status ?? 'pending'] ?? 'border border-slate-200 bg-white text-slate-600' }}">
+                                            {{ \App\Models\Booking::paymentStatusLabel($booking->payment?->status ?? 'pending') }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 space-y-3 text-sm">
+                                <div class="flex items-start gap-3">
+                                    <i class="fas fa-location-dot mt-1 w-4 shrink-0 text-slate-400"></i>
+                                    <div class="min-w-0">
+                                        <div class="font-medium text-slate-900">{{ $booking->street_address }}</div>
+                                        <div class="text-xs text-slate-500">{{ ucfirst($booking->barangay) }}</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-3">
+                                    <i class="fas fa-user-gear mt-1 w-4 shrink-0 text-slate-400"></i>
+                                    <div class="min-w-0">
+                                        @if ($booking->staff)
+                                            <div class="font-medium text-slate-900">{{ $booking->staff->first_name }} {{ $booking->staff->last_name }}</div>
+                                            <div class="text-xs text-slate-500">Assigned cleaner</div>
+                                        @elseif ($booking->preferredStaff)
+                                            <div class="font-medium text-slate-700">{{ $booking->preferredStaff->first_name }} {{ $booking->preferredStaff->last_name }}</div>
+                                            <div class="text-xs text-slate-500">Preferred cleaner requested</div>
+                                        @else
+                                            <div class="italic text-slate-400">Cleaner not assigned yet</div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+                                <a href="{{ route('bookings.show', $booking->id) }}" class="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                                    View details
+                                    <i class="fas fa-arrow-right text-xs"></i>
+                                </a>
+                                @if ($booking->clientCanCancel())
+                                    <form action="{{ route('bookings.cancel', $booking->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to cancel this booking? This action cannot be undone.')" class="flex-1">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">
+                                            <i class="fas fa-xmark text-xs"></i>
+                                            Cancel booking
+                                        </button>
+                                    </form>
+                                @endif
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+
+                <div class="hidden overflow-x-auto lg:block">
                     <table class="min-w-[1020px] w-full border-collapse text-sm">
                         <thead>
                             <tr class="border-b border-slate-100 bg-slate-50/85">
@@ -248,7 +337,7 @@
                                         @endif
                                     </td>
                                     <td class="px-6 py-4 align-top">
-                                        <span class="font-semibold text-slate-900">&#8369;{{ number_format($booking->price, 0) }}</span>
+                                        <span class="font-semibold text-slate-900">&#8369;{{ number_format((float) $booking->price, 2) }}</span>
                                         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
                                             <span class="rounded-full px-2.5 py-1 font-semibold {{ $paymentStatusClasses[$booking->payment?->status ?? 'pending'] ?? 'border border-slate-200 bg-slate-50 text-slate-600' }}">
                                                 {{ \App\Models\Booking::paymentStatusLabel($booking->payment?->status ?? 'pending') }}
@@ -267,7 +356,7 @@
                                                 View
                                                 <i class="fas fa-arrow-right text-[11px]"></i>
                                             </a>
-                                            @if ($booking->status === 'pending' && !$booking->staff_id)
+                                            @if ($booking->clientCanCancel())
                                                 <form action="{{ route('bookings.cancel', $booking->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to cancel this booking? This action cannot be undone.')">
                                                     @csrf
                                                     @method('PATCH')

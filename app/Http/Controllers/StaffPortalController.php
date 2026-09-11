@@ -46,8 +46,7 @@ class StaffPortalController extends Controller
                 COUNT(*) as total_bookings,
                 SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_bookings,
                 SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
-                SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed_bookings,
-                SUM(CASE WHEN status = 'completed' THEN price ELSE 0 END) as total_earnings
+                SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed_bookings
             ")
             ->first();
 
@@ -55,18 +54,21 @@ class StaffPortalController extends Controller
         $completedBookings = $stats->completed_bookings ?? 0;
         $inProgress = $stats->in_progress ?? 0;
         $confirmedBookings = $stats->confirmed_bookings ?? 0;
-        $totalEarnings = $stats->total_earnings ?? 0;
+        // Booking price belongs to the legacy primary cleaner until a split policy is defined.
+        $totalEarnings = Booking::query()
+            ->where('staff_id', $user->id)
+            ->where('status', 'completed')
+            ->sum('price');
 
-        // ✅ Use withAvg to get rating in one query
-        $ratingStats = Booking::assignedToStaff($user->id)
-            ->withAvg('rating', 'stars')
-            ->withCount('rating')
+        $ratingStats = Rating::query()
+            ->where('staff_id', $user->id)
+            ->selectRaw('AVG(stars) as average_stars, COUNT(*) as total_ratings')
             ->first();
 
-        $avgRating = $ratingStats?->rating_avg_stars
-            ? round($ratingStats->rating_avg_stars, 1)
+        $avgRating = $ratingStats?->average_stars
+            ? round((float) $ratingStats->average_stars, 1)
             : null;
-        $totalRatings = $ratingStats?->rating_count ?? 0;
+        $totalRatings = (int) ($ratingStats?->total_ratings ?? 0);
 
         return view('staff.welcome', compact(
             'user', 'assignedBookings', 'totalBookings',
@@ -126,117 +128,132 @@ class StaffPortalController extends Controller
 
         $actor = Auth::user();
 
-        DB::transaction(function () use ($booking, $request, $actor, $status) {
-            if ($status === 'in_progress') {
-                $beforePhotoCount = $this->storeProofBatch(
+        try {
+            DB::transaction(function () use ($booking, $request, $actor, $status) {
+                if ($status === 'in_progress') {
+                    $beforePhotoCount = $this->storeProofBatch(
+                        $booking,
+                        $request->file('before_photos', []),
+                        'before',
+                        'image',
+                        $actor->id
+                    );
+
+                    $booking->status = 'in_progress';
+                    $booking->markServiceStarted();
+                    $booking->save();
+
+                    $booking->logActivity(
+                        $actor,
+                        'proof_uploaded',
+                        'Uploaded '.$beforePhotoCount.' before-service photo'.($beforePhotoCount === 1 ? '' : 's').'.',
+                        [
+                            'stage' => 'before',
+                            'media_type' => 'image',
+                            'count' => $beforePhotoCount,
+                        ]
+                    );
+
+                    $booking->logActivity(
+                        $actor,
+                        'status_updated',
+                        'Marked the booking as in progress.',
+                        [
+                            'from_status' => 'confirmed',
+                            'to_status' => 'in_progress',
+                        ]
+                    );
+
+                    $this->createClientProofNotification($booking, 'service_started', [
+                        'before_photo_count' => $beforePhotoCount,
+                    ]);
+
+                    return;
+                }
+
+                $afterPhotoCount = $this->storeProofBatch(
                     $booking,
-                    $request->file('before_photos', []),
-                    'before',
+                    $request->file('after_photos', []),
+                    'after',
                     'image',
                     $actor->id
                 );
 
-                $booking->status = 'in_progress';
-                $booking->markServiceStarted();
+                $videoUploaded = false;
+                if ($request->hasFile('completion_video')) {
+                    $this->storeProofBatch(
+                        $booking,
+                        [$request->file('completion_video')],
+                        'after',
+                        'video',
+                        $actor->id,
+                        'completion_video'
+                    );
+                    $videoUploaded = true;
+                }
+
+                $booking->status = 'completed';
+                $booking->markServiceCompleted();
+
                 $booking->save();
 
                 $booking->logActivity(
                     $actor,
                     'proof_uploaded',
-                    'Uploaded '.$beforePhotoCount.' before-service photo'.($beforePhotoCount === 1 ? '' : 's').'.',
+                    'Uploaded '.$afterPhotoCount.' after-service photo'.($afterPhotoCount === 1 ? '' : 's').'.',
                     [
-                        'stage' => 'before',
+                        'stage' => 'after',
                         'media_type' => 'image',
-                        'count' => $beforePhotoCount,
+                        'count' => $afterPhotoCount,
                     ]
                 );
+
+                if ($videoUploaded) {
+                    $booking->logActivity(
+                        $actor,
+                        'proof_uploaded',
+                        'Uploaded a completion video.',
+                        [
+                            'stage' => 'after',
+                            'media_type' => 'video',
+                            'count' => 1,
+                        ]
+                    );
+                }
 
                 $booking->logActivity(
                     $actor,
                     'status_updated',
-                    'Marked the booking as in progress.',
+                    'Marked the booking as completed.',
                     [
-                        'from_status' => 'confirmed',
-                        'to_status' => 'in_progress',
+                        'from_status' => 'in_progress',
+                        'to_status' => 'completed',
+                        'payment_status' => $booking->payment?->status ?? 'pending',
+                        'on_time_status' => $booking->on_time_status,
+                        'started_late_minutes' => $booking->started_late_minutes,
+                        'completed_late_minutes' => $booking->completed_late_minutes,
                     ]
                 );
 
-                $this->createClientProofNotification($booking, 'service_started', [
-                    'before_photo_count' => $beforePhotoCount,
+                $this->createClientProofNotification($booking, 'service_completed', [
+                    'after_photo_count' => $afterPhotoCount,
+                    'video_uploaded' => $videoUploaded,
                 ]);
-
-                return;
-            }
-
-            $afterPhotoCount = $this->storeProofBatch(
-                $booking,
-                $request->file('after_photos', []),
-                'after',
-                'image',
-                $actor->id
-            );
-
-            $videoUploaded = false;
-            if ($request->hasFile('completion_video')) {
-                $this->storeProofBatch(
-                    $booking,
-                    [$request->file('completion_video')],
-                    'after',
-                    'video',
-                    $actor->id,
-                    'completion_video'
-                );
-                $videoUploaded = true;
-            }
-
-            $booking->status = 'completed';
-            $booking->markServiceCompleted();
-
-            $booking->save();
-
-            $booking->logActivity(
-                $actor,
-                'proof_uploaded',
-                'Uploaded '.$afterPhotoCount.' after-service photo'.($afterPhotoCount === 1 ? '' : 's').'.',
-                [
-                    'stage' => 'after',
-                    'media_type' => 'image',
-                    'count' => $afterPhotoCount,
-                ]
-            );
-
-            if ($videoUploaded) {
-                $booking->logActivity(
-                    $actor,
-                    'proof_uploaded',
-                    'Uploaded a completion video.',
-                    [
-                        'stage' => 'after',
-                        'media_type' => 'video',
-                        'count' => 1,
-                    ]
-                );
-            }
-
-            $booking->logActivity(
-                $actor,
-                'status_updated',
-                'Marked the booking as completed.',
-                [
-                    'from_status' => 'in_progress',
-                    'to_status' => 'completed',
-                    'payment_status' => $booking->payment?->status ?? 'pending',
-                    'on_time_status' => $booking->on_time_status,
-                    'started_late_minutes' => $booking->started_late_minutes,
-                    'completed_late_minutes' => $booking->completed_late_minutes,
-                ]
-            );
-
-            $this->createClientProofNotification($booking, 'service_completed', [
-                'after_photo_count' => $afterPhotoCount,
-                'video_uploaded' => $videoUploaded,
+            });
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            Log::error('Staff booking status update failed.', [
+                'booking_id' => $booking->id,
+                'staff_id' => $actor->id,
+                'status' => $status,
+                'error' => $exception->getMessage(),
             ]);
-        });
+
+            return back()
+                ->withErrors(['status' => 'We could not update this service right now. Please try again in a few seconds.'])
+                ->withInput();
+        }
 
         return back()->with('success', $validated['status'] === 'completed'
             ? 'Service marked as completed and proof of service has been uploaded.'
@@ -314,7 +331,10 @@ class StaffPortalController extends Controller
             ->get();
 
         // Rating stats
-        $ratings = $completedBookings->pluck('rating')->filter();
+        $ratings = $completedBookings
+            ->filter(fn (Booking $booking): bool => (int) $booking->staff_id === (int) $user->id)
+            ->pluck('rating')
+            ->filter();
         $avgRating = $ratings->count() > 0 ? round($ratings->avg('stars'), 1) : null;
         $totalRatings = $ratings->count();
 
@@ -328,15 +348,26 @@ class StaffPortalController extends Controller
         $totalBookings = Booking::assignedToStaff($user->id)->count();
         $completedCount = $completedBookings->count();
         $completionRate = $totalBookings > 0 ? round(($completedCount / $totalBookings) * 100, 1) : 0;
-        $totalEarnings = $completedBookings->sum('price');
+        // Booking price belongs to the legacy primary cleaner until a split policy is defined.
+        $totalEarnings = $completedBookings
+            ->where('staff_id', $user->id)
+            ->sum('price');
 
         // Ranking among all staff
+        $allAssignedBookings = Booking::with([
+            'rating',
+            'staffAssignments:id,booking_id,staff_id',
+        ])->get();
         $allStaff = User::where('role', 'staff')
-            ->with(['assignedBookings.rating'])
             ->get()
-            ->map(function ($staff) {
-                $completed = $staff->assignedBookings->where('status', 'completed');
-                $ratings = $staff->assignedBookings->pluck('rating')->filter();
+            ->map(function ($staff) use ($allAssignedBookings) {
+                $assigned = $allAssignedBookings
+                    ->filter(fn (Booking $booking): bool => $booking->isAssignedToStaff((int) $staff->id));
+                $completed = $assigned->where('status', 'completed');
+                $ratings = $assigned
+                    ->filter(fn (Booking $booking): bool => (int) $booking->staff_id === (int) $staff->id)
+                    ->pluck('rating')
+                    ->filter();
                 $staff->avg_rating = $ratings->count() > 0 ? $ratings->avg('stars') : 0;
                 $staff->completed_count = $completed->count();
 
@@ -359,22 +390,24 @@ class StaffPortalController extends Controller
     public function schedule()
     {
         $user = Auth::user();
+        $scheduleTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+        $scheduleNow = Carbon::now($scheduleTimezone);
 
         $bookings = Booking::with(['user', 'service', 'payment', 'staffAssignments.staff'])
             ->assignedToStaff($user->id)
             ->whereIn('status', ['confirmed', 'in_progress'])
-            ->whereDate('scheduled_date', '>=', now()->startOfMonth())
-            ->whereDate('scheduled_date', '<=', now()->endOfMonth()->addMonth())
+            ->whereDate('scheduled_date', '>=', $scheduleNow->copy()->startOfMonth()->toDateString())
+            ->whereDate('scheduled_date', '<=', $scheduleNow->copy()->endOfMonth()->addMonth()->toDateString())
             ->orderBy('scheduled_date')
             ->orderBy('scheduled_time')
             ->get();
 
         // Group bookings by date
-        $bookingsByDate = $bookings->groupBy(function ($booking) {
-            return Carbon::parse($booking->scheduled_date)->format('Y-m-d');
+        $bookingsByDate = $bookings->groupBy(function ($booking) use ($scheduleTimezone) {
+            return Carbon::parse($booking->scheduled_date->toDateString(), $scheduleTimezone)->format('Y-m-d');
         });
 
-        $currentMonth = now()->format('Y-m');
+        $currentMonth = $scheduleNow->format('Y-m');
 
         return view('staff.schedule', compact('bookings', 'bookingsByDate', 'currentMonth', 'user'));
     }

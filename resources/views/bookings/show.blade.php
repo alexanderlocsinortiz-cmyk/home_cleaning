@@ -8,6 +8,8 @@
     $isAdmin = $viewer->role === 'admin';
     $isClient = $viewer->role === 'client';
     $isStaff = $viewer->role === 'staff';
+    $bookingTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+    $formatBookingDateTime = static fn ($value, string $format = 'F d, Y h:i A') => $value?->copy()->timezone($bookingTimezone)->format($format);
     $backUrl = $isAdmin ? route('admin.bookings') : ($isStaff ? route('staff.bookings') : route('bookings.index'));
     $backLabel = $isAdmin ? 'Back to Bookings' : ($isStaff ? 'Back to Assigned Bookings' : 'Back to My Bookings');
 @endphp
@@ -45,6 +47,7 @@
     $paymentStatus = $booking->payment?->status ?? 'pending';
     $paymentReference = $booking->payment?->reference;
     $paymentPaidAt = $booking->payment?->paid_at;
+    $refundStatus = $booking->payment?->refund_status ?? 'none';
     $cashProofStatus = $booking->payment?->cash_proof_status;
     $cashProofStatusLabel = match ($cashProofStatus) {
         'pending' => 'Awaiting admin review',
@@ -59,6 +62,7 @@
     $paymentStatusClasses = [
         'paid' => 'bg-emerald-100 text-emerald-700',
         'pending' => 'bg-amber-100 text-amber-700',
+        'refunded' => 'bg-blue-100 text-blue-700',
     ];
     $staffInitials = $booking->staff
         ? strtoupper(substr($booking->staff->first_name ?? 'S', 0, 1) . substr($booking->staff->last_name ?? 'T', 0, 1))
@@ -429,15 +433,32 @@
                                     A payment reference will appear here once one is recorded.
                                     @endif
                                 </div>
+                                @if($refundStatus !== 'none')
+                                    <div class="mt-3 rounded-xl border {{ $refundStatus === 'failed' ? 'border-red-200 bg-red-50 text-red-700' : ($refundStatus === 'succeeded' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-amber-200 bg-amber-50 text-amber-700') }} p-3 text-sm">
+                                        <div class="font-semibold">{{ $booking->payment?->refundStatusLabel() }}</div>
+                                        @if($refundStatus === 'failed')
+                                            <div class="mt-1 text-xs">Please contact support. Do not pay this booking again while the refund is under review.</div>
+                                        @elseif($refundStatus === 'pending' || $refundStatus === 'processing')
+                                            <div class="mt-1 text-xs">PayMongo is still processing the refund. The amount may take time to appear in your wallet.</div>
+                                        @elseif($booking->payment?->refunded_at)
+                                            <div class="mt-1 text-xs">Refund completed on {{ $formatBookingDateTime($booking->payment->refunded_at) }}.</div>
+                                        @endif
+                                    </div>
+                                @endif
                                 <div class="mt-1 text-sm text-slate-500">
                                     @if($paymentPaidAt)
-                                    Paid on {{ $paymentPaidAt->format('F d, Y h:i A') }}
+                                    Paid on {{ $formatBookingDateTime($paymentPaidAt) }}
                                     @elseif($paymentMethod === 'on_site_cash')
                                     Cash will be recorded after service completion.
                                     @else
                                     Payment is still waiting for confirmation.
                                     @endif
                                 </div>
+                                @if(in_array($paymentMethod, ['gcash', 'maya'], true) && $paymentStatus === 'pending' && in_array($booking->status, ['pending', 'confirmed'], true))
+                                    <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+                                        Complete this online payment within {{ (int) config('cleanflow.payments.unpaid_online_expiry_minutes', 30) }} minutes of checkout creation. If it remains unpaid, the booking will be cancelled automatically and the schedule released.
+                                    </div>
+                                @endif
                                 @if($paymentStatus === 'paid' && $paymentReference)
                                     @if($paymentMethod === 'on_site_cash' && $booking->payment?->receipt_number)
                                         <div class="mt-2 text-sm text-emerald-700">
@@ -448,6 +469,18 @@
                                         <i class="fas fa-receipt"></i>
                                         View / print receipt
                                     </a>
+                                @endif
+                                @if($isAdmin && $booking->status === 'cancelled' && $paymentMethod !== 'on_site_cash' && $paymentStatus === 'paid' && !in_array($refundStatus, ['pending', 'processing', 'succeeded'], true))
+                                    <form action="{{ route('admin.bookings.refund', $booking->id) }}" method="POST" class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3" onsubmit="return confirm('Refund this online payment through PayMongo?')">
+                                        @csrf
+                                        @method('PATCH')
+                                        <div class="text-xs font-bold text-red-800">Refund needs admin review</div>
+                                        <div class="mt-1 text-[11px] leading-4 text-red-700">PayMongo will return the payment to the original online method. Retry only after checking the refund status.</div>
+                                        <button type="submit" class="mt-2 inline-flex items-center gap-2 rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white transition hover:bg-red-800">
+                                            <i class="fas fa-rotate-right"></i>
+                                            Retry refund
+                                        </button>
+                                    </form>
                                 @endif
                                 @if($isClient && $paymentMethod === 'on_site_cash' && $paymentStatus !== 'paid')
                                     <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50/70 p-3">
@@ -505,8 +538,8 @@
                                                 @method('PATCH')
                                                 <input type="hidden" name="decision" value="approve">
                                                 <div class="grid gap-2 sm:grid-cols-2">
-                                                    <input type="number" name="payment_collected_amount" min="0.01" step="0.01" value="{{ old('payment_collected_amount', $booking->price) }}" placeholder="Cash amount" required class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
-                                                    <input type="datetime-local" name="payment_collected_at" value="{{ old('payment_collected_at', now()->format('Y-m-d\TH:i')) }}" required class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
+                                                    <input type="number" name="payment_collected_amount" min="0.01" max="99999999.99" step="0.01" value="{{ old('payment_collected_amount', $booking->price) }}" placeholder="Cash amount" required class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
+                                                    <input type="datetime-local" name="payment_collected_at" value="{{ old('payment_collected_at', now($bookingTimezone)->format('Y-m-d\TH:i')) }}" required class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
                                                 </div>
                                                 <input type="text" name="payment_receipt_notes" placeholder="Optional admin note" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
                                                 <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700">
@@ -628,7 +661,7 @@
                     </div>
                     @endif
                     <div class="mt-4 text-xs text-slate-500">
-                        Reviewed by {{ $booking->user->first_name }} {{ $booking->user->last_name }} on {{ $booking->rating->created_at->format('M d, Y') }}
+                        Reviewed by {{ $booking->user->first_name }} {{ $booking->user->last_name }} on {{ $formatBookingDateTime($booking->rating->created_at, 'M d, Y') }}
                     </div>
                 </div>
                 @endif
@@ -657,7 +690,7 @@
                                 <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                                     <img src="{{ route('bookings.service-proof', [$booking, $proof]) }}" alt="Before service proof" class="h-44 w-full object-cover">
                                     <div class="space-y-1 px-3 py-2 text-xs text-slate-500">
-                                        <div>Uploaded {{ $proof->created_at->format('M d, Y h:i A') }}</div>
+                                        <div>Uploaded {{ $formatBookingDateTime($proof->created_at, 'M d, Y h:i A') }}</div>
                                         <div>By {{ $proof->uploader?->full_name ?? 'Assigned staff' }}</div>
                                     </div>
                                 </div>
@@ -681,7 +714,7 @@
                                 <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                                     <img src="{{ route('bookings.service-proof', [$booking, $proof]) }}" alt="After service proof" class="h-44 w-full object-cover">
                                     <div class="space-y-1 px-3 py-2 text-xs text-slate-500">
-                                        <div>Uploaded {{ $proof->created_at->format('M d, Y h:i A') }}</div>
+                                        <div>Uploaded {{ $formatBookingDateTime($proof->created_at, 'M d, Y h:i A') }}</div>
                                         <div>By {{ $proof->uploader?->full_name ?? 'Assigned staff' }}</div>
                                     </div>
                                 </div>
@@ -709,7 +742,7 @@
                                     Your browser does not support HTML video playback.
                                 </video>
                                 <div class="mt-2 text-xs text-slate-500">
-                                    Uploaded {{ $proof->created_at->format('M d, Y h:i A') }} by {{ $proof->uploader?->full_name ?? 'Assigned staff' }}
+                                    Uploaded {{ $formatBookingDateTime($proof->created_at, 'M d, Y h:i A') }} by {{ $proof->uploader?->full_name ?? 'Assigned staff' }}
                                 </div>
                             </div>
                             @endforeach
@@ -825,7 +858,7 @@
                                         <div class="mb-1 flex items-center gap-2 text-xs font-bold {{ $messageIsMine ? 'text-blue-50' : 'text-slate-500' }}">
                                             <span>{{ $messageIsMine ? 'You' : ($bookingMessage->sender?->display_name ?? 'User') }}</span>
                                             <span class="{{ $messageIsMine ? 'text-blue-100' : 'text-slate-300' }}">&bull;</span>
-                                            <span>{{ $bookingMessage->created_at->format('M d, h:i A') }}</span>
+                                            <span>{{ $formatBookingDateTime($bookingMessage->created_at, 'M d, h:i A') }}</span>
                                         </div>
                                         <div class="whitespace-pre-line text-sm leading-6">{{ $bookingMessage->message }}</div>
                                     </div>
@@ -872,9 +905,9 @@
                     </div>
                     <form action="{{ route('bookings.rate', $booking->id) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
                         @csrf
-                        <div id="star-rating" class="flex gap-2">
+                        <div id="star-rating" class="flex gap-2" role="group" aria-label="Service rating">
                             @for($i = 1; $i <= 5; $i++)
-                            <button type="button" onclick="setRating({{ $i }})" class="star-btn rating-star text-4xl leading-none text-slate-200" data-value="{{ $i }}">&#9733;</button>
+                            <button type="button" onclick="setRating({{ $i }})" class="star-btn rating-star text-4xl leading-none text-slate-200" data-value="{{ $i }}" aria-label="Rate {{ $i }} out of 5 stars" aria-pressed="false">&#9733;</button>
                             @endfor
                         </div>
                         <input type="hidden" name="stars" id="stars-input" value="">
@@ -884,16 +917,16 @@
                         <textarea name="comment" rows="4" placeholder="Write your review (optional)..." class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-slate-700 outline-hidden transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-200"></textarea>
 
                         <div>
-                            <label class="mb-2 block text-sm font-medium text-slate-700">Add a Photo (optional)</label>
-                            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" id="photo-input" class="hidden" onchange="previewPhoto(this)">
-                            <div onclick="document.getElementById('photo-input').click()" class="cursor-pointer rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center transition hover:border-emerald-300 hover:bg-emerald-50/40">
+                            <div class="mb-2 block text-sm font-medium text-slate-700">Add a Photo (optional)</div>
+                            <label class="block cursor-pointer rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center transition hover:border-emerald-300 hover:bg-emerald-50/40 focus-within:border-emerald-400 focus-within:ring-4 focus-within:ring-emerald-100">
+                                <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" id="photo-input" class="sr-only" aria-describedby="photo-help" onchange="previewPhoto(this)">
                                 <div id="photo-placeholder">
                                     <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm"><i class="fa-solid fa-camera text-lg"></i></div>
                                     <div class="mt-3 text-sm font-medium text-slate-700">Click to upload a review photo</div>
-                                    <div class="mt-1 text-xs text-slate-500">JPG, PNG, or WEBP up to 5MB</div>
+                                    <div id="photo-help" class="mt-1 text-xs text-slate-500">JPG, PNG, or WEBP up to 5MB</div>
                                 </div>
                                 <img id="photo-preview" src="" alt="Review photo preview" class="mx-auto hidden max-h-56 rounded-2xl border border-slate-200 object-cover">
-                            </div>
+                            </label>
                             @error('photo')
                             <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
                             @enderror
@@ -1027,7 +1060,7 @@
                                 {{ $activity->actor_name ?? 'System' }}{{ $activity->actor_role ? ' • ' . ucfirst($activity->actor_role) : '' }}
                             </div>
                             <div class="mt-1 text-xs text-slate-400">
-                                {{ $activity->created_at->format('F d, Y h:i A') }}
+                                {{ $formatBookingDateTime($activity->created_at) }}
                             </div>
                         </div>
                         @endforeach
@@ -1446,7 +1479,9 @@ function setRating(value) {
     if (!starsInput) return;
     starsInput.value = value;
     document.querySelectorAll('.star-btn').forEach((btn) => {
-        btn.style.color = parseInt(btn.dataset.value, 10) <= value ? '#3B82F6' : '#DBEAFE';
+        const starValue = parseInt(btn.dataset.value, 10);
+        btn.style.color = starValue <= value ? '#3B82F6' : '#DBEAFE';
+        btn.setAttribute('aria-pressed', String(starValue === value));
     });
 }
 

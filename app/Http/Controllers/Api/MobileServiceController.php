@@ -77,7 +77,7 @@ class MobileServiceController extends Controller
 
         return response()->json([
             'pricing' => $pricing,
-            'formatted_total' => 'P'.number_format((float) $pricing['total'], 0),
+            'formatted_total' => 'P'.number_format((float) $pricing['total'], 2),
         ]);
     }
 

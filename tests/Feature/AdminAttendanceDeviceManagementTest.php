@@ -68,6 +68,19 @@ class AdminAttendanceDeviceManagementTest extends TestCase
         ]);
     }
 
+    public function test_admin_attendance_filters_reject_non_iso_dates(): void
+    {
+        $admin = $this->createAdmin();
+
+        $response = $this->actingAs($admin)->get(route('admin.attendance', [
+            'tab' => 'history',
+            'date_from' => '2026-1-1',
+        ]));
+
+        $response->assertRedirect();
+        $response->assertSessionHasErrors('date_from');
+    }
+
     private function createAdmin(): User
     {
         $user = User::create([

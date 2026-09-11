@@ -109,4 +109,59 @@ class AppServiceProviderTest extends TestCase
             app()->detectEnvironment(fn () => $previousEnvironment);
         }
     }
+
+    public function test_production_upload_guard_rejects_public_private_upload_configuration(): void
+    {
+        Config::set([
+            'filesystems.private_uploads_disk' => 'private_uploads',
+            'filesystems.public_uploads_disk' => 'public_uploads',
+            'filesystems.proof_uploads_disk' => 'proof_uploads',
+            'filesystems.database_backup_disk' => 'database_backups',
+            'filesystems.disks.private_uploads' => ['driver' => 's3', 'visibility' => 'public'],
+            'filesystems.disks.public_uploads' => ['driver' => 's3'],
+            'filesystems.disks.proof_uploads' => ['driver' => 's3'],
+            'filesystems.disks.database_backups' => ['driver' => 's3'],
+        ]);
+
+        $previousEnvironment = app()->environment();
+        app()->detectEnvironment(fn () => 'production');
+
+        $method = new ReflectionMethod(AppServiceProvider::class, 'ensureProductionUploadsAreDurable');
+        $method->setAccessible(true);
+
+        try {
+            $this->expectException(LogicException::class);
+            $this->expectExceptionMessage('private uploads must use private object visibility');
+            $method->invoke(new AppServiceProvider(app()));
+        } finally {
+            app()->detectEnvironment(fn () => $previousEnvironment);
+        }
+    }
+
+    public function test_production_upload_guard_rejects_public_database_backup_disk(): void
+    {
+        Config::set([
+            'filesystems.private_uploads_disk' => 'private_uploads',
+            'filesystems.public_uploads_disk' => 'public_uploads',
+            'filesystems.proof_uploads_disk' => 'proof_uploads',
+            'filesystems.database_backup_disk' => 'public_uploads',
+            'filesystems.disks.private_uploads' => ['driver' => 's3'],
+            'filesystems.disks.public_uploads' => ['driver' => 's3'],
+            'filesystems.disks.proof_uploads' => ['driver' => 's3'],
+        ]);
+
+        $previousEnvironment = app()->environment();
+        app()->detectEnvironment(fn () => 'production');
+
+        $method = new ReflectionMethod(AppServiceProvider::class, 'ensureProductionUploadsAreDurable');
+        $method->setAccessible(true);
+
+        try {
+            $this->expectException(LogicException::class);
+            $this->expectExceptionMessage('public uploads disk for database backups');
+            $method->invoke(new AppServiceProvider(app()));
+        } finally {
+            app()->detectEnvironment(fn () => $previousEnvironment);
+        }
+    }
 }

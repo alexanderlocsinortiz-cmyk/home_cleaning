@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class MobileStaffPerformanceController extends Controller
 {
@@ -20,17 +21,20 @@ class MobileStaffPerformanceController extends Controller
             ], 403);
         }
 
-        $bookings = Booking::with('rating')
-            ->where('staff_id', $staff->id)
+        $bookings = Booking::with(['rating', 'staffAssignments:id,booking_id,staff_id'])
+            ->assignedToStaff($staff->id)
             ->get();
 
         $completedBookings = $bookings->where('status', 'completed');
-        $ratings = $completedBookings->pluck('rating')->filter()->values();
+        $ratings = $this->ratingsForStaff($completedBookings, (int) $staff->id);
+        $allBookings = Booking::with(['rating', 'staffAssignments:id,booking_id,staff_id'])->get();
         $leaderboard = User::query()
             ->where('role', 'staff')
-            ->with(['assignedBookings.rating'])
             ->get()
-            ->map(fn (User $staffMember): array => $this->staffSummary($staffMember))
+            ->map(fn (User $staffMember): array => $this->staffSummary(
+                $staffMember,
+                $allBookings->filter(fn (Booking $booking): bool => $booking->isAssignedToStaff((int) $staffMember->id))
+            ))
             ->sort(function (array $left, array $right): int {
                 return [$right['average_rating'] ?? 0, $right['completed_count'], $right['total_bookings'], $left['name']]
                     <=> [$left['average_rating'] ?? 0, $left['completed_count'], $left['total_bookings'], $right['name']];
@@ -69,7 +73,7 @@ class MobileStaffPerformanceController extends Controller
     {
         $bookings ??= $staff->assignedBookings;
         $completed = $bookings->where('status', 'completed');
-        $ratings = $completed->pluck('rating')->filter();
+        $ratings = $this->ratingsForStaff($completed, (int) $staff->id);
 
         return [
             'staff_id' => $staff->id,
@@ -79,8 +83,20 @@ class MobileStaffPerformanceController extends Controller
             'completion_rate' => $bookings->count() > 0
                 ? round(($completed->count() / $bookings->count()) * 100, 1)
                 : 0.0,
-            'total_earnings' => round((float) $completed->sum('price'), 2),
+            // Booking price belongs to the legacy primary cleaner until a split policy is defined.
+            'total_earnings' => round((float) $completed
+                ->where('staff_id', $staff->id)
+                ->sum('price'), 2),
             'average_rating' => $ratings->isNotEmpty() ? round((float) $ratings->avg('stars'), 1) : null,
         ];
+    }
+
+    private function ratingsForStaff(Collection $bookings, int $staffId): Collection
+    {
+        return $bookings
+            ->filter(fn (Booking $booking): bool => (int) $booking->staff_id === $staffId)
+            ->pluck('rating')
+            ->filter()
+            ->values();
     }
 }

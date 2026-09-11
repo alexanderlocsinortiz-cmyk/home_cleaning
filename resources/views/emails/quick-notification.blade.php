@@ -16,6 +16,7 @@
             'rating_request' => 'Leave a Rating',
             'staff_assignment' => 'Open Assignment',
             'payment_reminder' => 'Review Payment',
+            'booking_reminder' => 'Review Booking',
             default => 'Open Notification',
         };
     @endphp

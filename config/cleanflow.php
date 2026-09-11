@@ -121,6 +121,10 @@ return [
     'marketplace' => [
         'default_commission_rate' => (float) env('MARKETPLACE_DEFAULT_COMMISSION_RATE', 0.15),
     ],
+    'payments' => [
+        // Unpaid GCash/Maya bookings release their held schedule after this window.
+        'unpaid_online_expiry_minutes' => max(1, (int) env('UNPAID_ONLINE_PAYMENT_EXPIRY_MINUTES', 30)),
+    ],
     // Planning capacities are conservative starting values for one cleaner
     // during one visit. They must be recalibrated with CleanFlow time studies.
     'staffing' => [

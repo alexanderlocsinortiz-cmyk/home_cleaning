@@ -3,8 +3,13 @@
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\MobileAuthController;
 use App\Http\Controllers\Api\MobileBookingController;
+use App\Http\Controllers\Api\MobileBookingLiveController;
+use App\Http\Controllers\Api\MobileBookingLocationController;
+use App\Http\Controllers\Api\MobileBookingDetailsController;
+use App\Http\Controllers\Api\MobileBookingMediaController;
 use App\Http\Controllers\Api\MobileNotificationController;
 use App\Http\Controllers\Api\MobilePasswordResetController;
+use App\Http\Controllers\Api\MobileProfileController;
 use App\Http\Controllers\Api\MobileServiceController;
 use App\Http\Controllers\Api\MobileStaffBookingController;
 use App\Http\Controllers\Api\MobileStaffPerformanceController;
@@ -34,6 +39,8 @@ Route::prefix('mobile')->group(function () {
             ->middleware('throttle:6,1');
         Route::post('/email-verification/verify', [MobileAuthController::class, 'verifyEmail'])
             ->middleware('throttle:10,1');
+        Route::patch('/profile', [MobileProfileController::class, 'update'])
+            ->middleware('throttle:10,1');
         Route::post('/logout', [MobileAuthController::class, 'logout']);
         Route::post('/logout-all', [MobileAuthController::class, 'logoutAll'])
             ->middleware('throttle:5,1');
@@ -51,6 +58,22 @@ Route::prefix('mobile')->group(function () {
             ->middleware('throttle:10,1');
         Route::post('/bookings/{booking}/dispute', [MobileBookingController::class, 'dispute'])
             ->middleware('throttle:5,1');
+        Route::get('/bookings/{booking}/live-video', [MobileBookingLiveController::class, 'video']);
+        Route::delete('/staff/bookings/{booking}/live-video', [MobileBookingLiveController::class, 'end']);
+        Route::get('/bookings/{booking}/location', [MobileBookingLocationController::class, 'current']);
+        Route::get('/bookings/{booking}/details', [MobileBookingDetailsController::class, 'show']);
+        Route::get('/bookings/{booking}/proofs/{proof}', [MobileBookingMediaController::class, 'proof'])
+            ->name('api.mobile.booking.proof');
+        Route::get('/bookings/{booking}/rating-photo', [MobileBookingMediaController::class, 'ratingPhoto'])
+            ->name('api.mobile.booking.rating-photo');
+        Route::get('/bookings/{booking}/cash-payment-proof', [MobileBookingMediaController::class, 'cashPaymentProof'])
+            ->name('api.mobile.booking.cash-payment-proof');
+        Route::post('/bookings/{booking}/messages', [MobileBookingDetailsController::class, 'message'])
+            ->middleware('throttle:20,1');
+        Route::post('/bookings/{booking}/cash-payment-proof', [MobileBookingDetailsController::class, 'uploadCashPaymentProof'])
+            ->middleware('throttle:10,1');
+        Route::post('/staff/bookings/{booking}/location', [MobileBookingLocationController::class, 'update'])
+            ->middleware('throttle:30,1');
         Route::get('/staff/bookings', [MobileStaffBookingController::class, 'index']);
         Route::get('/staff/performance', [MobileStaffPerformanceController::class, 'show']);
         Route::post('/staff/bookings/{booking}/start', [MobileStaffBookingController::class, 'start'])

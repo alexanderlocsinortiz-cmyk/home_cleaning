@@ -13,6 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -58,6 +59,7 @@ class BookingStatusWorkflowTest extends TestCase
         $admin = $this->createUser('admin', 'admin-specialist-confirm@example.com', 'adminspecialistconfirm');
         $client = $this->createUser('client', 'client-specialist-confirm@example.com', 'clientspecialistconfirm');
         $staff = $this->createUser('staff', 'staff-specialist-confirm@example.com', 'staffspecialistconfirm');
+        $this->createUser('staff', 'staff-specialist-confirm-two@example.com', 'staffspecialistconfirmtwo');
         $booking = $this->createBooking($client, null, 'pending');
         $booking->forceFill(['required_cleaners' => 2])->save();
 
@@ -97,6 +99,7 @@ class BookingStatusWorkflowTest extends TestCase
     {
         $admin = $this->createUser('admin', 'admin-status@example.com', 'adminstatus');
         $client = $this->createUser('client', 'client-status@example.com', 'clientstatus');
+        $this->createUser('staff', 'staff-status@example.com', 'staffstatus');
         $booking = $this->createBooking($client, null, 'pending');
 
         $response = $this->actingAs($admin)
@@ -654,6 +657,66 @@ class BookingStatusWorkflowTest extends TestCase
         $this->assertSame('confirmed', $bookingToAssign->fresh()->status);
     }
 
+    public function test_admin_confirmation_rechecks_capacity_and_keeps_later_booking_pending(): void
+    {
+        $admin = $this->createUser('admin', 'admin-confirm-capacity@example.com', 'adminconfirmcapacity');
+        $clientOne = $this->createUser('client', 'client-confirm-capacity-one@example.com', 'clientconfirmcapacityone');
+        $clientTwo = $this->createUser('client', 'client-confirm-capacity-two@example.com', 'clientconfirmcapacitytwo');
+        $this->createUser('staff', 'staff-confirm-capacity@example.com', 'staffconfirmcapacity');
+        $scheduledDate = now()->addDays(4)->toDateString();
+
+        $firstBooking = $this->createBooking($clientOne, null, 'pending', $scheduledDate, '11:00');
+        $secondBooking = $this->createBooking($clientTwo, null, 'pending', $scheduledDate, '11:00');
+
+        $firstResponse = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.status', $firstBooking->id), [
+                'status' => 'confirmed',
+            ]);
+
+        $firstResponse->assertRedirect(route('admin.bookings'));
+        $firstResponse->assertSessionHasNoErrors();
+        $this->assertSame('confirmed', $firstBooking->fresh()->status);
+
+        $secondResponse = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.status', $secondBooking->id), [
+                'status' => 'confirmed',
+            ]);
+
+        $secondResponse->assertRedirect(route('admin.bookings'));
+        $secondResponse->assertSessionHasErrors('status');
+        $this->assertSame('pending', $secondBooking->fresh()->status);
+    }
+
+    public function test_manual_review_approval_rechecks_current_capacity(): void
+    {
+        $admin = $this->createUser('admin', 'admin-review-capacity@example.com', 'adminreviewcapacity');
+        $clientOne = $this->createUser('client', 'client-review-capacity-one@example.com', 'clientreviewcapacityone');
+        $clientTwo = $this->createUser('client', 'client-review-capacity-two@example.com', 'clientreviewcapacitytwo');
+        $this->createUser('staff', 'staff-review-capacity@example.com', 'staffreviewcapacity');
+        $scheduledDate = now()->addDays(5)->toDateString();
+
+        $confirmedBooking = $this->createBooking($clientOne, null, 'confirmed', $scheduledDate, '13:00');
+        $bookingUnderReview = $this->createBooking($clientTwo, null, 'pending', $scheduledDate, '13:00');
+        $bookingUnderReview->forceFill([
+            'manual_review_status' => 'pending',
+            'risk_reasons' => ['Capacity needs confirmation.'],
+        ])->save();
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.review', $bookingUnderReview->id), [
+                'review_status' => 'approved',
+            ]);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHasErrors('review_status');
+        $this->assertSame('confirmed', $confirmedBooking->fresh()->status);
+        $this->assertSame('pending', $bookingUnderReview->fresh()->status);
+        $this->assertSame('pending', $bookingUnderReview->fresh()->manual_review_status);
+    }
+
     public function test_admin_cannot_assign_staff_during_existing_booking_rest_window(): void
     {
         $admin = $this->createUser('admin', 'admin-rest-window@example.com', 'adminrestwindow');
@@ -760,7 +823,10 @@ class BookingStatusWorkflowTest extends TestCase
 
         $completedBooking = $this->createBooking($clientOne, $staff, 'completed', $scheduledDate, '09:00');
         $completedBooking->forceFill([
-            'updated_at' => Carbon::parse($scheduledDate.' 09:30:00'),
+            'updated_at' => Carbon::parse(
+                $scheduledDate.' 09:30:00',
+                config('cleanflow.attendance_timezone', 'Asia/Manila')
+            )->utc(),
         ])->save();
         $bookingToAssign = $this->createBooking($clientTwo, null, 'pending', $scheduledDate, '10:00');
 
@@ -1102,6 +1168,50 @@ class BookingStatusWorkflowTest extends TestCase
         $this->assertSame('ready', $booking->provider_payout_status);
         $this->assertSame($admin->id, $booking->dispute_reviewed_by);
         $this->assertNotNull($booking->dispute_resolved_at);
+    }
+
+    public function test_resolving_online_payment_dispute_as_refund_calls_paymongo(): void
+    {
+        Config::set('services.paymongo.secret_key', 'sk_test_secret');
+        Config::set('services.paymongo.api_url', 'https://api.paymongo.test');
+        Http::fake([
+            'api.paymongo.test/v1/refunds' => Http::response([
+                'data' => [
+                    'id' => 'ref_dispute_123',
+                    'attributes' => ['status' => 'succeeded', 'amount' => 120000],
+                ],
+            ], 201),
+        ]);
+
+        $admin = $this->createUser('admin', 'admin-dispute-refund@example.com', 'admindisputerefund');
+        $client = $this->createUser('client', 'client-dispute-refund@example.com', 'clientdisputerefund');
+        $booking = $this->createBooking($client, null, 'completed');
+        $booking->forceFill([
+            'payment_method' => 'gcash',
+            'dispute_status' => 'open',
+            'dispute_reason' => 'payment_or_refund',
+            'dispute_description' => 'The client requested a payment refund for review.',
+            'disputed_at' => now(),
+        ])->save();
+        $booking->payment->forceFill([
+            'method' => 'gcash',
+            'status' => 'paid',
+            'provider' => 'paymongo',
+            'provider_payment_id' => 'pay_dispute_123',
+            'amount' => 1200,
+            'paid_at' => now(),
+        ])->save();
+
+        $response = $this->actingAs($admin)->patch(route('admin.bookings.dispute', $booking->id), [
+            'dispute_resolution' => 'refund_customer',
+            'dispute_admin_notes' => 'Full refund approved.',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success', 'Booking dispute has been updated.');
+        $this->assertSame('resolved', $booking->fresh()->dispute_status);
+        $this->assertSame('refunded', $booking->fresh()->payment->status);
+        $this->assertSame('ref_dispute_123', $booking->fresh()->payment->refund_reference);
     }
 
     private function createUser(string $role, string $email, string $username): User

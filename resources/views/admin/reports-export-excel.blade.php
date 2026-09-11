@@ -11,7 +11,7 @@
                 <th colspan="{{ count($headers) }}">{{ $title }}</th>
             </tr>
             <tr>
-                <th colspan="{{ count($headers) }}">Generated: {{ now()->format('Y-m-d H:i:s') }}</th>
+                <th colspan="{{ count($headers) }}">Generated: {{ now(config('cleanflow.attendance_timezone', 'Asia/Manila'))->format('Y-m-d H:i:s') }}</th>
             </tr>
             <tr>
                 @foreach($headers as $header)

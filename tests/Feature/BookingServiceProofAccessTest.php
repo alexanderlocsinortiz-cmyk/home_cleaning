@@ -49,6 +49,16 @@ class BookingServiceProofAccessTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_unverified_booking_client_cannot_view_private_proof_media(): void
+    {
+        [$client, , $booking, $proof] = $this->bookingWithProof();
+        $client->forceFill(['email_verified_at' => null])->save();
+
+        $this->actingAs($client)
+            ->get(route('bookings.service-proof', [$booking, $proof]))
+            ->assertForbidden();
+    }
+
     public function test_only_booking_participants_can_view_private_rating_photos(): void
     {
         [$client, $staff, $booking] = $this->bookingWithProof();

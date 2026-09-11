@@ -31,6 +31,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('security:prune-events')
             ->dailyAt('04:00')
             ->withoutOverlapping(30);
+        $schedule->command('bookings:send-reminders')
+            ->everyTenMinutes()
+            ->withoutOverlapping(9);
+        $schedule->command('bookings:expire-unpaid-online')
+            ->everyMinute()
+            ->withoutOverlapping(1);
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(RejectOversizedProofUpload::class);

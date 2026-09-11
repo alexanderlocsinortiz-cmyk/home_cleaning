@@ -135,6 +135,13 @@ class AdminReportsTest extends TestCase
             'first_name' => 'Trend',
             'last_name' => 'Leader',
         ]);
+        $secondaryStaff = $this->createUser([
+            'email' => 'secondary-advanced-reports@example.com',
+            'username' => 'secondaryadvancedreports',
+            'role' => 'staff',
+            'first_name' => 'Secondary',
+            'last_name' => 'Leader',
+        ]);
 
         $currentBooking = Booking::create([
             'user_id' => $client->id,
@@ -155,6 +162,10 @@ class AdminReportsTest extends TestCase
             'created_at' => now()->subDays(3),
             'updated_at' => now()->subDays(1),
         ])->save();
+        $currentBooking->staffAssignments()->create([
+            'staff_id' => $secondaryStaff->id,
+            'task_group' => 'floors_surfaces',
+        ]);
 
         $previousMonthBooking = Booking::create([
             'user_id' => $client->id,
@@ -213,6 +224,15 @@ class AdminReportsTest extends TestCase
         });
         $response->assertViewHas('topStaffLeaders', function (Collection $topStaffLeaders) use ($staff) {
             return $topStaffLeaders->pluck('id')->contains($staff->id);
+        });
+        $response->assertViewHas('staffPerformance', function (Collection $staffPerformance) use ($secondaryStaff) {
+            $secondary = $staffPerformance->firstWhere('id', $secondaryStaff->id);
+
+            return $secondary !== null
+                && $secondary->total_assigned === 1
+                && $secondary->total_completed === 1
+                && $secondary->current_month_completed === 1
+                && $secondary->current_month_revenue === 0.0;
         });
     }
 

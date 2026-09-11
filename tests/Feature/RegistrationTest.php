@@ -66,6 +66,23 @@ class RegistrationTest extends TestCase
         $this->assertDatabaseMissing('users', ['email' => 'young@example.com']);
     }
 
+    public function test_client_registration_rejects_a_non_philippine_mobile_phone_shape(): void
+    {
+        $response = $this->from(route('register'))->post(route('register.store'), [
+            'first_name' => 'Invalid',
+            'last_name' => 'Phone',
+            'email' => 'invalid-client-phone@example.com',
+            'phone' => '12345678901',
+            'date_of_birth' => '2000-01-01',
+            'password' => 'CleanFlow!Client123',
+            'password_confirmation' => 'CleanFlow!Client123',
+        ]);
+
+        $response->assertRedirect(route('register'));
+        $response->assertSessionHasErrors('phone');
+        $this->assertDatabaseMissing('users', ['email' => 'invalid-client-phone@example.com']);
+    }
+
     public function test_weak_password_is_rejected_during_registration(): void
     {
         $response = $this->from(route('register'))->post(route('register.store'), [

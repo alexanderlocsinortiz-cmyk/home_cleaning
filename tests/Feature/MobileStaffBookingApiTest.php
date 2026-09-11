@@ -10,7 +10,9 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 class MobileStaffBookingApiTest extends TestCase
@@ -94,6 +96,188 @@ class MobileStaffBookingApiTest extends TestCase
             ->assertJsonPath('performance.leaderboard.0.rank', 1);
     }
 
+    public function test_secondary_staff_appears_in_performance_without_primary_earnings_or_rating(): void
+    {
+        $secondaryStaff = $this->staff('secondary-performance-staff@example.com');
+        $primaryStaff = $this->staff('primary-performance-staff@example.com');
+        $booking = $this->booking($primaryStaff, $this->service(), 'completed', 'Secondary Performance Street');
+        $booking->staffAssignments()->create([
+            'staff_id' => $secondaryStaff->id,
+            'task_group' => 'floors_surfaces',
+        ]);
+        Rating::create([
+            'booking_id' => $booking->id,
+            'client_id' => $booking->user_id,
+            'staff_id' => $primaryStaff->id,
+            'stars' => 5,
+            'comment' => 'Excellent service.',
+        ]);
+
+        $token = $this->loginToken('secondary-performance-staff@example.com');
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/mobile/staff/performance')
+            ->assertOk()
+            ->assertJsonPath('performance.total_bookings', 1)
+            ->assertJsonPath('performance.completed_count', 1)
+            ->assertJsonPath('performance.total_earnings', 0)
+            ->assertJsonPath('performance.average_rating', null)
+            ->assertJsonPath('performance.total_reviews', 0);
+    }
+
+    public function test_staff_can_share_location_and_client_can_read_it(): void
+    {
+        $staff = $this->staff('mobile-location-staff@example.com');
+        $booking = $this->booking($staff, $this->service(), 'confirmed', 'Location Street');
+        $client = User::findOrFail($booking->user_id);
+        $client->update(['password' => Hash::make('Password123')]);
+        $staffToken = $this->loginToken($staff->email);
+
+        $this->withHeader('Authorization', 'Bearer '.$staffToken)
+            ->postJson("/api/mobile/staff/bookings/{$booking->id}/location", [
+                'latitude' => 7.9073,
+                'longitude' => 125.092,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('booking_locations', [
+            'booking_id' => $booking->id,
+            'staff_id' => $staff->id,
+            'latitude' => '7.9073000',
+            'longitude' => '125.0920000',
+        ]);
+
+        $clientToken = $this->loginToken($client->email);
+        $this->withHeader('Authorization', 'Bearer '.$clientToken)
+            ->getJson("/api/mobile/bookings/{$booking->id}/location")
+            ->assertOk()
+            ->assertJsonPath('tracking', true)
+            ->assertJsonPath('latitude', 7.9073)
+            ->assertJsonPath('longitude', 125.092);
+    }
+
+    public function test_mobile_location_update_rolls_back_when_history_write_fails(): void
+    {
+        $staff = $this->staff('mobile-location-rollback-staff@example.com');
+        $booking = $this->booking($staff, $this->service(), 'confirmed', 'Location Rollback Street');
+        $token = $this->loginToken($staff->email);
+        $eventName = 'eloquent.creating: '.\App\Models\BookingLocation::class;
+        $listener = function (): void {
+            throw new \RuntimeException('Simulated location history failure.');
+        };
+
+        Event::listen($eventName, $listener);
+
+        try {
+            $this->withHeader('Authorization', 'Bearer '.$token)
+                ->postJson("/api/mobile/staff/bookings/{$booking->id}/location", [
+                    'latitude' => 7.9073,
+                    'longitude' => 125.092,
+                ])
+                ->assertStatus(503)
+                ->assertJson([
+                    'message' => 'We could not save your location right now. Please retry in a few seconds.',
+                ]);
+        } finally {
+            Event::forget($eventName);
+        }
+
+        $this->assertNull($booking->fresh()->current_latitude);
+        $this->assertNull($booking->fresh()->current_longitude);
+        $this->assertDatabaseCount('booking_locations', 0);
+    }
+
+    public function test_mobile_location_reader_hides_partial_coordinates(): void
+    {
+        $staff = $this->staff('mobile-partial-location-staff@example.com');
+        $booking = $this->booking($staff, $this->service(), 'in_progress', 'Partial Location Street');
+        $booking->forceFill([
+            'current_latitude' => 7.9073,
+            'current_longitude' => null,
+        ])->save();
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$this->loginToken($staff->email))
+            ->getJson("/api/mobile/bookings/{$booking->id}/location")
+            ->assertOk()
+            ->assertJson(['tracking' => false]);
+
+        $this->assertSame(['tracking' => false], $response->json());
+    }
+
+    public function test_unverified_mobile_client_cannot_read_booking_location(): void
+    {
+        $staff = $this->staff('mobile-unverified-location-staff@example.com');
+        $booking = $this->booking($staff, $this->service(), 'in_progress', 'Unverified Location Street');
+        $client = User::findOrFail($booking->user_id);
+        $client->forceFill([
+            'email_verified_at' => null,
+            'password' => Hash::make('Password123'),
+        ])->save();
+
+        $booking->forceFill([
+            'current_latitude' => 7.9073,
+            'current_longitude' => 125.092,
+        ])->save();
+
+        $this->withHeader('Authorization', 'Bearer '.$this->loginToken($client->email))
+            ->getJson("/api/mobile/bookings/{$booking->id}/location")
+            ->assertForbidden()
+            ->assertJson([
+                'message' => 'Please verify your email before viewing booking location.',
+                'requires_email_verification' => true,
+            ]);
+    }
+
+    public function test_assigned_staff_can_open_a_mobile_live_video_room(): void
+    {
+        $staff = $this->staff('mobile-video-staff@example.com');
+        $booking = $this->booking($staff, $this->service(), 'in_progress', 'Video Street');
+        config([
+            'services.daily.api_key' => 'test-daily-key',
+            'services.daily.domain' => 'cleanflow-test',
+        ]);
+        Http::fake([
+            'https://api.daily.co/v1/rooms' => Http::response(['url' => 'https://cleanflow-test.daily.co/mobile-room']),
+            'https://api.daily.co/v1/meeting-tokens' => Http::response(['token' => 'mobile-token']),
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$this->loginToken($staff->email))
+            ->getJson("/api/mobile/bookings/{$booking->id}/live-video")
+            ->assertOk()
+            ->assertJsonPath('room_url', 'https://cleanflow-test.daily.co/mobile-room')
+            ->assertJsonPath('meeting_token', 'mobile-token');
+    }
+
+    public function test_unverified_mobile_client_cannot_join_live_video_room(): void
+    {
+        $staff = $this->staff('mobile-unverified-video-staff@example.com');
+        $booking = $this->booking($staff, $this->service(), 'in_progress', 'Unverified Video Street');
+        $client = User::findOrFail($booking->user_id);
+        $client->forceFill([
+            'email_verified_at' => null,
+            'password' => Hash::make('Password123'),
+        ])->save();
+        $booking->forceFill([
+            'daily_room_name' => 'mobile-unverified-room',
+            'daily_room_url' => 'https://cleanflow-test.daily.co/mobile-unverified-room',
+            'daily_room_expires_at' => now()->addHour(),
+        ])->save();
+
+        config(['services.daily.api_key' => 'test-daily-key']);
+        Http::fake();
+
+        $this->withHeader('Authorization', 'Bearer '.$this->loginToken($client->email))
+            ->getJson("/api/mobile/bookings/{$booking->id}/live-video")
+            ->assertForbidden()
+            ->assertJson([
+                'message' => 'Please verify your email before using live video.',
+                'requires_email_verification' => true,
+            ]);
+
+        Http::assertNothingSent();
+    }
+
     public function test_staff_can_start_booking_with_before_proof_from_mobile(): void
     {
         Storage::fake('public');
@@ -135,6 +319,35 @@ class MobileStaffBookingApiTest extends TestCase
         $this->assertSame('camera', $proof->capture_source);
     }
 
+    public function test_staff_proof_rejects_future_capture_time_and_out_of_coverage_location(): void
+    {
+        Storage::fake('public');
+
+        $staff = $this->staff('proof-integrity-staff@example.com');
+        $booking = $this->booking($staff, $this->service(), 'confirmed', 'Proof Integrity Street');
+        $token = $this->loginToken($staff->email);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson("/api/mobile/staff/bookings/{$booking->id}/start", [
+                'before_photos' => [
+                    UploadedFile::fake()->create('before-proof.jpg', 128, 'image/jpeg'),
+                ],
+                'proof_captured_at' => now()->addHour()->toIso8601String(),
+                'proof_latitude' => 0,
+                'proof_longitude' => 0,
+                'proof_source' => 'camera',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'proof_captured_at',
+                'proof_latitude',
+                'proof_longitude',
+            ]);
+
+        $this->assertSame('confirmed', $booking->fresh()->status);
+        $this->assertDatabaseCount('booking_service_proofs', 0);
+    }
+
     public function test_staff_can_complete_booking_with_after_proof_from_mobile(): void
     {
         Storage::fake('public');
@@ -158,6 +371,7 @@ class MobileStaffBookingApiTest extends TestCase
                 'after_photos' => [
                     UploadedFile::fake()->create('after-proof.jpg', 128, 'image/jpeg'),
                 ],
+                'completion_video' => UploadedFile::fake()->create('completion.mp4', 256, 'video/mp4'),
                 'proof_captured_at' => '2026-08-23T11:45:00+08:00',
                 'proof_latitude' => 7.9081,
                 'proof_longitude' => 125.0934,
@@ -166,6 +380,7 @@ class MobileStaffBookingApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('booking.status', 'completed')
             ->assertJsonPath('booking.after_photo_count', 1)
+            ->assertJsonPath('booking.completion_video_count', 1)
             ->assertJsonPath('booking.payment_status', 'pending');
 
         $completedBooking = $booking->fresh();
@@ -328,6 +543,18 @@ class MobileStaffBookingApiTest extends TestCase
             ->assertForbidden();
 
         $this->assertSame('confirmed', $booking->fresh()->status);
+    }
+
+    public function test_mobile_staff_proof_upload_rejects_an_oversized_request_with_json(): void
+    {
+        $response = $this->withServerVariables([
+            'CONTENT_LENGTH' => (config('cleanflow.proof_uploads.max_request_kb') * 1024) + 1,
+        ])->postJson('/api/mobile/staff/bookings/999999/start', []);
+
+        $response->assertStatus(413)
+            ->assertJson([
+                'message' => 'The proof upload is too large. Keep the total upload under 128 MB.',
+            ]);
     }
 
     private function staff(string $email): User

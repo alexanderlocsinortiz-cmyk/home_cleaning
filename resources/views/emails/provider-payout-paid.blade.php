@@ -6,13 +6,14 @@
 
 @section('content')
 @php
+    $payoutTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
     $rows = [
         ['label' => 'Booking #', 'value' => 'CF-' . str_pad($booking->id, 5, '0', STR_PAD_LEFT)],
         ['label' => 'Service', 'value' => e($booking->service_label)],
         ['label' => 'Provider', 'value' => e($provider->business_name)],
         ['label' => 'Payout Amount', 'value' => 'PHP ' . number_format((float) $booking->provider_payout_amount, 2)],
         ['label' => 'Reference', 'value' => e($booking->provider_payout_reference ?: 'Not provided')],
-        ['label' => 'Paid Date', 'value' => e($booking->provider_payout_paid_at?->format('F d, Y h:i A') ?: 'Not provided')],
+        ['label' => 'Paid Date', 'value' => e($booking->provider_payout_paid_at?->copy()->timezone($payoutTimezone)->format('F d, Y h:i A') ?: 'Not provided')],
     ];
 @endphp
 

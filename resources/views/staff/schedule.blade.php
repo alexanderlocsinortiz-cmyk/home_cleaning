@@ -5,7 +5,8 @@
 
 @section('content')
 @php
-    $today = \Carbon\Carbon::today();
+    $scheduleTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+    $today = \Carbon\Carbon::today($scheduleTimezone);
     $startOfMonth = $today->copy()->startOfMonth();
     $endOfMonth = $today->copy()->endOfMonth();
     $daysInMonth = $endOfMonth->day;
@@ -126,13 +127,13 @@
                     @if ($bookings->count())
                         <div class="space-y-4">
                             @foreach ($bookings as $booking)
-                                @php $isToday = \Carbon\Carbon::parse($booking->scheduled_date)->isToday(); @endphp
+                                @php $bookingDate = \Carbon\Carbon::parse($booking->scheduled_date->toDateString(), $scheduleTimezone); $isToday = $bookingDate->isSameDay($today); @endphp
                                 <article class="rounded-[1.4rem] border border-slate-100 bg-slate-50/75 p-5 transition hover:border-slate-200 hover:bg-white hover:shadow-sm">
                                     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                         <div>
                                             <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] {{ $isToday ? 'border border-blue-200 bg-blue-50 text-blue-700' : 'border border-slate-200 bg-white text-slate-500' }}">
                                                 <i class="fas {{ $isToday ? 'fa-bolt' : 'fa-calendar-day' }} text-[10px]"></i>
-                                                {{ $isToday ? 'Today' : \Carbon\Carbon::parse($booking->scheduled_date)->format('M d, Y') }}
+                                                {{ $isToday ? 'Today' : $bookingDate->format('M d, Y') }}
                                             </span>
                                             <h3 class="mt-3 text-base font-bold text-slate-900">{{ $booking->service_label }}</h3>
                                             <p class="mt-1 text-sm text-slate-500">

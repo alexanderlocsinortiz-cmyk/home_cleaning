@@ -71,6 +71,26 @@ class BookingLiveVideoTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_unverified_booking_client_cannot_join_live_video_room(): void
+    {
+        [$client, , $booking] = $this->inProgressBooking([
+            'daily_room_name' => 'cf-unverified-room',
+            'daily_room_url' => 'https://cleanflow-test.daily.co/cf-unverified-room',
+            'daily_room_expires_at' => now()->addHour(),
+            'live_video_started_at' => now()->subMinutes(5),
+        ]);
+        $client->forceFill(['email_verified_at' => null])->save();
+
+        config(['services.daily.api_key' => 'test-daily-key']);
+        Http::fake();
+
+        $response = $this->actingAs($client)->get(route('bookings.live-video', $booking));
+
+        $response->assertRedirect(route('verification.notice'))
+            ->assertSessionHas('error', 'Please verify your email before using live video.');
+        Http::assertNothingSent();
+    }
+
     public function test_client_is_redirected_when_staff_has_not_started_live_video_room(): void
     {
         [$client, , $booking] = $this->inProgressBooking();

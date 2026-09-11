@@ -6,6 +6,8 @@
 
 @section('content')
 @php
+    $bookingTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+    $formatBookingDateTime = static fn ($value, string $format = 'M d, h:i A') => $value?->copy()->timezone($bookingTimezone)->format($format);
     $beforeProofs = $booking->serviceProofs->where('stage', 'before')->where('media_type', 'image')->values();
     $afterProofs = $booking->serviceProofs->where('stage', 'after')->where('media_type', 'image')->values();
     $completionVideos = $booking->serviceProofs->where('stage', 'after')->where('media_type', 'video')->values();
@@ -25,10 +27,10 @@
         default => 'Waiting for admin confirmation',
     };
     $progressSteps = [
-        ['label' => 'Assigned', 'active' => true, 'icon' => 'fa-clipboard-check', 'meta' => $booking->created_at?->format('M d, h:i A')],
-        ['label' => 'Accepted', 'active' => $assignmentAccepted, 'icon' => 'fa-handshake', 'meta' => $booking->provider_assignment_responded_at?->format('M d, h:i A') ?? 'Pending'],
-        ['label' => 'Started', 'active' => in_array($booking->status, ['in_progress', 'completed'], true), 'icon' => 'fa-broom', 'meta' => $booking->started_at?->format('M d, h:i A') ?? 'Pending'],
-        ['label' => 'Completed', 'active' => $booking->status === 'completed', 'icon' => 'fa-circle-check', 'meta' => $booking->completed_at?->format('M d, h:i A') ?? 'Pending'],
+        ['label' => 'Assigned', 'active' => true, 'icon' => 'fa-clipboard-check', 'meta' => $formatBookingDateTime($booking->created_at)],
+        ['label' => 'Accepted', 'active' => $assignmentAccepted, 'icon' => 'fa-handshake', 'meta' => $formatBookingDateTime($booking->provider_assignment_responded_at) ?? 'Pending'],
+        ['label' => 'Started', 'active' => in_array($booking->status, ['in_progress', 'completed'], true), 'icon' => 'fa-broom', 'meta' => $formatBookingDateTime($booking->started_at) ?? 'Pending'],
+        ['label' => 'Completed', 'active' => $booking->status === 'completed', 'icon' => 'fa-circle-check', 'meta' => $formatBookingDateTime($booking->completed_at) ?? 'Pending'],
     ];
 @endphp
 
@@ -166,7 +168,7 @@
                                         <p class="mt-1 text-xs leading-5 text-slate-600">Required before starting. Upload 1 to 4 clear photos.</p>
                                     </div>
                                 </div>
-                                <input id="before_photos" type="file" name="before_photos[]" accept="image/*" multiple class="mt-4 w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-blue-700">
+                                <input id="before_photos" type="file" name="before_photos[]" accept="image/jpeg,image/png,image/webp" multiple class="mt-4 w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-blue-700">
                             </div>
                             <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white transition hover:bg-blue-700">
                                 <i class="fas fa-play"></i>
@@ -192,7 +194,7 @@
                                         <p class="mt-1 text-xs leading-5 text-slate-600">Required to complete. Upload 1 to 4 photos.</p>
                                     </div>
                                 </div>
-                                <input id="after_photos" type="file" name="after_photos[]" accept="image/*" multiple class="mt-4 w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-emerald-700">
+                                <input id="after_photos" type="file" name="after_photos[]" accept="image/jpeg,image/png,image/webp" multiple class="mt-4 w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-emerald-700">
                             </div>
                             <div class="rounded-xl bg-white p-4 ring-1 ring-emerald-100">
                                 <div class="flex items-center gap-3">

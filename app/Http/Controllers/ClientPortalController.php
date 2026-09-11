@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Booking;
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ClientPortalController extends Controller
 {
@@ -20,7 +21,9 @@ class ClientPortalController extends Controller
             ->take(5)
             ->get();
 
-        return view('client.dashboard', compact('bookings', 'notifications'));
+        $dashboardTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+
+        return view('client.dashboard', compact('bookings', 'notifications', 'dashboardTimezone'));
     }
 
     public function profile()
@@ -54,15 +57,16 @@ class ClientPortalController extends Controller
             ->toDateString();
 
         $request->validate([
-            'first_name' => 'required|string|max:50',
-            'last_name' => 'required|string|max:50',
-            'phone' => ['required', 'regex:/^[0-9]{11}$/'],
-            'date_of_birth' => 'required|date|before_or_equal:'.$minimumBirthDate,
-            'street' => 'required|string|max:100',
-            'barangay' => 'required|string',
+            'first_name' => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'phone' => ['required', 'regex:/^09[0-9]{9}$/'],
+            'date_of_birth' => 'required|date_format:Y-m-d|before_or_equal:'.$minimumBirthDate,
+            'street' => 'required|string|max:255',
+            'barangay' => ['required', Rule::in(array_keys(config('cleanflow.barangays', [])))],
         ], [
             'date_of_birth.before_or_equal' => 'Clients must be at least 18 years old to book a cleaning service.',
-            'phone.regex' => 'Phone number must contain exactly 11 digits.',
+            'date_of_birth.date_format' => 'Date of birth must use YYYY-MM-DD format.',
+            'phone.regex' => 'Phone number must start with 09 and contain exactly 11 digits.',
         ]);
 
         $user->update($request->only(['first_name', 'last_name', 'phone', 'date_of_birth', 'street', 'barangay']));

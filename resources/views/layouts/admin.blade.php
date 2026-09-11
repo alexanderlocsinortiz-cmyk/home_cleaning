@@ -111,7 +111,7 @@
                     <p class="text-sm text-slate-500">@yield('page-subtitle', 'Welcome to Home Cleaning Service Admin')</p>
                 </div>
                 <div class="flex shrink-0 items-center gap-4">
-                    <div class="relative" data-topbar-menu>
+                    <div class="admin-date-range-menu relative" data-topbar-menu>
                         <button type="button" class="flex h-11 min-w-[250px] items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 shadow-sm transition hover:border-blue-200 hover:bg-blue-50" aria-label="Dashboard date range" aria-expanded="false" data-topbar-toggle="date-range-menu">
                             <span class="flex items-center gap-3">
                                 <i class="fas fa-calendar-days text-blue-800"></i>
@@ -234,7 +234,7 @@
                     <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-base font-bold text-white">
                         {{ auth()->user()->initials }}
                     </div>
-                    <span class="text-sm font-semibold text-slate-900">{{ auth()->user()->display_name }}</span>
+                    <span class="admin-topbar-user-name text-sm font-semibold text-slate-900">{{ auth()->user()->display_name }}</span>
                 </div>
             </div>
         </div>

@@ -19,7 +19,9 @@ class AnalyticsController extends Controller
     public function index()
     {
         $dateRange = $this->resolveDateRange();
-        $startDate = Carbon::now()->subDays($dateRange - 1)->startOfDay();
+        $analyticsTimezone = $this->analyticsTimezone();
+        $analyticsNow = Carbon::now($analyticsTimezone);
+        $startDate = $analyticsNow->copy()->subDays($dateRange - 1)->startOfDay()->utc();
 
         $bookings = Booking::query()->where('bookings.created_at', '>=', $startDate);
 
@@ -77,25 +79,35 @@ class AnalyticsController extends Controller
 
     private function getStaffPerformanceFromDatabase($bookings): Collection
     {
-        $rows = (clone $bookings)->leftJoin('ratings', 'ratings.booking_id', '=', 'bookings.id')
-            ->whereNotNull('bookings.staff_id')
-            ->select('bookings.staff_id')
-            ->selectRaw('COUNT(bookings.id) as assigned, SUM(CASE WHEN bookings.status = \'completed\' THEN 1 ELSE 0 END) as completed, AVG(ratings.stars) as average_rating, COUNT(ratings.id) as reviews')
-            ->groupBy('bookings.staff_id')->get()->keyBy('staff_id');
-        $staff = User::whereIn('id', $rows->keys())->get(['id', 'first_name', 'last_name', 'barangay'])->keyBy('id');
+        $bookingRows = (clone $bookings)
+            ->with('staffAssignments:id,booking_id,staff_id')
+            ->get();
+        $staffIds = $bookingRows
+            ->flatMap(fn (Booking $booking) => $booking->assignedStaffIds())
+            ->unique()
+            ->values();
+        $staff = User::whereIn('id', $staffIds)
+            ->get(['id', 'first_name', 'last_name', 'barangay'])
+            ->keyBy('id');
 
-        return $rows->map(function ($row) use ($staff) {
-            $member = $staff->get($row->staff_id);
-            $assigned = (int) $row->assigned;
+        return $staff->map(function (User $member) use ($bookingRows) {
+            $assignedBookings = $bookingRows
+                ->filter(fn (Booking $booking): bool => $booking->isAssignedToStaff((int) $member->id));
+            $assigned = $assignedBookings->count();
+            $completed = $assignedBookings->where('status', 'completed')->count();
+            $ratings = $assignedBookings
+                ->filter(fn (Booking $booking): bool => (int) $booking->staff_id === (int) $member->id)
+                ->pluck('rating')
+                ->filter();
 
             return [
-                'name' => $member?->full_name ?? 'Unknown staff member',
-                'barangay' => $member?->barangay_name,
+                'name' => $member->full_name,
+                'barangay' => $member->barangay_name,
                 'assigned' => $assigned,
-                'completed' => (int) $row->completed,
-                'completion_rate' => $assigned > 0 ? round(((int) $row->completed / $assigned) * 100, 1) : 0.0,
-                'average_rating' => $row->average_rating !== null ? round((float) $row->average_rating, 1) : null,
-                'reviews' => (int) $row->reviews,
+                'completed' => $completed,
+                'completion_rate' => $assigned > 0 ? round(($completed / $assigned) * 100, 1) : 0.0,
+                'average_rating' => $ratings->isNotEmpty() ? round((float) $ratings->avg('stars'), 1) : null,
+                'reviews' => $ratings->count(),
             ];
         })->sortByDesc(fn (array $member) => ($member['completed'] * 1000) + (int) round(($member['average_rating'] ?? 0) * 100))->values();
     }
@@ -122,10 +134,20 @@ class AnalyticsController extends Controller
 
     private function getDailyTrendsFromDatabase($bookings, Carbon $startDate): Collection
     {
-        $totalSql = $this->bookingTotalSql();
-        $rows = (clone $bookings)->selectRaw("DATE(created_at) as trend_date, COUNT(*) as bookings, SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed, SUM(CASE WHEN status = 'completed' THEN $totalSql ELSE 0 END) as revenue")->groupByRaw('DATE(created_at)')->get()->keyBy('trend_date');
+        $analyticsTimezone = $this->analyticsTimezone();
+        $rows = (clone $bookings)->get()
+            ->groupBy(fn (Booking $booking) => $booking->created_at?->copy()->timezone($analyticsTimezone)->toDateString())
+            ->map(function (Collection $dayBookings) {
+                $completedBookings = $dayBookings->where('status', 'completed');
+
+                return (object) [
+                    'bookings' => $dayBookings->count(),
+                    'completed' => $completedBookings->count(),
+                    'revenue' => $completedBookings->sum(fn (Booking $booking) => $this->bookingTotal($booking)),
+                ];
+            });
         $trends = collect();
-        for ($cursor = $startDate->copy(); $cursor->lte(Carbon::now()->startOfDay()); $cursor->addDay()) {
+        for ($cursor = $startDate->copy()->timezone($analyticsTimezone)->startOfDay(), $today = Carbon::now($analyticsTimezone)->startOfDay(); $cursor->lte($today); $cursor->addDay()) {
             $row = $rows->get($cursor->toDateString());
             $trends->push(['date' => $cursor->toDateString(), 'label' => $cursor->format('M d'), 'bookings' => (int) ($row->bookings ?? 0), 'completed' => (int) ($row->completed ?? 0), 'revenue' => round((float) ($row->revenue ?? 0), 2)]);
         }
@@ -139,7 +161,8 @@ class AnalyticsController extends Controller
     public function export()
     {
         $dateRange = $this->resolveDateRange();
-        $startDate = Carbon::now()->subDays($dateRange - 1)->startOfDay();
+        $analyticsNow = Carbon::now($this->analyticsTimezone());
+        $startDate = $analyticsNow->copy()->subDays($dateRange - 1)->startOfDay()->utc();
 
         $bookings = Booking::query()
             ->with(['user:id,email,first_name,last_name', 'service:id,slug,name'])
@@ -158,7 +181,7 @@ class AnalyticsController extends Controller
                 $booking->service_label,
                 $booking->status,
                 number_format($this->bookingTotal($booking), 2, '.', ''),
-                optional($booking->created_at)->format('Y-m-d H:i:s'),
+                optional($booking->created_at?->copy()->timezone($this->analyticsTimezone()))->format('Y-m-d H:i:s'),
             ]);
         }
 
@@ -176,6 +199,11 @@ class AnalyticsController extends Controller
         $dateRange = (int) request('date_range', 30);
 
         return in_array($dateRange, self::DATE_RANGES, true) ? $dateRange : 30;
+    }
+
+    private function analyticsTimezone(): string
+    {
+        return config('cleanflow.attendance_timezone', 'Asia/Manila');
     }
 
     private function getBookingMetrics(Collection $bookings): array
@@ -223,7 +251,7 @@ class AnalyticsController extends Controller
         return $staffMembers
             ->map(function (User $staffMember) use ($bookings) {
                 $assignedBookings = $bookings
-                    ->where('staff_id', $staffMember->id)
+                    ->filter(fn (Booking $booking): bool => $booking->isAssignedToStaff((int) $staffMember->id))
                     ->values();
 
                 if ($assignedBookings->isEmpty()) {
@@ -231,6 +259,7 @@ class AnalyticsController extends Controller
                 }
 
                 $ratings = $assignedBookings
+                    ->filter(fn (Booking $booking): bool => (int) $booking->staff_id === (int) $staffMember->id)
                     ->pluck('rating')
                     ->filter();
 
@@ -306,13 +335,14 @@ class AnalyticsController extends Controller
 
     private function getDailyTrends(Carbon $startDate, Collection $bookings): Collection
     {
+        $analyticsTimezone = $this->analyticsTimezone();
         $bookingsByDate = $bookings->groupBy(
-            fn (Booking $booking) => optional($booking->created_at)->toDateString()
+            fn (Booking $booking) => $booking->created_at?->copy()->timezone($analyticsTimezone)->toDateString()
         );
 
         $trends = collect();
-        $cursor = $startDate->copy();
-        $today = Carbon::now()->startOfDay();
+        $cursor = $startDate->copy()->timezone($analyticsTimezone)->startOfDay();
+        $today = Carbon::now($analyticsTimezone)->startOfDay();
 
         while ($cursor->lte($today)) {
             $dayBookings = $bookingsByDate->get($cursor->toDateString(), collect());

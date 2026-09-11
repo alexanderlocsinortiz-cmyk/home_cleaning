@@ -6,6 +6,7 @@
 
 @section('content')
 @php
+    $logTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
     $labelFor = fn ($value) => ucfirst(str_replace(['_', '-'], ' ', (string) $value));
     $tabUrl = fn ($source) => route('admin.logs', array_merge(request()->except(['source', 'booking_page', 'attendance_page', 'admin_page', 'security_page']), ['source' => $source]));
     $exportParams = request()->except(['source', 'booking_page', 'attendance_page', 'admin_page', 'security_page']);
@@ -164,8 +165,8 @@
                                 <span class="block h-4 w-4 rounded-full bg-blue-600 ring-4 ring-blue-50"></span>
                             </div>
                             <div class="text-sm">
-                                <div class="font-bold text-slate-900">{{ $log->created_at->format('M d, Y') }}</div>
-                                <div class="text-xs text-slate-500">{{ $log->created_at->format('h:i A') }}</div>
+                                <div class="font-bold text-slate-900">{{ $log->created_at->copy()->timezone($logTimezone)->format('M d, Y') }}</div>
+                                <div class="text-xs text-slate-500">{{ $log->created_at->copy()->timezone($logTimezone)->format('h:i A') }}</div>
                                 <div class="mt-1 text-xs text-slate-400">{{ $log->created_at->diffForHumans() }}</div>
                             </div>
                             <div>
@@ -273,8 +274,8 @@
                                 <span class="block h-4 w-4 rounded-full bg-blue-600 ring-4 ring-blue-50"></span>
                             </div>
                             <div class="text-sm">
-                                <div class="font-bold text-slate-900">{{ $log->created_at->format('M d, Y') }}</div>
-                                <div class="text-xs text-slate-500">{{ $log->created_at->format('h:i A') }}</div>
+                                <div class="font-bold text-slate-900">{{ $log->created_at->copy()->timezone($logTimezone)->format('M d, Y') }}</div>
+                                <div class="text-xs text-slate-500">{{ $log->created_at->copy()->timezone($logTimezone)->format('h:i A') }}</div>
                                 <div class="mt-1 text-xs text-slate-400">{{ $log->created_at->diffForHumans() }}</div>
                             </div>
                             <div>
@@ -316,8 +317,8 @@
                                 <span class="block h-4 w-4 rounded-full bg-rose-500 ring-4 ring-rose-50"></span>
                             </div>
                             <div class="text-sm">
-                                <div class="font-bold text-slate-900">{{ $log->created_at->format('M d, Y') }}</div>
-                                <div class="text-xs text-slate-500">{{ $log->created_at->format('h:i A') }}</div>
+                                <div class="font-bold text-slate-900">{{ $log->created_at->copy()->timezone($logTimezone)->format('M d, Y') }}</div>
+                                <div class="text-xs text-slate-500">{{ $log->created_at->copy()->timezone($logTimezone)->format('h:i A') }}</div>
                                 <div class="mt-1 text-xs text-slate-400">{{ $log->created_at->diffForHumans() }}</div>
                             </div>
                             <div>

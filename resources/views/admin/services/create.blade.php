@@ -58,17 +58,17 @@
             <div class="space-y-5">
                 <div>
                     <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Service Name <span class="text-red-500">*</span></label>
-                    <input type="text" name="name" value="{{ $nameValue }}" required placeholder="e.g. Basic Clean" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
+                    <input type="text" name="name" value="{{ $nameValue }}" required maxlength="100" placeholder="e.g. Basic Clean" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
                     @error('name')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
                 <div>
                     <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Description</label>
-                    <textarea name="description" rows="4" placeholder="Brief description of this service..." class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">{{ $descriptionValue }}</textarea>
+                    <textarea name="description" rows="4" maxlength="5000" placeholder="Brief description of this service..." class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">{{ $descriptionValue }}</textarea>
                 </div>
                 @include('admin.services._image_fields')
                 <div>
                     <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Price (&#8369;) <span class="text-red-500">*</span></label>
-                    <input type="number" name="price" value="{{ $priceValue }}" required min="1" step="0.01" placeholder="e.g. 500" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
+                    <input type="number" name="price" value="{{ $priceValue }}" required min="1" max="99999999.99" step="0.01" placeholder="e.g. 500" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100">
                     @error('price')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
                 <div>

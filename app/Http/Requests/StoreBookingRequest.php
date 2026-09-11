@@ -40,8 +40,10 @@ class StoreBookingRequest extends FormRequest
         $subscriptionFrequencies = array_keys(Booking::subscriptionFrequencyLabels());
         $propertyTypes = array_keys(Booking::propertyTypeLabels());
         $validBarangays = array_keys(config('cleanflow.barangays', []));
+        $bookingToday = Carbon::now(config('cleanflow.attendance_timezone', 'Asia/Manila'))->toDateString();
+        $locationBounds = Booking::serviceLocationBounds();
 
-        $timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
+        $timeSlots = Booking::bookingTimeSlots();
 
         return [
             'service_type' => [
@@ -72,13 +74,13 @@ class StoreBookingRequest extends FormRequest
             ],
             'barangay' => ['required', Rule::in($validBarangays)],
             'street_address' => 'required|string|max:255',
-            'service_latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:service_longitude'],
-            'service_longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:service_latitude'],
+            'service_latitude' => ['nullable', 'numeric', 'between:'.$locationBounds['min_latitude'].','.$locationBounds['max_latitude'], 'required_with:service_longitude'],
+            'service_longitude' => ['nullable', 'numeric', 'between:'.$locationBounds['min_longitude'].','.$locationBounds['max_longitude'], 'required_with:service_latitude'],
             'preferred_staff_id' => [
                 'nullable',
                 Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'staff')),
             ],
-            'scheduled_date' => 'required|date|after_or_equal:today',
+            'scheduled_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$bookingToday],
             'scheduled_time' => ['required', Rule::in($timeSlots)],
             'notes' => 'nullable|string|max:500',
         ];
@@ -144,6 +146,7 @@ class StoreBookingRequest extends FormRequest
     {
         return [
             'scheduled_date.after_or_equal' => 'Please select today or a future date.',
+            'scheduled_date.date_format' => 'Please select a valid date.',
             'scheduled_time.in' => 'Please select one of the available booking times.',
             'service_type.required' => 'Please select a service type.',
             'barangay.required' => 'Please select your barangay.',
@@ -156,6 +159,8 @@ class StoreBookingRequest extends FormRequest
             'subscription_occurrences.required' => 'Please choose how many visits should be scheduled for the subscription plan.',
             'service_latitude.required_with' => 'Latitude and longitude must be provided together.',
             'service_longitude.required_with' => 'Latitude and longitude must be provided together.',
+            'service_latitude.between' => 'The selected location is outside our service area.',
+            'service_longitude.between' => 'The selected location is outside our service area.',
         ];
     }
 }

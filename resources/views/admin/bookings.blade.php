@@ -122,6 +122,8 @@
 
 @section('content')
 @php
+    $bookingTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+    $formatBookingDateTime = static fn ($value) => $value?->copy()->timezone($bookingTimezone)->format('Y-m-d\\TH:i');
     $statusLabels = [
         'pending' => 'Pending',
         'confirmed' => 'Confirmed',
@@ -161,6 +163,7 @@
     $paymentStatusClasses = [
         'pending' => 'bg-amber-100 text-amber-700',
         'paid' => 'bg-emerald-100 text-emerald-700',
+        'refunded' => 'bg-blue-100 text-blue-700',
     ];
     $presentStaffCount = $staffList->where('is_present', true)->count();
     $activeTab = $tab === 'completed' ? 'completed' : 'active';
@@ -351,7 +354,7 @@
                     @foreach($activeBookings as $booking)
                         @php
                             $allowedStatuses = $booking->allowedTransitions();
-                            $scheduledDate = \Carbon\Carbon::parse($booking->scheduled_date);
+                            $scheduledDate = \Carbon\Carbon::parse($booking->scheduled_date->toDateString(), $bookingTimezone);
                             $bookingIsToday = $scheduledDate->isToday();
                             $reviewLocked = in_array($booking->manual_review_status, ['pending', 'blocked'], true);
                             $requestedCleaner = $booking->preferredStaff;
@@ -426,6 +429,11 @@
                                     <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-semibold {{ $paymentStatusClasses[$booking->payment?->status ?? 'pending'] ?? 'bg-slate-100 text-slate-600' }}">
                                         {{ \App\Models\Booking::paymentStatusLabel($booking->payment?->status ?? 'pending') }}
                                     </span>
+                                    @if($booking->payment?->refund_status === 'failed')
+                                        <span class="inline-flex rounded-full bg-red-100 px-3 py-1 text-[11px] font-semibold text-red-700">Refund needs review</span>
+                                    @elseif(in_array($booking->payment?->refund_status, ['pending', 'processing'], true))
+                                        <span class="inline-flex rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-700">Refund processing</span>
+                                    @endif
                                     @if($booking->pending_escalation)
                                         <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-semibold {{ $booking->pending_escalation['class'] }}">
                                             {{ $booking->pending_escalation['label'] }} &bull; {{ $booking->pending_escalation['age_label'] }}
@@ -520,7 +528,7 @@
                                                         {{ \App\Models\Booking::providerAssignmentStatusLabel($booking->effectiveProviderAssignmentStatus()) }}
                                                     </span>
                                                     @if($booking->provider_assignment_responded_at)
-                                                        <span class="ml-2 text-[11px] text-slate-500">{{ $booking->provider_assignment_responded_at->format('M d, h:i A') }}</span>
+                                                        <span class="ml-2 text-[11px] text-slate-500">{{ $formatBookingDateTime($booking->provider_assignment_responded_at, 'M d, h:i A') }}</span>
                                                     @endif
                                                 </div>
                                                 @if($booking->provider_gross_amount !== null)
@@ -674,7 +682,7 @@
                                         </button>
                                     </form>
                                 @endif
-                                <form action="{{ route('admin.bookings.status', $booking->id) }}" method="POST" class="mt-3 space-y-3 rounded-xl border border-slate-200 bg-white p-3">
+                                <form action="{{ route('admin.bookings.status', $booking->id) }}" method="POST" class="mt-3 space-y-3 rounded-xl border border-slate-200 bg-white p-3" data-paid-fields-form>
                                     @csrf
                                     @method('PATCH')
                                     @if((int) ($booking->required_cleaners ?? 1) > 1)
@@ -715,7 +723,10 @@
                                     </div>
                                     <div>
                                         <label class="mb-1 block px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Payment</label>
-                                        <select name="payment_status" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
+                                        <select name="payment_status" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden" data-paid-status>
+                                            @if($booking->payment?->status === 'refunded')
+                                                <option value="refunded" selected disabled>{{ \App\Models\Booking::paymentStatusLabel('refunded') }}</option>
+                                            @endif
                                             @foreach(\App\Models\Booking::paymentStatuses() as $paymentStatusOption)
                                                 <option value="{{ $paymentStatusOption }}" {{ ($booking->payment?->status ?? 'pending') === $paymentStatusOption ? 'selected' : '' }}>
                                                     {{ \App\Models\Booking::paymentStatusLabel($paymentStatusOption) }}
@@ -727,8 +738,8 @@
                                         <div class="rounded-lg border border-emerald-100 bg-emerald-50/60 p-2.5">
                                             <div class="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Cash receipt details</div>
                                             <div class="grid gap-2 sm:grid-cols-2">
-                                                <input type="number" name="payment_collected_amount" min="0.01" step="0.01" value="{{ old('payment_collected_amount', $booking->payment?->collected_amount ?? $booking->price) }}" placeholder="Amount collected" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
-                                                <input type="datetime-local" name="payment_collected_at" value="{{ old('payment_collected_at', $booking->payment?->collected_at?->format('Y-m-d\TH:i') ?: $booking->payment?->paid_at?->format('Y-m-d\TH:i')) }}" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
+                                                <input type="number" name="payment_collected_amount" min="0.01" max="99999999.99" step="0.01" value="{{ old('payment_collected_amount', $booking->payment?->collected_amount ?? $booking->price) }}" placeholder="Amount collected" data-required-when-paid class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
+                                                <input type="datetime-local" name="payment_collected_at" value="{{ old('payment_collected_at', $formatBookingDateTime($booking->payment?->collected_at) ?: $formatBookingDateTime($booking->payment?->paid_at)) }}" data-required-when-paid class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
                                             </div>
                                             <input type="text" name="payment_receipt_notes" value="{{ old('payment_receipt_notes', $booking->payment?->receipt_notes) }}" placeholder="Optional receipt note" class="mt-2 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
                                             <p class="mt-1 text-[11px] leading-4 text-slate-500">Required when marking cash as paid. The amount must match PHP {{ number_format((float) $booking->price, 2) }}.</p>
@@ -791,8 +802,8 @@
                                                 @method('PATCH')
                                                 <input type="hidden" name="decision" value="approve">
                                                 <div class="grid gap-2 sm:grid-cols-2">
-                                                    <input type="number" name="payment_collected_amount" min="0.01" step="0.01" value="{{ old('payment_collected_amount', $booking->price) }}" placeholder="Cash amount" required class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
-                                                    <input type="datetime-local" name="payment_collected_at" value="{{ old('payment_collected_at', now()->format('Y-m-d\TH:i')) }}" required class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
+                                                    <input type="number" name="payment_collected_amount" min="0.01" max="99999999.99" step="0.01" value="{{ old('payment_collected_amount', $booking->price) }}" placeholder="Cash amount" required class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
+                                                    <input type="datetime-local" name="payment_collected_at" value="{{ old('payment_collected_at', now($bookingTimezone)->format('Y-m-d\TH:i')) }}" required class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
                                                 </div>
                                                 <input type="text" name="payment_receipt_notes" placeholder="Optional admin note" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-blue-500 focus:outline-hidden">
                                                 <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700">
@@ -816,12 +827,12 @@
                                     </div>
                                 @endif
                                 @if($showMarketplaceProvider && $booking->provider_gross_amount !== null && $booking->payment?->method === 'on_site_cash')
-                                    <form action="{{ route('admin.bookings.provider-commission', $booking->id) }}" method="POST" enctype="multipart/form-data" class="mt-3 rounded-xl border border-orange-100 bg-orange-50/70 p-2">
+                                    <form action="{{ route('admin.bookings.provider-commission', $booking->id) }}" method="POST" enctype="multipart/form-data" class="mt-3 rounded-xl border border-orange-100 bg-orange-50/70 p-2" data-paid-fields-form>
                                         @csrf
                                         @method('PATCH')
                                         <div class="mb-1 px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-700">Cash commission</div>
                                         <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                                            <select name="provider_commission_status" class="min-w-0 rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-orange-500 focus:outline-hidden">
+                                            <select name="provider_commission_status" class="min-w-0 rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-orange-500 focus:outline-hidden" data-paid-status>
                                                 @foreach(\App\Models\Booking::providerCommissionStatuses() as $commissionStatusOption)
                                                     @continue($commissionStatusOption === 'not_applicable')
                                                     <option value="{{ $commissionStatusOption }}" {{ ($booking->provider_commission_status ?: 'unpaid') === $commissionStatusOption ? 'selected' : '' }}>
@@ -834,8 +845,8 @@
                                             </button>
                                         </div>
                                         <div class="mt-2 grid gap-2">
-                                            <input type="text" name="provider_commission_reference" value="{{ old('provider_commission_reference', $booking->provider_commission_reference) }}" placeholder="Commission payment reference" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-orange-500 focus:outline-hidden">
-                                            <input type="datetime-local" name="provider_commission_paid_at" value="{{ old('provider_commission_paid_at', $booking->provider_commission_paid_at?->format('Y-m-d\TH:i')) }}" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-orange-500 focus:outline-hidden">
+                                            <input type="text" name="provider_commission_reference" value="{{ old('provider_commission_reference', $booking->provider_commission_reference) }}" placeholder="Commission payment reference" data-required-when-paid maxlength="120" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-orange-500 focus:outline-hidden">
+                                            <input type="datetime-local" name="provider_commission_paid_at" value="{{ old('provider_commission_paid_at', $formatBookingDateTime($booking->provider_commission_paid_at)) }}" data-required-when-paid class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-orange-500 focus:outline-hidden">
                                             <input type="file" name="provider_commission_proof" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-lg border border-dashed border-orange-200 bg-white/70 px-2.5 py-2 text-[11px] text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-orange-600 file:px-2 file:py-1 file:text-[11px] file:font-bold file:text-white">
                                             @if($booking->provider_commission_proof_path)
                                                 <a href="{{ route('admin.bookings.provider-commission-proof', $booking->id) }}" class="inline-flex items-center gap-2 px-1 text-[11px] font-bold text-orange-700 hover:text-orange-900">
@@ -850,12 +861,12 @@
                                     </form>
                                 @endif
                                 @if($showMarketplaceProvider && $booking->provider_gross_amount !== null && $booking->payment?->method !== 'on_site_cash')
-                                    <form action="{{ route('admin.bookings.payout', $booking->id) }}" method="POST" enctype="multipart/form-data" class="mt-3 rounded-xl border border-emerald-100 bg-white p-2">
+                                    <form action="{{ route('admin.bookings.payout', $booking->id) }}" method="POST" enctype="multipart/form-data" class="mt-3 rounded-xl border border-emerald-100 bg-white p-2" data-paid-fields-form>
                                         @csrf
                                         @method('PATCH')
                                         <div class="mb-1 px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Provider payout</div>
                                         <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                                            <select name="provider_payout_status" class="min-w-0 rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
+                                            <select name="provider_payout_status" class="min-w-0 rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden" data-paid-status>
                                                 @foreach(\App\Models\Booking::providerPayoutStatuses() as $payoutStatusOption)
                                                     <option value="{{ $payoutStatusOption }}" {{ ($booking->provider_payout_status ?: 'pending') === $payoutStatusOption ? 'selected' : '' }}>
                                                         {{ \App\Models\Booking::providerPayoutStatusLabel($payoutStatusOption) }}
@@ -867,8 +878,8 @@
                                             </button>
                                         </div>
                                         <div class="mt-2 grid gap-2">
-                                            <input type="text" name="provider_payout_reference" value="{{ old('provider_payout_reference', $booking->provider_payout_reference) }}" placeholder="Payout reference for paid" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
-                                            <input type="datetime-local" name="provider_payout_paid_at" value="{{ old('provider_payout_paid_at', $booking->provider_payout_paid_at?->format('Y-m-d\TH:i')) }}" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
+                                            <input type="text" name="provider_payout_reference" value="{{ old('provider_payout_reference', $booking->provider_payout_reference) }}" placeholder="Payout reference for paid" data-required-when-paid maxlength="120" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
+                                            <input type="datetime-local" name="provider_payout_paid_at" value="{{ old('provider_payout_paid_at', $formatBookingDateTime($booking->provider_payout_paid_at)) }}" data-required-when-paid class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
                                             <input type="file" name="provider_payout_proof" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-lg border border-dashed border-emerald-200 bg-emerald-50/50 px-2.5 py-2 text-[11px] text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-emerald-700 file:px-2 file:py-1 file:text-[11px] file:font-bold file:text-white">
                                             @if($booking->provider_payout_proof_path)
                                                 <a href="{{ route('admin.bookings.payout-proof', $booking->id) }}" class="inline-flex items-center gap-2 px-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-900">
@@ -892,6 +903,7 @@
                                                 <option value="{{ $resolution }}">{{ $label }}</option>
                                             @endforeach
                                         </select>
+                                        <input type="number" name="refund_amount" min="0.01" max="{{ number_format((float) $booking->payment?->amount, 2, '.', '') }}" step="0.01" value="{{ old('refund_amount') }}" placeholder="Partial refund amount (PHP)" class="mt-2 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-red-500 focus:outline-hidden">
                                         <textarea name="dispute_admin_notes" rows="2" class="mt-2 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-red-500 focus:outline-hidden" placeholder="Admin resolution notes"></textarea>
                                         <button type="submit" class="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white transition hover:bg-red-800">
                                             <i class="fas fa-check"></i>
@@ -990,8 +1002,8 @@
                                         @endif
                                     </td>
                                     <td class="border-t border-slate-100 px-6 py-4 align-top">
-                                        <div class="font-semibold text-slate-900">{{ $closedAt ? $closedAt->format('M d, Y') : 'Not available' }}</div>
-                                        <div class="mt-1 text-xs text-slate-500">{{ $closedAt ? $closedAt->format('h:i A') : '' }}</div>
+                                        <div class="font-semibold text-slate-900">{{ $closedAt ? $closedAt->copy()->timezone($bookingTimezone)->format('M d, Y') : 'Not available' }}</div>
+                                        <div class="mt-1 text-xs text-slate-500">{{ $closedAt ? $closedAt->copy()->timezone($bookingTimezone)->format('h:i A') : '' }}</div>
                                         <span class="mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold {{ $statusClasses[$booking->status] ?? 'bg-slate-100 text-slate-600' }}">
                                             {{ $statusLabels[$booking->status] ?? ucfirst(str_replace('_', ' ', $booking->status)) }}
                                         </span>
@@ -1040,6 +1052,11 @@
                                             <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $paymentStatusClasses[$booking->payment?->status ?? 'pending'] ?? 'bg-slate-100 text-slate-600' }}">
                                                 {{ \App\Models\Booking::paymentStatusLabel($booking->payment?->status ?? 'pending') }}
                                             </span>
+                                            @if($booking->payment?->refund_status === 'failed')
+                                                <span class="mt-1 inline-flex rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-semibold text-red-700">Refund needs review</span>
+                                            @elseif(in_array($booking->payment?->refund_status, ['pending', 'processing'], true))
+                                                <span class="mt-1 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">Refund processing</span>
+                                            @endif
                                         </div>
                                         <div class="mt-1 text-xs text-slate-500">{{ \App\Models\Booking::paymentMethodLabel($booking->payment?->method ?? 'on_site_cash') }}</div>
                                     </td>
@@ -1068,7 +1085,7 @@
                                                 @csrf
                                                 @method('PATCH')
                                                 <div class="mb-1 px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-700">Cash commission</div>
-                                                <select name="provider_commission_status" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-orange-500 focus:outline-hidden">
+                                            <select name="provider_commission_status" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-orange-500 focus:outline-hidden" data-paid-status>
                                                     @foreach(\App\Models\Booking::providerCommissionStatuses() as $commissionStatusOption)
                                                         @continue($commissionStatusOption === 'not_applicable')
                                                         <option value="{{ $commissionStatusOption }}" {{ ($booking->provider_commission_status ?: 'unpaid') === $commissionStatusOption ? 'selected' : '' }}>
@@ -1077,8 +1094,8 @@
                                                     @endforeach
                                                 </select>
                                                 <div class="mt-2 grid gap-2">
-                                                    <input type="text" name="provider_commission_reference" value="{{ old('provider_commission_reference', $booking->provider_commission_reference) }}" placeholder="Commission payment reference" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-orange-500 focus:outline-hidden">
-                                                    <input type="datetime-local" name="provider_commission_paid_at" value="{{ old('provider_commission_paid_at', $booking->provider_commission_paid_at?->format('Y-m-d\TH:i')) }}" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-orange-500 focus:outline-hidden">
+                                                    <input type="text" name="provider_commission_reference" value="{{ old('provider_commission_reference', $booking->provider_commission_reference) }}" placeholder="Commission payment reference" data-required-when-paid maxlength="120" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-orange-500 focus:outline-hidden">
+                                                    <input type="datetime-local" name="provider_commission_paid_at" value="{{ old('provider_commission_paid_at', $formatBookingDateTime($booking->provider_commission_paid_at)) }}" data-required-when-paid class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-orange-500 focus:outline-hidden">
                                                     <input type="file" name="provider_commission_proof" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-lg border border-dashed border-orange-200 bg-white/70 px-2.5 py-2 text-[11px] text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-orange-600 file:px-2 file:py-1 file:text-[11px] file:font-bold file:text-white">
                                                     @if($booking->provider_commission_proof_path)
                                                         <a href="{{ route('admin.bookings.provider-commission-proof', $booking->id) }}" class="inline-flex items-center gap-2 px-1 text-[11px] font-bold text-orange-700 hover:text-orange-900">
@@ -1099,7 +1116,7 @@
                                                 @csrf
                                                 @method('PATCH')
                                                 <div class="mb-1 px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Provider payout</div>
-                                                <select name="provider_payout_status" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
+                                            <select name="provider_payout_status" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden" data-paid-status>
                                                     @foreach(\App\Models\Booking::providerPayoutStatuses() as $payoutStatusOption)
                                                         <option value="{{ $payoutStatusOption }}" {{ ($booking->provider_payout_status ?: 'pending') === $payoutStatusOption ? 'selected' : '' }}>
                                                             {{ \App\Models\Booking::providerPayoutStatusLabel($payoutStatusOption) }}
@@ -1107,8 +1124,8 @@
                                                     @endforeach
                                                 </select>
                                                 <div class="mt-2 grid gap-2">
-                                                    <input type="text" name="provider_payout_reference" value="{{ old('provider_payout_reference', $booking->provider_payout_reference) }}" placeholder="Payout reference for paid" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
-                                                    <input type="datetime-local" name="provider_payout_paid_at" value="{{ old('provider_payout_paid_at', $booking->provider_payout_paid_at?->format('Y-m-d\TH:i')) }}" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
+                                                    <input type="text" name="provider_payout_reference" value="{{ old('provider_payout_reference', $booking->provider_payout_reference) }}" placeholder="Payout reference for paid" data-required-when-paid maxlength="120" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
+                                                    <input type="datetime-local" name="provider_payout_paid_at" value="{{ old('provider_payout_paid_at', $formatBookingDateTime($booking->provider_payout_paid_at)) }}" data-required-when-paid class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-emerald-500 focus:outline-hidden">
                                                     <input type="file" name="provider_payout_proof" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-lg border border-dashed border-emerald-200 bg-white/70 px-2.5 py-2 text-[11px] text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-emerald-700 file:px-2 file:py-1 file:text-[11px] file:font-bold file:text-white">
                                                     @if($booking->provider_payout_proof_path)
                                                         <a href="{{ route('admin.bookings.payout-proof', $booking->id) }}" class="inline-flex items-center gap-2 px-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-900">
@@ -1135,6 +1152,7 @@
                                                         <option value="{{ $resolution }}">{{ $label }}</option>
                                                     @endforeach
                                                 </select>
+                                                <input type="number" name="refund_amount" min="0.01" max="{{ number_format((float) $booking->payment?->amount, 2, '.', '') }}" step="0.01" value="{{ old('refund_amount') }}" placeholder="Partial refund amount (PHP)" class="mt-2 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-red-500 focus:outline-hidden">
                                                 <textarea name="dispute_admin_notes" rows="2" class="mt-2 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-red-500 focus:outline-hidden" placeholder="Admin notes"></textarea>
                                                 <button type="submit" class="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white transition hover:bg-red-800">
                                                     <i class="fas fa-check"></i>
@@ -1165,3 +1183,30 @@
     @endif
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-paid-fields-form]').forEach(function (form) {
+        const status = form.querySelector('[data-paid-status]');
+        const fields = form.querySelectorAll('[data-required-when-paid]');
+
+        if (!status || !fields.length) {
+            return;
+        }
+
+        const syncRequiredFields = function () {
+            const paid = status.value === 'paid';
+
+            fields.forEach(function (field) {
+                field.required = paid;
+                field.setAttribute('aria-required', String(paid));
+            });
+        };
+
+        status.addEventListener('change', syncRequiredFields);
+        syncRequiredFields();
+    });
+});
+</script>
+@endpush

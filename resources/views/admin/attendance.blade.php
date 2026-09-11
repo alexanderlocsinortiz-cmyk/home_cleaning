@@ -262,7 +262,7 @@
                     </div>
                     <div>
                         <label for="template_id" class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Fingerprint Slot</label>
-                        <input id="template_id" name="template_id" type="number" min="1" max="162" value="{{ old('template_id') }}" placeholder="1" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100" required>
+                        <input id="template_id" name="template_id" type="number" min="1" max="162" step="1" value="{{ old('template_id') }}" placeholder="1" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition focus:border-emerald-500 focus:outline-hidden focus:ring-4 focus:ring-emerald-100" required>
                     </div>
                 </div>
 

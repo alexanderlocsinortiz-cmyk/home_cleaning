@@ -180,7 +180,7 @@
         ],
         [
             'label' => 'Avg Completed Revenue',
-            'value' => '&#8369;' . number_format($reportInsights['average_completed_revenue'], 0),
+            'value' => '&#8369;' . number_format($reportInsights['average_completed_revenue'], 2),
             'description' => 'Average revenue per completed visit',
             'accent' => 'border-l-cyan-500',
             'icon' => 'fa-receipt',
@@ -231,7 +231,7 @@
             <div class="grid grid-cols-2 gap-3 xl:min-w-[360px]">
                 <div class="rounded-2xl border border-white/18 bg-white/10 p-4 text-center shadow-[0_18px_40px_rgba(15,23,42,0.15)] backdrop-blur">
                     <div class="text-xs font-bold uppercase tracking-[0.16em] text-white/65">Total Revenue</div>
-                    <div class="mt-2 text-2xl font-black leading-none">&#8369;{{ number_format($totalRevenue, 0) }}</div>
+                    <div class="mt-2 text-2xl font-black leading-none">&#8369;{{ number_format($totalRevenue, 2) }}</div>
                     <div class="mt-1 text-xs text-white/60">Completed booking revenue</div>
                 </div>
                 <div class="rounded-2xl border border-white/18 bg-white/10 p-4 text-center shadow-[0_18px_40px_rgba(15,23,42,0.15)] backdrop-blur">
@@ -510,7 +510,7 @@
                             </div>
                             <div class="mt-2 text-sm font-black {{ $month->total > 0 ? 'text-slate-900' : 'text-slate-400' }}">{{ $month->total }}</div>
                             <div class="text-xs font-medium text-slate-400">{{ $month->short_label }}</div>
-                            <div class="mt-0.5 text-[11px] {{ $month->revenue > 0 ? 'text-emerald-600 font-semibold' : 'text-slate-300' }}">&#8369;{{ number_format($month->revenue, 0) }}</div>
+                            <div class="mt-0.5 text-[11px] {{ $month->revenue > 0 ? 'text-emerald-600 font-semibold' : 'text-slate-300' }}">&#8369;{{ number_format($month->revenue, 2) }}</div>
                         </div>
                     @endforeach
                 </div>
@@ -648,9 +648,9 @@
                                 <div class="mt-1 text-xs text-slate-500">{{ $type->total }} completed booking{{ $type->total == 1 ? '' : 's' }}</div>
                             </div>
                             <div class="text-right">
-                                <div class="text-lg font-black text-emerald-600">&#8369;{{ number_format($type->revenue, 0) }}</div>
+                                <div class="text-lg font-black text-emerald-600">&#8369;{{ number_format($type->revenue, 2) }}</div>
                                 <div class="text-[11px] font-semibold text-slate-400">
-                                    Avg &#8369;{{ $type->total > 0 ? number_format($type->revenue / $type->total, 0) : 0 }}
+                                    Avg &#8369;{{ $type->total > 0 ? number_format($type->revenue / $type->total, 2) : '0.00' }}
                                 </div>
                             </div>
                         </div>

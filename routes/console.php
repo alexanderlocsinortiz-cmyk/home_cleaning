@@ -1,13 +1,20 @@
 <?php
 
 use App\Http\Controllers\AdminSettingsController;
+use App\Jobs\SendBookingReminderEmail;
+use App\Models\Booking;
 use App\Models\BookingServiceProof;
 use App\Models\CleanerApplication;
 use App\Models\Device;
+use App\Models\Notification;
+use App\Models\Payment;
 use App\Models\Rating;
 use App\Models\SecurityEvent;
+use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -17,6 +24,206 @@ use Symfony\Component\Console\Command\Command;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Artisan::command('bookings:send-reminders', function (): int {
+    $timezone = (string) config('cleanflow.attendance_timezone', config('app.timezone'));
+    $now = Carbon::now($timezone);
+    $windows = [
+        [
+            'key' => '24h',
+            'min_minutes' => 1430,
+            'max_minutes' => 1450,
+            'client_title' => 'Booking tomorrow',
+            'worker_title' => 'Booking tomorrow',
+            'client_message' => 'Your cleaning service is scheduled for :date at :time. Please make sure the service address is ready for your cleaner.',
+            'worker_message' => 'Booking :code is scheduled for :date at :time. Please review the service address and arrive prepared.',
+        ],
+        [
+            'key' => '1h',
+            'min_minutes' => 50,
+            'max_minutes' => 70,
+            'client_title' => 'Booking starts soon',
+            'worker_title' => 'Booking starts in about 1 hour',
+            'client_message' => 'Your cleaning service starts at :time today. Please keep your phone available in case your cleaner needs help finding the address.',
+            'worker_message' => 'Booking :code starts at :time today. Please check the client pin and service notes before travelling.',
+        ],
+    ];
+    $created = 0;
+
+    Booking::query()
+        ->with(['user', 'staffAssignments', 'cleanerApplication.user'])
+        ->where('status', 'confirmed')
+        ->whereDate('scheduled_date', '>=', $now->toDateString())
+        ->get()
+        ->each(function (Booking $booking) use ($now, $timezone, $windows, &$created): void {
+            if (! $booking->scheduled_date || ! $booking->scheduled_time) {
+                return;
+            }
+
+            $startsAt = Carbon::parse(
+                $booking->scheduled_date->toDateString().' '.$booking->scheduled_time,
+                $timezone
+            );
+            $minutesUntilStart = $now->diffInMinutes($startsAt, false);
+            $window = collect($windows)->first(fn (array $candidate): bool => $minutesUntilStart >= $candidate['min_minutes']
+                && $minutesUntilStart <= $candidate['max_minutes']
+            );
+
+            if (! $window) {
+                return;
+            }
+
+            $bookingCode = 'CF-'.str_pad((string) $booking->id, 5, '0', STR_PAD_LEFT);
+            $date = $startsAt->format('F d, Y');
+            $time = $startsAt->format('h:i A');
+            $recipients = collect();
+
+            if ($booking->user) {
+                $recipients->push([
+                    'user' => $booking->user,
+                    'role' => 'client',
+                ]);
+            }
+
+            $staffIds = collect([$booking->staff_id])
+                ->merge($booking->staffAssignments->pluck('staff_id'))
+                ->filter()
+                ->unique()
+                ->values();
+
+            User::whereIn('id', $staffIds)->get()->each(function (User $staff) use ($recipients): void {
+                $recipients->push([
+                    'user' => $staff,
+                    'role' => 'worker',
+                ]);
+            });
+
+            if ($booking->hasAcceptedProviderAssignment() && $booking->cleanerApplication?->user) {
+                $recipients->push([
+                    'user' => $booking->cleanerApplication->user,
+                    'role' => 'worker',
+                ]);
+            }
+
+            $recipients
+                ->unique(fn (array $recipient): string => $recipient['user']->id.'-'.$recipient['role'])
+                ->each(function (array $recipient) use ($booking, $bookingCode, $date, $time, $window, &$created): void {
+                    $user = $recipient['user'];
+                    $isClient = $recipient['role'] === 'client';
+                    $key = 'booking-reminder:'.$booking->id.':'.$user->id.':'.$window['key'];
+                    $notification = Notification::firstOrCreate(
+                        ['dedupe_key' => $key],
+                        [
+                            'user_id' => $user->id,
+                            'booking_id' => $booking->id,
+                            'subject' => 'Booking reminder - Home Cleaning Service',
+                            'title' => $isClient ? $window['client_title'] : $window['worker_title'],
+                            'message' => str_replace(
+                                [':code', ':date', ':time'],
+                                [$bookingCode, $date, $time],
+                                $isClient ? $window['client_message'] : $window['worker_message']
+                            ),
+                            'type' => 'booking_reminder',
+                            'link' => route($isClient ? 'bookings.show' : ($user->role === 'staff' ? 'staff.bookings' : 'provider.bookings'), $isClient ? $booking->id : []),
+                        ]
+                    );
+
+                    if ($notification->wasRecentlyCreated) {
+                        SendBookingReminderEmail::dispatch($notification->id);
+                        $created++;
+                    }
+                });
+        });
+
+    $this->info('Created '.$created.' booking reminder notification'.($created === 1 ? '' : 's').'.');
+
+    return Command::SUCCESS;
+})->purpose('Create deduplicated in-app and email reminders for confirmed bookings');
+
+Artisan::command('bookings:expire-unpaid-online', function (): int {
+    $expiryMinutes = (int) config('cleanflow.payments.unpaid_online_expiry_minutes', 30);
+    $cutoff = now()->subMinutes($expiryMinutes);
+    $expired = 0;
+
+    // Read candidate IDs first, then re-check every condition while holding the
+    // booking and payment rows. This prevents a payment webhook racing the
+    // expiry task from cancelling a booking that has already been paid.
+    $candidateIds = Booking::query()
+        ->whereIn('status', ['pending', 'confirmed'])
+        ->whereHas('payments', function ($query) use ($cutoff): void {
+            $query->whereIn('method', ['gcash', 'maya'])
+                ->where('status', 'pending')
+                ->where('created_at', '<=', $cutoff);
+        })
+        ->orderBy('id')
+        ->pluck('id');
+
+    foreach ($candidateIds as $bookingId) {
+        $didExpire = Cache::lock('booking-payment-expiry:'.$bookingId, 30)->block(5, function () use ($bookingId, $cutoff, $expiryMinutes): bool {
+            return DB::transaction(function () use ($bookingId, $cutoff, $expiryMinutes): bool {
+                $booking = Booking::with(['staffAssignments', 'cleanerApplication'])
+                    ->whereKey($bookingId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $booking || ! in_array($booking->status, ['pending', 'confirmed'], true)) {
+                    return false;
+                }
+
+                $payment = Payment::query()
+                    ->where('booking_id', $booking->id)
+                    ->latest('id')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $payment
+                    || ! Booking::isDigitalPaymentMethod($payment->method)
+                    || $payment->status !== 'pending'
+                    || ! $payment->created_at
+                    || $payment->created_at->gt($cutoff)
+                    || $booking->assignedStaffIds() !== []
+                    || $booking->hasAcceptedProviderAssignment()) {
+                    return false;
+                }
+
+                $fromStatus = $booking->status;
+                $bookingCode = 'CF-'.str_pad((string) $booking->id, 5, '0', STR_PAD_LEFT);
+
+                $booking->status = 'cancelled';
+                $booking->save();
+                $booking->logActivity(null, 'status_updated', 'Booking automatically cancelled because online payment was not completed within the payment window.', [
+                    'from_status' => $fromStatus,
+                    'to_status' => 'cancelled',
+                    'reason' => 'unpaid_online_payment_expired',
+                    'expiry_minutes' => $expiryMinutes,
+                ]);
+
+                Notification::firstOrCreate(
+                    ['dedupe_key' => 'booking-payment-expired:'.$booking->id],
+                    [
+                        'user_id' => $booking->user_id,
+                        'booking_id' => $booking->id,
+                        'subject' => 'Online payment expired - Home Cleaning Service',
+                        'title' => 'Booking cancelled: payment not completed',
+                        'message' => 'Booking '.$bookingCode.' was cancelled because the online payment was not completed within '.$expiryMinutes.' minutes. The schedule is available again. No payment was taken.',
+                        'type' => 'booking_status',
+                        'link' => route('bookings.show', $booking->id),
+                    ]
+                );
+
+                return true;
+            });
+        });
+
+        if ($didExpire) {
+            $expired++;
+        }
+    }
+
+    $this->info('Automatically cancelled '.$expired.' unpaid online booking'.($expired === 1 ? '' : 's').'.');
+
+    return Command::SUCCESS;
+})->purpose('Cancel unpaid GCash and Maya bookings after the payment window');
 
 Artisan::command('attendance:register-device
     {serial : Unique serial number for the ESP32 unit}

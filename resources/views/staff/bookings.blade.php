@@ -251,7 +251,7 @@
                     <button type="button" class="proof-upload-remove" data-remove-upload>Remove selected photos</button>
                     <span class="proof-upload-error"></span>
                   </span>
-                  <input id="before-photos-{{ $booking->id }}" type="file" name="before_photos[]" accept="image/*" multiple data-required-message="Select at least one before-service photo before starting." class="status-file-input proof-upload-input">
+                  <input id="before-photos-{{ $booking->id }}" type="file" name="before_photos[]" accept="image/jpeg,image/png,image/webp" multiple data-required-message="Select at least one before-service photo before starting." class="status-file-input proof-upload-input">
                 </label>
                 <button type="submit" class="status-submit-btn status-submit-btn--start">
                   Start Service
@@ -295,7 +295,7 @@
                     <button type="button" class="proof-upload-remove" data-remove-upload>Remove selected photos</button>
                     <span class="proof-upload-error"></span>
                   </span>
-                  <input id="after-photos-{{ $booking->id }}" type="file" name="after_photos[]" accept="image/*" multiple data-required-message="Select at least one after-service photo before completing." class="status-file-input proof-upload-input">
+                  <input id="after-photos-{{ $booking->id }}" type="file" name="after_photos[]" accept="image/jpeg,image/png,image/webp" multiple data-required-message="Select at least one after-service photo before completing." class="status-file-input proof-upload-input">
                 </label>
                 <label for="completion-video-{{ $booking->id }}" class="proof-upload-card proof-upload-card--video">
                   <span class="proof-upload-icon"><i class="fas fa-video"></i></span>

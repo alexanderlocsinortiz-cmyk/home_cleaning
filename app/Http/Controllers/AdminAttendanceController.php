@@ -21,6 +21,19 @@ class AdminAttendanceController extends Controller
 
     public function attendance(Request $request)
     {
+        $request->validate([
+            'period' => ['nullable', Rule::in(['today', 'yesterday', 'this_week', 'last_week', 'this_month', 'last_month'])],
+            'staff_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'staff')),
+            ],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d'],
+            'status' => ['nullable', Rule::in(['present', 'late'])],
+            'punch_type' => ['nullable', Rule::in(['in', 'out'])],
+        ]);
+
         [$todayStartUtc, $todayEndUtc, $attendanceDate] = $this->attendanceUtcRange();
         $historyData = $this->buildAttendanceHistoryData($request);
         $staff = User::where('role', 'staff')

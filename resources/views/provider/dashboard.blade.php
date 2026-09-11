@@ -10,14 +10,16 @@
 
 @section('content')
 @php
+    $dashboardTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+    $formatDashboardDateTime = static fn ($value, string $format = 'M d, Y') => $value?->copy()->timezone($dashboardTimezone)->format($format);
     $cleanerName = $application?->business_name ?? auth()->user()->display_name;
     $ratingValue = $ratingStats['average'] ?? null;
     $currentProgress = [
-        ['label' => 'Assigned', 'icon' => 'fa-clipboard-check', 'active' => (bool) $currentBooking, 'meta' => $currentBooking?->created_at?->format('M d, Y')],
+        ['label' => 'Assigned', 'icon' => 'fa-clipboard-check', 'active' => (bool) $currentBooking, 'meta' => $formatDashboardDateTime($currentBooking?->created_at)],
         ['label' => 'Confirmed', 'icon' => 'fa-check', 'active' => $currentBooking && in_array($currentBooking->status, ['confirmed', 'in_progress', 'completed'], true), 'meta' => $currentBooking?->scheduled_date?->format('M d, Y')],
-        ['label' => 'Checked In', 'icon' => 'fa-broom', 'active' => (bool) $currentBooking?->started_at, 'meta' => $currentBooking?->started_at?->format('h:i A')],
+        ['label' => 'Checked In', 'icon' => 'fa-broom', 'active' => (bool) $currentBooking?->started_at, 'meta' => $formatDashboardDateTime($currentBooking?->started_at, 'h:i A')],
         ['label' => 'In Progress', 'icon' => 'fa-person-running', 'active' => $currentBooking && in_array($currentBooking->status, ['in_progress', 'completed'], true), 'meta' => $currentBooking?->status === 'in_progress' ? 'Ongoing' : null],
-        ['label' => 'Completed', 'icon' => 'fa-flag-checkered', 'active' => $currentBooking?->status === 'completed', 'meta' => $currentBooking?->completed_at?->format('h:i A') ?? 'Pending'],
+        ['label' => 'Completed', 'icon' => 'fa-flag-checkered', 'active' => $currentBooking?->status === 'completed', 'meta' => $formatDashboardDateTime($currentBooking?->completed_at, 'h:i A') ?? 'Pending'],
     ];
 @endphp
 
@@ -268,7 +270,7 @@
                         @method('PATCH')
                         <div>
                             <label for="availability_status" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Assignment status</label>
-                            <select id="availability_status" name="availability_status" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-semibold focus:border-blue-500 focus:outline-hidden">
+                            <select id="availability_status" name="availability_status" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-semibold focus:border-blue-500 focus:outline-hidden">
                                 <option value="available" {{ old('availability_status', $application->availability_status ?: 'available') === 'available' ? 'selected' : '' }}>Available</option>
                                 <option value="paused" {{ old('availability_status', $application->availability_status) === 'paused' ? 'selected' : '' }}>Paused</option>
                             </select>
@@ -279,7 +281,7 @@
                         </div>
                         <div>
                             <label for="max_daily_bookings" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Daily booking limit</label>
-                            <input id="max_daily_bookings" type="number" min="1" max="20" name="max_daily_bookings" value="{{ old('max_daily_bookings', $application->max_daily_bookings) }}" placeholder="No limit" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-hidden">
+                            <input id="max_daily_bookings" type="number" min="1" max="20" step="1" name="max_daily_bookings" value="{{ old('max_daily_bookings', $application->max_daily_bookings) }}" placeholder="No limit" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-hidden">
                         </div>
                         <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-black text-blue-700 transition hover:bg-blue-100">
                             <i class="fas fa-calendar-check"></i>
@@ -318,7 +320,7 @@
                         <div class="grid gap-3 sm:grid-cols-3">
                             <div>
                                 <label for="payout_method" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Payout method</label>
-                                <select id="payout_method" name="payout_method" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-semibold focus:border-blue-500 focus:outline-hidden">
+                                <select id="payout_method" name="payout_method" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-semibold focus:border-blue-500 focus:outline-hidden">
                                     @foreach(\App\Models\CleanerApplication::PAYOUT_METHOD_LABELS as $method => $label)
                                         <option value="{{ $method }}" {{ old('payout_method', $application->payout_method) === $method ? 'selected' : '' }}>{{ $label }}</option>
                                     @endforeach
@@ -326,31 +328,31 @@
                             </div>
                             <div>
                                 <label for="payout_account_name" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Account name</label>
-                                <input id="payout_account_name" name="payout_account_name" value="{{ old('payout_account_name', $application->payout_account_name) }}" placeholder="Name on account" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-hidden">
+                                <input id="payout_account_name" name="payout_account_name" value="{{ old('payout_account_name', $application->payout_account_name) }}" placeholder="Name on account" required maxlength="150" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-hidden">
                             </div>
                             <div>
                                 <label for="payout_account_number" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Account number</label>
-                                <input id="payout_account_number" name="payout_account_number" value="{{ old('payout_account_number', $application->payout_account_number) }}" placeholder="Account or mobile number" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-hidden">
+                                <input id="payout_account_number" name="payout_account_number" value="{{ old('payout_account_number', $application->payout_account_number) }}" placeholder="Account or mobile number" required maxlength="100" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-hidden">
                             </div>
                         </div>
                         <div class="grid gap-3 sm:grid-cols-3">
                             <div>
                                 <label for="valid_id_front_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Valid ID · front</label>
-                                <input id="valid_id_front_document" type="file" name="valid_id_front_document" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
+                                <input id="valid_id_front_document" type="file" name="valid_id_front_document" accept=".jpg,.jpeg,.png,.pdf" @if(! $application->hasUploadedPayoutDocument(\App\Models\CleanerApplicationDocument::TYPE_VALID_ID_FRONT)) required @endif class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
                             </div>
                             <div>
                                 <label for="valid_id_back_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Valid ID · back</label>
-                                <input id="valid_id_back_document" type="file" name="valid_id_back_document" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
+                                <input id="valid_id_back_document" type="file" name="valid_id_back_document" accept=".jpg,.jpeg,.png,.pdf" @if(! $application->hasUploadedPayoutDocument(\App\Models\CleanerApplicationDocument::TYPE_VALID_ID_BACK)) required @endif class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
                             </div>
                             <div>
                                 <label for="payout_account_proof_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Account proof</label>
-                                <input id="payout_account_proof_document" type="file" name="payout_account_proof_document" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
+                                <input id="payout_account_proof_document" type="file" name="payout_account_proof_document" accept=".jpg,.jpeg,.png,.pdf" @if(! $application->hasUploadedPayoutDocument(\App\Models\CleanerApplicationDocument::TYPE_PAYOUT_ACCOUNT_PROOF)) required @endif class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
                             </div>
                         </div>
                         @if($application->isTeam())
                             <div>
                                 <label for="business_permit_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Business permit</label>
-                                <input id="business_permit_document" type="file" name="business_permit_document" accept=".jpg,.jpeg,.png,.pdf" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
+                                <input id="business_permit_document" type="file" name="business_permit_document" accept=".jpg,.jpeg,.png,.pdf" @if(! $application->hasUploadedPayoutDocument(\App\Models\CleanerApplicationDocument::TYPE_BUSINESS_PERMIT)) required @endif class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
                             </div>
                         @endif
                         <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-700">
@@ -371,7 +373,7 @@
                     </div>
                     <span class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700 ring-1 ring-blue-100"><i class="fas fa-lock"></i> Admin-only location</span>
                 </div>
-                <form action="{{ route('provider.location.update') }}" method="POST" class="mt-5 grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+                <form action="{{ route('provider.location.update') }}" method="POST" class="mt-5 grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]" data-provider-location-form>
                     @csrf
                     @method('PATCH')
                     <div>
@@ -449,4 +451,26 @@
     window.cleanflowProviderLocationCenters = @json(config('cleanflow.bukidnon_location_centers', []));
 </script>
 <script src="{{ asset('js/provider-location-map.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-provider-location-form]').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            const latitude = form.querySelector('[name="location_latitude"]')?.value;
+            const longitude = form.querySelector('[name="location_longitude"]')?.value;
+            const status = form.querySelector('[data-provider-location-status]');
+
+            if (latitude && longitude) {
+                return;
+            }
+
+            event.preventDefault();
+            if (status) {
+                status.textContent = 'Click the map or use your current location before saving.';
+                status.classList.add('text-red-600');
+                status.classList.remove('text-emerald-700');
+            }
+        });
+    });
+});
+</script>
 @endpush

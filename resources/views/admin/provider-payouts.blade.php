@@ -5,6 +5,7 @@
 @section('page-subtitle', 'Review marketplace gross amounts, commission, and provider payout status')
 
 @section('content')
+@php($payoutTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila'))
 <div class="admin-page-content cleanflow-page-shell space-y-6 p-6">
     <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -164,7 +165,7 @@
                                             <div><span class="font-bold text-slate-700">Ref:</span> {{ $booking->provider_commission_reference }}</div>
                                         @endif
                                         @if($booking->provider_commission_paid_at)
-                                            <div><span class="font-bold text-slate-700">Paid:</span> {{ $booking->provider_commission_paid_at->format('M d, Y h:i A') }}</div>
+                                            <div><span class="font-bold text-slate-700">Paid:</span> {{ $booking->provider_commission_paid_at->copy()->timezone($payoutTimezone)->format('M d, Y h:i A') }}</div>
                                         @endif
                                         @if($booking->provider_commission_proof_path)
                                             <a href="{{ route('admin.bookings.provider-commission-proof', $booking->id) }}" class="inline-flex items-center gap-1 font-bold text-orange-700 hover:text-orange-900">
@@ -184,7 +185,7 @@
                                             <div><span class="font-bold text-slate-700">Ref:</span> {{ $booking->provider_payout_reference }}</div>
                                         @endif
                                         @if($booking->provider_payout_paid_at)
-                                            <div><span class="font-bold text-slate-700">Paid:</span> {{ $booking->provider_payout_paid_at->format('M d, Y h:i A') }}</div>
+                                            <div><span class="font-bold text-slate-700">Paid:</span> {{ $booking->provider_payout_paid_at->copy()->timezone($payoutTimezone)->format('M d, Y h:i A') }}</div>
                                         @endif
                                         @if($booking->provider_payout_proof_path)
                                             <a href="{{ route('admin.bookings.payout-proof', $booking->id) }}" class="inline-flex items-center gap-1 font-bold text-emerald-700 hover:text-emerald-900">
@@ -206,7 +207,7 @@
                                                         {{ \App\Models\Booking::providerPayoutStatusLabel($transaction->to_status) }}
                                                     </div>
                                                     <div class="mt-1 text-slate-500">
-                                                        {{ $transaction->created_at->format('M d, Y h:i A') }}
+                                                        {{ $transaction->created_at->copy()->timezone($payoutTimezone)->format('M d, Y h:i A') }}
                                                         @if($transaction->processor)
                                                             by {{ $transaction->processor->full_name }}
                                                         @endif
@@ -215,7 +216,7 @@
                                                         <div class="mt-1"><span class="font-bold text-slate-700">Ref:</span> {{ $transaction->payout_reference }}</div>
                                                     @endif
                                                     @if($transaction->payout_paid_at)
-                                                        <div class="mt-1"><span class="font-bold text-slate-700">Paid:</span> {{ $transaction->payout_paid_at->format('M d, Y h:i A') }}</div>
+                                                        <div class="mt-1"><span class="font-bold text-slate-700">Paid:</span> {{ $transaction->payout_paid_at->copy()->timezone($payoutTimezone)->format('M d, Y h:i A') }}</div>
                                                     @endif
                                                     @if($transaction->payout_proof_path)
                                                         <a href="{{ route('admin.provider-payout-transactions.proof', $transaction) }}" class="mt-1 inline-flex items-center gap-1 font-bold text-emerald-700 hover:text-emerald-900">

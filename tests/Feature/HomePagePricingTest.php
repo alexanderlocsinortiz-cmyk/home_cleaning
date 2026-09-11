@@ -85,7 +85,7 @@ class HomePagePricingTest extends TestCase
         Service::updateOrCreate(['slug' => 'basic'], [
             'name' => 'Basic Clean',
             'description' => 'Routine cleaning',
-            'price' => 47,
+            'price' => 47.25,
             'duration_minutes' => 60,
             'is_active' => true,
         ]);
@@ -93,7 +93,9 @@ class HomePagePricingTest extends TestCase
         $html = $this->get(route('home'))->getContent();
 
         $this->assertStringContainsString('"slug":"basic"', $html);
-        $this->assertStringContainsString('"area_rate":47', $html);
+        $this->assertStringContainsString('"area_rate":47.25', $html);
+        $this->assertStringContainsString('&#8369;1,417.50', $html);
+        $this->assertStringContainsString('minimumFractionDigits: 2', $html);
         $this->assertStringNotContainsString('"slug":"basic-clean"', $html);
     }
 }

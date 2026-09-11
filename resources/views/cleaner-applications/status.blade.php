@@ -3,11 +3,12 @@
 @section('title', 'Cleaner Application Status')
 
 @section('content')
+@php($applicationTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila'))
 <section class="bg-slate-50 px-5 py-10 sm:py-16">
     <div class="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <div class="text-xs font-black uppercase tracking-[0.16em] text-blue-700">Cleaner application</div>
         <h1 class="mt-2 text-3xl font-black text-slate-950">Application status</h1>
-        <p class="mt-3 text-sm leading-7 text-slate-600">This secure status link is valid until {{ optional($application->tracking_token_expires_at)->format('F j, Y') }}.</p>
+        <p class="mt-3 text-sm leading-7 text-slate-600">This secure status link is valid until {{ optional($application->tracking_token_expires_at?->copy()->timezone($applicationTimezone))->format('F j, Y') }}.</p>
 
         <div class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-5">
             <div class="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Application #{{ $application->id }}</div>

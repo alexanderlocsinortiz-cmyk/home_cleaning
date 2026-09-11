@@ -11,15 +11,21 @@ class Payment extends Model
         'booking_id',
         'method',
         'status',
+        'refund_status',
         'amount',
+        'refund_amount',
         'collected_amount',
         'currency',
         'provider',
         'provider_payment_id',
+        'refund_reference',
         'checkout_session_id',
         'reference',
         'receipt_number',
         'paid_at',
+        'refund_requested_at',
+        'refunded_at',
+        'refund_failure_reason',
         'collected_at',
         'collected_by',
         'receipt_notes',
@@ -37,8 +43,11 @@ class Payment extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'refund_amount' => 'decimal:2',
         'collected_amount' => 'decimal:2',
         'paid_at' => 'datetime',
+        'refund_requested_at' => 'datetime',
+        'refunded_at' => 'datetime',
         'collected_at' => 'datetime',
         'cash_proof_size' => 'integer',
         'cash_proof_submitted_at' => 'datetime',
@@ -59,5 +68,16 @@ class Payment extends Model
     public function cashProofReviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'cash_proof_reviewed_by');
+    }
+
+    public function refundStatusLabel(): string
+    {
+        return match ($this->refund_status ?: 'none') {
+            'pending' => 'Refund requested',
+            'processing' => 'Refund processing',
+            'succeeded' => 'Refunded',
+            'failed' => 'Refund needs review',
+            default => 'No refund requested',
+        };
     }
 }

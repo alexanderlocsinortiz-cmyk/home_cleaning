@@ -88,7 +88,28 @@ class MobileServiceApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('pricing.floor_area_fee', 2850)
             ->assertJsonPath('pricing.total', 2850)
-            ->assertJsonPath('formatted_total', 'P2,850');
+            ->assertJsonPath('formatted_total', 'P2,850.00');
+    }
+
+    public function test_mobile_price_format_keeps_centavos(): void
+    {
+        Service::updateOrCreate(['slug' => 'deep'], [
+            'name' => 'Deep Clean',
+            'price' => 95.25,
+            'is_active' => true,
+        ]);
+
+        $token = $this->mobileToken();
+
+        $this->postJson('/api/mobile/calculate-price', [
+            'service_type' => 'deep',
+            'property_type' => 'house',
+            'floor_area' => 30,
+            'add_ons' => [],
+        ])
+            ->assertOk()
+            ->assertJsonPath('pricing.total', 2857.5)
+            ->assertJsonPath('formatted_total', 'P2,857.50');
     }
 
     public function test_mobile_price_calculation_rejects_incompatible_service_and_property_type(): void

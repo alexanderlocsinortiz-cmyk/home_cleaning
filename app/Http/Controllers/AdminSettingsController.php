@@ -350,9 +350,19 @@ class AdminSettingsController extends Controller
         $diskName = (string) config('filesystems.database_backup_disk');
         $diskConfig = (array) config('filesystems.disks.'.$diskName, []);
         $driver = $diskConfig['driver'] ?? null;
+        $publicDisk = (string) config('filesystems.public_uploads_disk');
+        $visibility = strtolower((string) ($diskConfig['visibility'] ?? 'private'));
 
         if ($driver === 'local' && ! app()->environment('testing')) {
             throw new RuntimeException('Cloud backup storage is not configured. Set DATABASE_BACKUP_DISK to a private S3-compatible disk.');
+        }
+
+        if ($diskName === $publicDisk) {
+            throw new RuntimeException('Database backups cannot use the public uploads disk. Configure DATABASE_BACKUP_DISK to a private disk.');
+        }
+
+        if (in_array($visibility, ['public', 'public-read'], true)) {
+            throw new RuntimeException('Database backups require private object visibility.');
         }
 
         if (! is_file($backupPath) || filesize($backupPath) === 0) {

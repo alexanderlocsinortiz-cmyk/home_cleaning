@@ -15,6 +15,7 @@
 
 @php
     $payment = $booking->payment;
+    $bookingTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
     $receiptNumber = $payment?->method === 'on_site_cash'
         ? $payment->receipt_number
         : $payment?->reference;
@@ -64,7 +65,7 @@
                 </div>
                 <div>
                     <p class="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Payment date</p>
-                    <p class="mt-1 font-semibold text-slate-900">{{ $paidAt?->format('F d, Y h:i A') }}</p>
+                    <p class="mt-1 font-semibold text-slate-900">{{ $paidAt?->copy()->timezone($bookingTimezone)->format('F d, Y h:i A') }}</p>
                     <p class="text-sm text-slate-500">{{ \App\Models\Booking::paymentMethodLabel($payment?->method ?? 'on_site_cash') }}</p>
                 </div>
             </div>

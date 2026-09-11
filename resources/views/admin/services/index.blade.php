@@ -86,23 +86,23 @@
             @csrf
             <div>
                 <label for="addon-label" class="text-xs font-bold uppercase tracking-wide text-slate-500">Add-on Name</label>
-                <input id="addon-label" type="text" name="label" value="{{ old('label') }}" required class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100" placeholder="Example: Oven Cleaning">
+                <input id="addon-label" type="text" name="label" value="{{ old('label') }}" required maxlength="100" class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100" placeholder="Example: Oven Cleaning">
             </div>
             <div>
                 <label for="addon-description" class="text-xs font-bold uppercase tracking-wide text-slate-500">Description</label>
-                <input id="addon-description" type="text" name="description" value="{{ old('description') }}" class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100" placeholder="What this add-on includes">
+                <input id="addon-description" type="text" name="description" value="{{ old('description') }}" maxlength="500" class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100" placeholder="What this add-on includes">
             </div>
             <div>
                 <label for="addon-price" class="text-xs font-bold uppercase tracking-wide text-slate-500">Price</label>
-                <input id="addon-price" type="number" name="price" value="{{ old('price') }}" min="0" step="0.01" required class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
+                <input id="addon-price" type="number" name="price" value="{{ old('price') }}" min="0" max="99999999.99" step="0.01" required class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
             </div>
             <div>
                 <label for="addon-pricing-unit" class="text-xs font-bold uppercase tracking-wide text-slate-500">Charging basis</label>
-                <input id="addon-pricing-unit" type="text" name="pricing_unit" value="{{ old('pricing_unit', 'per booking') }}" required class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100" placeholder="per booking / per seat">
+                <input id="addon-pricing-unit" type="text" name="pricing_unit" value="{{ old('pricing_unit', 'per booking') }}" required maxlength="60" class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100" placeholder="per booking / per seat">
             </div>
             <div>
                 <label for="addon-sort-order" class="text-xs font-bold uppercase tracking-wide text-slate-500">Order</label>
-                <input id="addon-sort-order" type="number" name="sort_order" value="{{ old('sort_order', $addOns->count() + 1) }}" min="0" class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
+                <input id="addon-sort-order" type="number" name="sort_order" value="{{ old('sort_order', $addOns->count() + 1) }}" min="0" max="9999" step="1" class="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
             </div>
             <label class="inline-flex items-center gap-2 text-sm font-bold text-slate-700">
                 <input type="checkbox" name="is_active" value="1" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" checked>
@@ -131,20 +131,20 @@
                     @forelse($addOns as $addOn)
                         <tr class="border-t border-slate-100 transition hover:bg-slate-50/70">
                             <td class="px-5 py-4">
-                                <input form="addon-update-{{ $addOn->id }}" type="text" name="label" value="{{ old('label', $addOn->label) }}" required class="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
+                                <input form="addon-update-{{ $addOn->id }}" type="text" name="label" value="{{ old('label', $addOn->label) }}" required maxlength="100" class="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
                                 <div class="mt-2 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Key: {{ $addOn->key }}</div>
                             </td>
                             <td class="px-5 py-4">
-                                <input form="addon-update-{{ $addOn->id }}" type="text" name="description" value="{{ old('description', $addOn->description) }}" class="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
+                                <input form="addon-update-{{ $addOn->id }}" type="text" name="description" value="{{ old('description', $addOn->description) }}" maxlength="500" class="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
                             </td>
                             <td class="px-5 py-4">
-                                <input form="addon-update-{{ $addOn->id }}" type="number" name="price" value="{{ old('price', $addOn->price) }}" min="0" step="0.01" required class="mx-auto w-32 rounded-2xl border border-slate-200 px-3 py-2 text-center text-sm font-black text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
+                                <input form="addon-update-{{ $addOn->id }}" type="number" name="price" value="{{ old('price', $addOn->price) }}" min="0" max="99999999.99" step="0.01" required class="mx-auto w-32 rounded-2xl border border-slate-200 px-3 py-2 text-center text-sm font-black text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
                             </td>
                             <td class="px-5 py-4">
-                                <input form="addon-update-{{ $addOn->id }}" type="text" name="pricing_unit" value="{{ old('pricing_unit', $addOn->pricing_unit ?: 'per booking') }}" required class="mx-auto w-36 rounded-2xl border border-slate-200 px-3 py-2 text-center text-sm text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
+                                <input form="addon-update-{{ $addOn->id }}" type="text" name="pricing_unit" value="{{ old('pricing_unit', $addOn->pricing_unit ?: 'per booking') }}" required maxlength="60" class="mx-auto w-36 rounded-2xl border border-slate-200 px-3 py-2 text-center text-sm text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
                             </td>
                             <td class="px-5 py-4">
-                                <input form="addon-update-{{ $addOn->id }}" type="number" name="sort_order" value="{{ old('sort_order', $addOn->sort_order) }}" min="0" class="mx-auto w-24 rounded-2xl border border-slate-200 px-3 py-2 text-center text-sm font-bold text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
+                                <input form="addon-update-{{ $addOn->id }}" type="number" name="sort_order" value="{{ old('sort_order', $addOn->sort_order) }}" min="0" max="9999" step="1" class="mx-auto w-24 rounded-2xl border border-slate-200 px-3 py-2 text-center text-sm font-bold text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
                             </td>
                             <td class="px-5 py-4 text-center">
                                 <label class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold {{ $addOn->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700' }}">

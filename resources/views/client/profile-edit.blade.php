@@ -120,6 +120,7 @@
                                 class="client-profile-input"
                                 value="{{ old('first_name', $user->first_name) }}"
                                 placeholder="First name"
+                                maxlength="100"
                                 required
                             >
                             @error('first_name')
@@ -136,6 +137,7 @@
                                 class="client-profile-input"
                                 value="{{ old('last_name', $user->last_name) }}"
                                 placeholder="Last name"
+                                maxlength="100"
                                 required
                             >
                             @error('last_name')
@@ -153,7 +155,9 @@
                                 value="{{ old('phone', $user->phone) }}"
                                 placeholder="09XXXXXXXXX"
                                 inputmode="numeric"
-                                pattern="[0-9]{11}"
+                                pattern="09[0-9]{9}"
+                                title="Enter an 11-digit Philippine mobile number starting with 09"
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11)"
                                 maxlength="11"
                                 required
                             >
@@ -228,6 +232,7 @@
                                 class="client-profile-input"
                                 value="{{ old('street', $user->street) }}"
                                 placeholder="e.g. 123 Rizal Street"
+                                maxlength="255"
                                 required
                             >
                             @error('street')

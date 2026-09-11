@@ -5,6 +5,7 @@
 
 @section('content')
 @php
+    $adminTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
     $isVerified = !is_null($customer->email_verified_at);
     $latestBookingDate = $latestBooking ? \Carbon\Carbon::parse($latestBooking->scheduled_date) : null;
     $latestBookingStatus = $latestBooking ? ucwords(str_replace('_', ' ', $latestBooking->status)) : 'No bookings yet';
@@ -93,11 +94,11 @@
                     </div>
                     <div>
                         <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Joined</label>
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">{{ $customer->created_at->format('F d, Y') }}</div>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">{{ $customer->created_at?->copy()->timezone($adminTimezone)->format('F d, Y') }}</div>
                     </div>
                     <div>
                         <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Verified At</label>
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">{{ $customer->email_verified_at ? $customer->email_verified_at->format('F d, Y h:i A') : 'Not yet verified' }}</div>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">{{ $customer->email_verified_at ? $customer->email_verified_at->copy()->timezone($adminTimezone)->format('F d, Y h:i A') : 'Not yet verified' }}</div>
                     </div>
                 </div>
 
@@ -145,7 +146,7 @@
                     </div>
                     <div class="border-t border-slate-100 pt-4">
                         <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Registration Month</div>
-                        <div class="mt-1 text-sm font-bold text-slate-900">{{ $customer->created_at->format('F Y') }}</div>
+                        <div class="mt-1 text-sm font-bold text-slate-900">{{ $customer->created_at?->copy()->timezone($adminTimezone)->format('F Y') }}</div>
                     </div>
                     <div class="border-t border-slate-100 pt-4">
                         <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Latest Booking Status</div>

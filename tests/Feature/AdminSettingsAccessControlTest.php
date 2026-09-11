@@ -80,6 +80,23 @@ class AdminSettingsAccessControlTest extends TestCase
         ]);
     }
 
+    public function test_admin_settings_restriction_forms_require_a_duration_in_the_browser(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        User::factory()->create(['role' => 'staff']);
+        User::factory()->create(['role' => 'client']);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.settings'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertSame(2, preg_match_all(
+            '/<input[^>]+name="restriction_days"[^>]+required[^>]*>/i',
+            $html
+        ));
+    }
+
     public function test_admin_can_see_restriction_history_in_settings(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -181,6 +198,36 @@ class AdminSettingsAccessControlTest extends TestCase
             ->assertSee('Database backup password')
             ->assertSee('Upload database to private cloud storage')
             ->assertSee(route('admin.settings.database-backup.cloud'), false);
+    }
+
+    public function test_database_backup_password_form_is_visible_without_javascript(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.settings'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString(
+            'id="database-backup-password-form" method="POST" action="'.route('admin.settings.database-backup.password').'" class="mt-4 rounded-2xl',
+            $html
+        );
+        $this->assertStringContainsString('Set a backup password before downloading database backups.', $html);
+    }
+
+    public function test_database_backup_settings_show_when_the_password_is_configured(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        SiteSetting::current()->update([
+            'database_backup_password_hash' => Hash::make('backup-password-123'),
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.settings'))
+            ->assertOk()
+            ->assertSee('Database backup password is configured. You can now download or upload backups securely.')
+            ->assertDontSee('Set a backup password before downloading database backups.');
     }
 
     public function test_admin_must_set_backup_password_before_database_backup_download(): void
@@ -314,6 +361,40 @@ class AdminSettingsAccessControlTest extends TestCase
 
         $this->assertCount(1, $files);
         $this->assertNotEmpty(Storage::disk('remote-backup')->get($files[0]));
+    }
+
+    public function test_database_backup_cloud_command_refuses_the_public_uploads_disk(): void
+    {
+        config([
+            'filesystems.public_uploads_disk' => 'public',
+            'filesystems.database_backup_disk' => 'public',
+        ]);
+        Storage::fake('public');
+
+        $this->artisan('database:backup-cloud')
+            ->assertExitCode(1)
+            ->expectsOutputToContain('Database backups cannot use the public uploads disk.');
+
+        $this->assertSame([], Storage::disk('public')->allFiles());
+    }
+
+    public function test_database_backup_cloud_command_refuses_public_object_visibility(): void
+    {
+        config([
+            'filesystems.disks.public-backup' => [
+                'driver' => 'local',
+                'root' => storage_path('framework/testing/public-backup'),
+                'visibility' => 'public',
+            ],
+            'filesystems.database_backup_disk' => 'public-backup',
+        ]);
+        Storage::fake('public-backup');
+
+        $this->artisan('database:backup-cloud')
+            ->assertExitCode(1)
+            ->expectsOutputToContain('Database backups require private object visibility.');
+
+        $this->assertSame([], Storage::disk('public-backup')->allFiles());
     }
 
     public function test_admin_password_change_requires_current_password(): void

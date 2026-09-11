@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Booking;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,6 +23,10 @@ class BookingScheduleTimeTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('value="07:00"', false);
         $response->assertSee('value="08:00"', false);
+        $response->assertSee('Available start times: 8:00 AM - 4:00 PM (Asia/Manila).', false);
+        foreach (Booking::bookingTimeSlots() as $timeSlot) {
+            $response->assertSee('value="'.$timeSlot.'"', false);
+        }
     }
 
     public function test_web_booking_rejects_a_start_time_before_business_hours(): void

@@ -11,6 +11,12 @@ class BookingMessageController extends Controller
     {
         $user = $request->user();
 
+        if ($user?->role === 'client' && ! $user->hasVerifiedEmail()) {
+            return redirect()
+                ->route('verification.notice')
+                ->with('error', 'Please verify your email before sending booking messages.');
+        }
+
         if (! $this->canParticipate($booking, $user)) {
             abort(403);
         }
@@ -54,6 +60,6 @@ class BookingMessageController extends Controller
             return (int) $booking->user_id === (int) $user->id;
         }
 
-        return (int) $booking->staff_id === (int) $user->id;
+        return $booking->isAssignedToStaff((int) $user->id);
     }
 }

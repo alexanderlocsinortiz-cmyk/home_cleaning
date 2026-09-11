@@ -127,7 +127,7 @@
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">Total Revenue</div>
-                    <div class="mt-2 text-3xl font-black leading-none text-slate-900">&#8369;{{ number_format($totalEarnings, 0) }}</div>
+                    <div class="mt-2 text-3xl font-black leading-none text-slate-900">&#8369;{{ number_format($totalEarnings, 2) }}</div>
                     <div class="mt-2 text-sm text-slate-500">All-time from completed bookings</div>
                 </div>
                 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white">
@@ -444,7 +444,7 @@
                 const trendFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' });
                 const trendShortFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' });
                 const trendMonthFormatter = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' });
-                const pesoFormatter = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 0 });
+                const pesoFormatter = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
                 function aggregateTrendData(range) {
                     if (range === 'daily') {

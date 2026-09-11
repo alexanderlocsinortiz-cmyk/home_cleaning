@@ -95,6 +95,18 @@ class Booking extends Model
         'cancelled' => ['cancelled'],
     ];
 
+    public const BOOKING_TIME_SLOTS = [
+        '08:00',
+        '09:00',
+        '10:00',
+        '11:00',
+        '12:00',
+        '13:00',
+        '14:00',
+        '15:00',
+        '16:00',
+    ];
+
     public const STAFF_REQUIRED_STATUSES = [
         'in_progress',
         'completed',
@@ -102,6 +114,13 @@ class Booking extends Model
 
     public const ACTIVE_SCHEDULE_STATUSES = [
         'pending',
+        'confirmed',
+        'in_progress',
+    ];
+
+    // Pending requests may wait in the queue without reserving a cleaner.
+    // Only operationally accepted bookings consume staffing capacity.
+    public const CAPACITY_SCHEDULE_STATUSES = [
         'confirmed',
         'in_progress',
     ];
@@ -264,6 +283,12 @@ class Booking extends Model
     ];
 
     public const PAYMENT_STATUS_LABELS = [
+        'pending' => 'Pending Payment',
+        'paid' => 'Paid',
+        'refunded' => 'Refunded',
+    ];
+
+    public const MANUAL_PAYMENT_STATUS_LABELS = [
         'pending' => 'Pending Payment',
         'paid' => 'Paid',
     ];
@@ -1079,6 +1104,21 @@ class Booking extends Model
                 : $this->staffAssignments()->where('staff_id', $staffId)->exists());
     }
 
+    public function assignedStaffIds(): array
+    {
+        $assignmentIds = $this->relationLoaded('staffAssignments')
+            ? $this->staffAssignments->pluck('staff_id')
+            : $this->staffAssignments()->pluck('staff_id');
+
+        return collect([$this->staff_id])
+            ->merge($assignmentIds)
+            ->filter()
+            ->map(fn ($staffId): int => (int) $staffId)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     public function scopeAssignedToStaff(Builder $query, int $staffId): Builder
     {
         return $query->where(function (Builder $query) use ($staffId) {
@@ -1181,6 +1221,11 @@ class Booking extends Model
         return self::ACTIVE_SCHEDULE_STATUSES;
     }
 
+    public static function capacityScheduleStatuses(): array
+    {
+        return self::CAPACITY_SCHEDULE_STATUSES;
+    }
+
     public static function staffAssignmentConflictStatuses(): array
     {
         return self::STAFF_ASSIGNMENT_CONFLICT_STATUSES;
@@ -1222,6 +1267,25 @@ class Booking extends Model
     {
         return $this->cleaner_application_id !== null
             && $this->effectiveProviderAssignmentStatus() === 'accepted';
+    }
+
+    public function clientCanCancel(): bool
+    {
+        if (! in_array($this->status, ['pending', 'confirmed'], true)) {
+            return false;
+        }
+
+        // A secondary cleaner assignment or an accepted marketplace provider
+        // is also an operational assignment, even when staff_id is null.
+        if ($this->assignedStaffIds() !== [] || $this->hasAcceptedProviderAssignment()) {
+            return false;
+        }
+
+        // Cash bookings keep the existing policy: only pending requests can
+        // be cancelled by the client. Online bookings may be confirmed before
+        // payment settles, so they must remain cancellable while unassigned.
+        return $this->status === 'pending'
+            || self::isDigitalPaymentMethod($this->payment?->method ?? $this->getRawOriginal('payment_method'));
     }
 
     public function providerAssignmentBadgeClass(): string
@@ -1410,9 +1474,14 @@ class Booking extends Model
         return self::PAYMENT_METHOD_LABELS;
     }
 
+    public static function bookingTimeSlots(): array
+    {
+        return self::BOOKING_TIME_SLOTS;
+    }
+
     public static function paymentStatuses(): array
     {
-        return array_keys(self::PAYMENT_STATUS_LABELS);
+        return array_keys(self::MANUAL_PAYMENT_STATUS_LABELS);
     }
 
     public static function paymentMethodLabel(?string $paymentMethod): string
@@ -1511,6 +1580,23 @@ class Booking extends Model
             ->replace('_', ' ')
             ->title()
             ->value();
+    }
+
+    /**
+     * Return the configured customer-service map bounds in a validation-friendly shape.
+     *
+     * @return array{min_latitude: float, max_latitude: float, min_longitude: float, max_longitude: float}
+     */
+    public static function serviceLocationBounds(): array
+    {
+        $bounds = config('cleanflow.map.maxBounds', [[-90, -180], [90, 180]]);
+
+        return [
+            'min_latitude' => (float) ($bounds[0][0] ?? -90),
+            'max_latitude' => (float) ($bounds[1][0] ?? 90),
+            'min_longitude' => (float) ($bounds[0][1] ?? -180),
+            'max_longitude' => (float) ($bounds[1][1] ?? 180),
+        ];
     }
 
     public static function includedFloorArea(): int
@@ -2015,7 +2101,7 @@ class Booking extends Model
         $unassignedCleanerDemand = 0;
 
         self::query()
-            ->whereIn('status', self::scheduleConflictStatuses())
+            ->whereIn('status', self::capacityScheduleStatuses())
             ->where(function (Builder $query) {
                 $query
                     ->whereNull('manual_review_status')
@@ -2186,7 +2272,10 @@ class Booking extends Model
 
     public static function assignmentWindowStart(mixed $scheduledDate, mixed $scheduledTime): Carbon
     {
-        return Carbon::parse(self::normalizeScheduleDate($scheduledDate).' '.self::normalizeScheduleTime($scheduledTime));
+        return Carbon::parse(
+            self::normalizeScheduleDate($scheduledDate).' '.self::normalizeScheduleTime($scheduledTime),
+            config('cleanflow.attendance_timezone', 'Asia/Manila')
+        );
     }
 
     public static function assignmentWindowEnd(mixed $scheduledDate, mixed $scheduledTime, ?int $durationMinutes = null): Carbon

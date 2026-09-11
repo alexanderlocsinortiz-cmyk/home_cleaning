@@ -4,6 +4,7 @@
 @section('page-subtitle', 'Manage staff profiles and access details')
 
 @section('content')
+@php($adminTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila'))
 <div class="admin-page-content cleanflow-page-shell space-y-6 p-6">
     @if(session('success'))
         <div class="cleanflow-alert cleanflow-alert--success flex items-start gap-3">
@@ -154,7 +155,7 @@
                                 @endif
                             </td>
                             <td class="px-5 py-4 align-middle">
-                                <div class="text-sm font-semibold text-slate-700">{{ optional($member->created_at)->format('M d, Y') }}</div>
+                                <div class="text-sm font-semibold text-slate-700">{{ optional($member->created_at?->copy()->timezone($adminTimezone))->format('M d, Y') }}</div>
                                 <div class="mt-1 text-xs text-slate-400">{{ optional($member->created_at)->diffForHumans() }}</div>
                             </td>
                             <td class="px-5 py-4 align-middle text-right">

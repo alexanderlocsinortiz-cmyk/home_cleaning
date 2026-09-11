@@ -3,13 +3,14 @@
 
 @section('content')
 @php
+    $profileTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
     $birthday = optional($user->date_of_birth)->format('M d, Y') ?: 'Not set';
     $gender = $user->gender ? ucfirst(str_replace('_', ' ', $user->gender)) : 'Not set';
     $address = $user->street && $user->barangay
         ? $user->street . ', ' . ucwords(str_replace('_', ' ', $user->barangay)) . ', ' . $user->city
         : 'Not set';
     $initials = $user->initials;
-    $memberSince = optional($user->created_at)->format('M d, Y') ?: 'Not set';
+    $memberSince = optional($user->created_at?->copy()->timezone($profileTimezone))->format('M d, Y') ?: 'Not set';
     $profileItems = [
         ['icon' => 'fa-user', 'label' => 'Full name', 'value' => $user->display_name],
         ['icon' => 'fa-envelope', 'label' => 'Email', 'value' => $user->email ?: 'Not set'],

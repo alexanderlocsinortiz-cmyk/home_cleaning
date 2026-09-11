@@ -7,6 +7,7 @@
 @section('content')
 <div class="admin-page-content cleanflow-page-shell space-y-6 p-6">
     @php
+        $adminTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
         $statusMeta = [
             'pending' => [
                 'label' => 'Pending',
@@ -327,10 +328,10 @@
                                 <span class="inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide {{ $statusMeta[$application->status]['badge'] ?? 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' }}">
                                     {{ str_replace('_', ' ', $application->status) }}
                                 </span>
-                                <div class="mt-2 text-xs font-semibold text-slate-400">Submitted {{ $application->created_at->format('M d, Y') }}</div>
+                                <div class="mt-2 text-xs font-semibold text-slate-400">Submitted {{ $application->created_at?->copy()->timezone($adminTimezone)->format('M d, Y') }}</div>
                                 @if($application->reviewed_at)
                                     <div class="mt-2 text-xs text-slate-500">
-                                        Reviewed {{ $application->reviewed_at->format('M d, Y') }}
+                                        Reviewed {{ $application->reviewed_at->copy()->timezone($adminTimezone)->format('M d, Y') }}
                                         @if($application->reviewer)
                                             by {{ $application->reviewer->display_name }}
                                         @endif
@@ -346,7 +347,7 @@
                                             @foreach($application->auditLogs->take(5) as $auditLog)
                                                 <div class="border-l-2 border-blue-200 pl-3 text-xs leading-5 text-slate-600">
                                                     <div class="font-bold text-slate-800">{{ $auditLog->description }}</div>
-                                                    <div>{{ $auditLog->created_at->format('M d, Y g:i A') }} · {{ $auditLog->actor?->display_name ?: 'System' }}</div>
+                                                    <div>{{ $auditLog->created_at->copy()->timezone($adminTimezone)->format('M d, Y g:i A') }} · {{ $auditLog->actor?->display_name ?: 'System' }}</div>
                                                 </div>
                                             @endforeach
                                         </div>

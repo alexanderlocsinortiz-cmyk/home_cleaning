@@ -7,6 +7,7 @@ use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class MobileBookingApiTest extends TestCase
@@ -65,7 +66,7 @@ class MobileBookingApiTest extends TestCase
             ->assertJsonPath('booking.service.slug', 'deep')
             ->assertJsonPath('booking.status', 'pending')
             ->assertJsonPath('booking.payment_status', 'pending')
-            ->assertJsonPath('formatted_total', 'P2,850');
+            ->assertJsonPath('formatted_total', 'P2,850.00');
 
         $this->assertDatabaseHas('bookings', [
             'service_id' => $service->id,
@@ -76,6 +77,69 @@ class MobileBookingApiTest extends TestCase
             'status' => 'pending',
             'price' => 2850,
         ]);
+    }
+
+    public function test_mobile_digital_booking_creates_a_paymongo_checkout_session(): void
+    {
+        config()->set('services.paymongo.secret_key', 'sk_test_mobile_checkout');
+        config()->set('services.paymongo.api_url', 'https://paymongo.test');
+        config()->set('services.paymongo.checkout_redirect_enabled', true);
+        Http::fake([
+            'https://paymongo.test/v1/checkout_sessions' => Http::response([
+                'data' => [
+                    'id' => 'cs_mobile_checkout_123',
+                    'attributes' => ['checkout_url' => 'https://checkout.paymongo.test/session/123'],
+                ],
+            ]),
+        ]);
+
+        $service = $this->service();
+        $token = $this->mobileToken();
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/mobile/bookings', $this->validPayload([
+                'service_type' => $service->slug,
+                'payment_method' => 'gcash',
+            ]));
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('checkout_url', 'https://checkout.paymongo.test/session/123');
+
+        $this->assertDatabaseHas('payments', [
+            'booking_id' => $response->json('booking.id'),
+            'method' => 'gcash',
+            'checkout_session_id' => 'cs_mobile_checkout_123',
+        ]);
+    }
+
+    public function test_mobile_client_can_create_a_recurring_subscription_plan(): void
+    {
+        $service = $this->service();
+        $token = $this->mobileToken();
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/mobile/bookings', $this->validPayload([
+                'service_type' => $service->slug,
+                'service_plan' => 'subscription',
+                'subscription_frequency' => 'weekly',
+                'subscription_occurrences' => 3,
+            ]));
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('subscription_booking_count', 3);
+
+        $bookings = Booking::orderBy('subscription_sequence')->get();
+        $this->assertCount(3, $bookings);
+        $this->assertTrue($bookings->pluck('subscription_group_id')->unique()->count() === 1);
+        $this->assertSame('subscription', $bookings->first()->service_plan);
+        $this->assertSame('weekly', $bookings->first()->subscription_frequency);
+        $this->assertSame(3, $bookings->first()->subscription_occurrences);
+        $this->assertSame(
+            $bookings->first()->scheduled_date->copy()->addWeek()->toDateString(),
+            $bookings->get(1)->scheduled_date->toDateString()
+        );
     }
 
     public function test_mobile_booking_rejects_one_sided_service_coordinates(): void
@@ -98,6 +162,32 @@ class MobileBookingApiTest extends TestCase
             ]))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('service_latitude');
+
+        $this->assertDatabaseCount('bookings', 0);
+    }
+
+    public function test_mobile_booking_rejects_service_coordinates_outside_the_configured_coverage_bounds(): void
+    {
+        $service = $this->service();
+        $token = $this->mobileToken();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/mobile/bookings', $this->validPayload([
+                'service_type' => $service->slug,
+                'service_latitude' => 7.2,
+                'service_longitude' => 125.0926,
+            ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('service_latitude');
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/mobile/bookings', $this->validPayload([
+                'service_type' => $service->slug,
+                'service_latitude' => 7.9041,
+                'service_longitude' => 125.5,
+            ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('service_longitude');
 
         $this->assertDatabaseCount('bookings', 0);
     }
@@ -241,6 +331,26 @@ class MobileBookingApiTest extends TestCase
             ->postJson('/api/mobile/bookings/'.$booking->id.'/cancel')
             ->assertOk()
             ->assertJsonPath('booking.status', 'cancelled');
+    }
+
+    public function test_mobile_client_can_cancel_a_confirmed_unassigned_online_booking_before_payment(): void
+    {
+        $client = User::factory()->create(['email' => 'cancel-confirmed-mobile@example.com', 'password' => Hash::make('Password123')]);
+        $booking = Booking::factory()->create(['user_id' => $client->id, 'status' => 'confirmed', 'staff_id' => null]);
+        $booking->payment->forceFill([
+            'method' => 'maya',
+            'status' => 'pending',
+            'provider' => 'paymongo',
+            'amount' => 1200,
+        ])->save();
+        $token = $this->loginToken('cancel-confirmed-mobile@example.com');
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/mobile/bookings/'.$booking->id.'/cancel')
+            ->assertOk()
+            ->assertJsonPath('booking.status', 'cancelled');
+
+        $this->assertSame('pending', $booking->fresh()->payment->status);
     }
 
     public function test_mobile_client_can_reschedule_own_booking(): void

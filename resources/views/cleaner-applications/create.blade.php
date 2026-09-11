@@ -198,7 +198,7 @@
                             </div>
                             <div class="sm:col-span-2">
                                 <label for="profile_photo" class="block text-sm font-bold text-slate-800">Profile Photo <span class="font-semibold text-slate-400">(Optional)</span></label>
-                                <input id="profile_photo" type="file" name="profile_photo" accept="image/*" class="mt-2 w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-bold file:text-blue-700">
+                                <input id="profile_photo" type="file" name="profile_photo" accept="image/jpeg,image/png,image/webp" class="mt-2 w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-bold file:text-blue-700">
                                 @error('profile_photo')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
                             </div>
                         </div>
@@ -224,12 +224,12 @@
                             </div>
                             <div>
                                 <label for="team_size" class="block text-sm font-bold text-slate-800">Team Size *</label>
-                                <input id="team_size" type="number" min="2" max="100" name="team_size" value="{{ old('team_size') }}" class="cleaner-apply-input mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                        <input id="team_size" type="number" min="2" max="100" step="1" name="team_size" value="{{ old('team_size') }}" class="cleaner-apply-input mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                                 @error('team_size')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
                             </div>
                             <div>
                                 <label for="business_logo" class="block text-sm font-bold text-slate-800">Business Logo <span class="font-semibold text-slate-400">(Optional)</span></label>
-                                <input id="business_logo" type="file" name="business_logo" accept="image/*" class="mt-2 w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-sky-50 file:px-3 file:py-2 file:text-sm file:font-bold file:text-sky-700">
+                                <input id="business_logo" type="file" name="business_logo" accept="image/jpeg,image/png,image/webp" class="mt-2 w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-sky-50 file:px-3 file:py-2 file:text-sm file:font-bold file:text-sky-700">
                                 @error('business_logo')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
                             </div>
                         </div>
@@ -283,7 +283,7 @@
                     </div>
                     <div>
                         <label for="years_experience" class="block text-sm font-bold text-slate-800">Years of Cleaning Experience *</label>
-                        <input id="years_experience" type="number" min="0" max="60" name="years_experience" value="{{ old('years_experience', 0) }}" required class="cleaner-apply-input mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                        <input id="years_experience" type="number" min="0" max="60" step="1" name="years_experience" value="{{ old('years_experience', 0) }}" required class="cleaner-apply-input mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                         @error('years_experience')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
                     </div>
                     <div>
@@ -436,7 +436,7 @@
                         </div>
                         <div class="sm:col-span-2">
                             <label for="selfie_with_id" class="block text-sm font-bold text-slate-800">Upload Selfie Holding ID *</label>
-                            <input id="selfie_with_id" type="file" name="selfie_with_id" accept="image/*" required class="mt-2 w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-bold file:text-blue-700">
+                            <input id="selfie_with_id" type="file" name="selfie_with_id" accept="image/jpeg,image/png,image/webp" required class="mt-2 w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-bold file:text-blue-700">
                             <p class="mt-1 text-xs font-semibold text-slate-500">Use a clear JPG or PNG image. Maximum 5 MB.</p>
                             @error('selfie_with_id')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
                         </div>

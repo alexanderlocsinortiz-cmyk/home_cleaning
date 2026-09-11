@@ -133,6 +133,20 @@ class AppServiceProvider extends ServiceProvider
             );
         }
 
+        $privateVisibility = strtolower((string) (config("filesystems.disks.{$privateDisk}.visibility") ?? 'private'));
+
+        if ($privateDisk === $publicDisk) {
+            throw new LogicException(
+                'Production cannot use the public uploads disk for private uploads. Configure FILESYSTEM_PRIVATE_DISK separately.'
+            );
+        }
+
+        if (in_array($privateVisibility, ['public', 'public-read'], true)) {
+            throw new LogicException(
+                'Production private uploads must use private object visibility.'
+            );
+        }
+
         if ($proofDisk === $publicDisk) {
             throw new LogicException(
                 'Production cannot use the public uploads disk for booking proof media. Configure FILESYSTEM_PROOF_DISK separately.'
@@ -144,6 +158,28 @@ class AppServiceProvider extends ServiceProvider
         if (in_array($proofVisibility, ['public', 'public-read'], true)) {
             throw new LogicException(
                 'Production booking proof uploads must use private object visibility.'
+            );
+        }
+
+        $backupDisk = (string) config('filesystems.database_backup_disk');
+
+        if ($usesLocalDriver($backupDisk)) {
+            throw new LogicException(
+                'Production cannot start with local database backups. Configure DATABASE_BACKUP_DISK to durable private object storage.'
+            );
+        }
+
+        $backupVisibility = strtolower((string) (config("filesystems.disks.{$backupDisk}.visibility") ?? 'private'));
+
+        if ($backupDisk === $publicDisk) {
+            throw new LogicException(
+                'Production cannot use the public uploads disk for database backups. Configure DATABASE_BACKUP_DISK to a private disk.'
+            );
+        }
+
+        if (in_array($backupVisibility, ['public', 'public-read'], true)) {
+            throw new LogicException(
+                'Production database backups must use private object visibility.'
             );
         }
     }

@@ -43,9 +43,16 @@ class AdminController extends Controller
             ->count('user_id');
 
         // 30-day analytics window
-        $analyticsStart = Carbon::now()->subDays(29)->startOfDay();
+        $analyticsStart = Carbon::now($this->attendanceTimezone())
+            ->subDays(29)
+            ->startOfDay()
+            ->utc();
         $analyticsBookings = Booking::query()
-            ->with(['rating:id,booking_id,stars', 'service:id,slug,name'])
+            ->with([
+                'rating:id,booking_id,staff_id,stars',
+                'service:id,slug,name',
+                'staffAssignments:id,booking_id,staff_id',
+            ])
             ->where('created_at', '>=', $analyticsStart)
             ->orderBy('created_at')
             ->get();
@@ -82,12 +89,16 @@ class AdminController extends Controller
         $staffPerformance = User::where('role', 'staff')
             ->get(['id', 'first_name', 'last_name'])
             ->map(function (User $member) use ($analyticsBookings) {
-                $assigned = $analyticsBookings->where('staff_id', $member->id);
+                $assigned = $analyticsBookings
+                    ->filter(fn (Booking $booking): bool => $booking->isAssignedToStaff((int) $member->id));
                 if ($assigned->isEmpty()) {
                     return null;
                 }
                 $completed = $assigned->where('status', 'completed')->count();
-                $ratings = $assigned->pluck('rating')->filter();
+                $ratings = $assigned
+                    ->filter(fn (Booking $booking): bool => (int) $booking->staff_id === (int) $member->id)
+                    ->pluck('rating')
+                    ->filter();
 
                 return [
                     'name' => $member->display_name,
@@ -109,15 +120,15 @@ class AdminController extends Controller
             ->orderBy('scheduled_date')
             ->get();
         $bookingsByDate = $trendBookings->keyBy(
-            fn ($row) => Carbon::parse($row->scheduled_date)->toDateString()
+            fn ($row) => Carbon::parse($row->scheduled_date->toDateString(), $this->attendanceTimezone())->toDateString()
         );
         $chartLabels = $chartDateLabels = $chartBookingsData = [];
         $firstTrendDate = $trendBookings->isNotEmpty()
-            ? Carbon::parse($trendBookings->first()->scheduled_date)->startOfDay()
-            : Carbon::now()->startOfDay();
+            ? Carbon::parse($trendBookings->first()->scheduled_date->toDateString(), $this->attendanceTimezone())->startOfDay()
+            : Carbon::now($this->attendanceTimezone())->startOfDay();
         $lastTrendDate = $trendBookings->isNotEmpty()
-            ? Carbon::parse($trendBookings->last()->scheduled_date)->startOfDay()
-            : Carbon::now()->startOfDay();
+            ? Carbon::parse($trendBookings->last()->scheduled_date->toDateString(), $this->attendanceTimezone())->startOfDay()
+            : Carbon::now($this->attendanceTimezone())->startOfDay();
         $chartCursor = $firstTrendDate->copy();
         while ($chartCursor->lte($lastTrendDate)) {
             $dateStr = $chartCursor->toDateString();
@@ -137,13 +148,20 @@ class AdminController extends Controller
             $currentMonthKey
         );
 
-        $revenueMonthStart = Carbon::createFromFormat('Y-m-d', $selectedRevenueMonth.'-01')->startOfMonth();
+        $revenueMonthStart = Carbon::createFromFormat(
+            'Y-m-d',
+            $selectedRevenueMonth.'-01',
+            $this->attendanceTimezone()
+        )->startOfMonth();
         $revenueMonthEnd = $revenueMonthStart->copy()->endOfMonth();
         $revenueBookings = Booking::query()
             ->where('status', 'completed')
             ->where(function ($query) use ($revenueMonthStart, $revenueMonthEnd) {
                 $query
-                    ->whereBetween('completed_at', [$revenueMonthStart->copy()->startOfDay(), $revenueMonthEnd->copy()->endOfDay()])
+                    ->whereBetween('completed_at', [
+                        $revenueMonthStart->copy()->startOfDay()->utc(),
+                        $revenueMonthEnd->copy()->endOfDay()->utc(),
+                    ])
                     ->orWhere(function ($fallbackQuery) use ($revenueMonthStart, $revenueMonthEnd) {
                         $fallbackQuery
                             ->whereNull('completed_at')
@@ -246,7 +264,11 @@ class AdminController extends Controller
         );
 
         $start = Carbon::create($startYear, 1, 1, 0, 0, 0, $this->attendanceTimezone())->startOfMonth();
-        $end = Carbon::createFromFormat('Y-m-d', max($lastRevenueMonth, $dashboardNow->format('Y-m')).'-01')->startOfMonth();
+        $end = Carbon::createFromFormat(
+            'Y-m-d',
+            max($lastRevenueMonth, $dashboardNow->format('Y-m')).'-01',
+            $this->attendanceTimezone()
+        )->startOfMonth();
         $months = [];
 
         for ($cursor = $end->copy(); $cursor->gte($start); $cursor->subMonth()) {
@@ -274,8 +296,8 @@ class AdminController extends Controller
     private function bookingRevenueDate(Booking $booking): Carbon
     {
         return $booking->completed_at
-            ? Carbon::parse($booking->completed_at, $this->attendanceTimezone())
-            : Carbon::parse($booking->scheduled_date, $this->attendanceTimezone());
+            ? $booking->completed_at->copy()->timezone($this->attendanceTimezone())
+            : Carbon::parse($booking->scheduled_date->toDateString(), $this->attendanceTimezone());
     }
 
     private function dashboardTopStaff(Carbon $dashboardNow)
@@ -285,21 +307,26 @@ class AdminController extends Controller
         $previousMonthStart = $dashboardNow->copy()->subMonth()->startOfMonth();
         $previousMonthEnd = $dashboardNow->copy()->subMonth()->endOfMonth();
 
+        $completedBookings = Booking::query()
+            ->with('staffAssignments:id,booking_id,staff_id')
+            ->where('status', 'completed')
+            ->whereDate('scheduled_date', '>=', $previousMonthStart->toDateString())
+            ->whereDate('scheduled_date', '<=', $currentMonthEnd->toDateString())
+            ->get();
+
         return User::where('role', 'staff')
-            ->with(['assignedBookings' => function ($query) use ($previousMonthStart, $currentMonthEnd) {
-                $query->where('status', 'completed')
-                    ->whereDate('scheduled_date', '>=', $previousMonthStart->toDateString())
-                    ->whereDate('scheduled_date', '<=', $currentMonthEnd->toDateString());
-            }])
             ->get()
-            ->map(function (User $staff) use ($currentMonthStart, $currentMonthEnd, $previousMonthStart, $previousMonthEnd) {
-                $currentMonthCompleted = $staff->assignedBookings->filter(
-                    fn (Booking $booking) => filled($booking->scheduled_date)
-                        && Carbon::parse($booking->scheduled_date)->betweenIncluded($currentMonthStart, $currentMonthEnd)
+            ->map(function (User $staff) use ($completedBookings, $currentMonthStart, $currentMonthEnd, $previousMonthStart, $previousMonthEnd) {
+                $assignedBookings = $completedBookings->filter(
+                    fn (Booking $booking): bool => $booking->isAssignedToStaff((int) $staff->id)
+                );
+                $currentMonthCompleted = $assignedBookings->filter(
+                fn (Booking $booking) => filled($booking->scheduled_date)
+                        && Carbon::parse($booking->scheduled_date->toDateString(), $this->attendanceTimezone())->betweenIncluded($currentMonthStart, $currentMonthEnd)
                 )->count();
-                $previousMonthCompleted = $staff->assignedBookings->filter(
+                $previousMonthCompleted = $assignedBookings->filter(
                     fn (Booking $booking) => filled($booking->scheduled_date)
-                        && Carbon::parse($booking->scheduled_date)->betweenIncluded($previousMonthStart, $previousMonthEnd)
+                        && Carbon::parse($booking->scheduled_date->toDateString(), $this->attendanceTimezone())->betweenIncluded($previousMonthStart, $previousMonthEnd)
                 )->count();
 
                 $staff->current_month_completed = $currentMonthCompleted;

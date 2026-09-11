@@ -79,11 +79,11 @@
                             </div>
                             <div>
                                 <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Phone</label>
-                                <input type="text" name="phone" value="{{ old('phone', $user->phone) }}" placeholder="09XXXXXXXXX" inputmode="numeric" pattern="[0-9]{11}" maxlength="11" class="client-profile-input">
+                                <input type="tel" name="phone" value="{{ old('phone', $user->phone) }}" placeholder="09XXXXXXXXX" inputmode="numeric" pattern="09[0-9]{9}" maxlength="11" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11)" title="Enter an 11-digit Philippine mobile number starting with 09" class="client-profile-input">
                             </div>
                             <div>
                                 <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Birthday</label>
-                                <input type="date" name="date_of_birth" value="{{ old('date_of_birth', optional($user->date_of_birth)->format('Y-m-d')) }}" class="client-profile-input">
+                                <input type="date" name="date_of_birth" value="{{ old('date_of_birth', optional($user->date_of_birth)->format('Y-m-d')) }}" @if($user->role === 'client') max="{{ now(config('cleanflow.attendance_timezone', config('app.timezone')))->subYears(18)->toDateString() }}" @endif class="client-profile-input">
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="mb-2 block text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Gender</label>

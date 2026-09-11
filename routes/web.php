@@ -161,6 +161,7 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::patch('/bookings/{id}/assignments', [AdminBookingController::class, 'updateBookingAssignments'])->middleware('throttle:30,1')->name('bookings.assignments');
         Route::patch('/bookings/{id}/provider', [AdminBookingController::class, 'updateBookingProvider'])->middleware('throttle:30,1')->name('bookings.provider');
         Route::patch('/bookings/{id}/payment', [AdminBookingController::class, 'updateBookingPayment'])->middleware('throttle:30,1')->name('bookings.payment');
+        Route::patch('/bookings/{id}/refund', [AdminBookingController::class, 'refundBookingPayment'])->middleware('throttle:10,1')->name('bookings.refund');
         Route::patch('/bookings/{id}/cash-payment-proof/review', [AdminBookingController::class, 'reviewCashPaymentProof'])->middleware('throttle:30,1')->name('bookings.cash-payment-proof.review');
         Route::patch('/bookings/{id}/payout', [AdminBookingController::class, 'updateBookingPayout'])->middleware('throttle:30,1')->name('bookings.payout');
         Route::patch('/bookings/{id}/provider-commission', [AdminBookingController::class, 'updateBookingProviderCommission'])->middleware('throttle:30,1')->name('bookings.provider-commission');

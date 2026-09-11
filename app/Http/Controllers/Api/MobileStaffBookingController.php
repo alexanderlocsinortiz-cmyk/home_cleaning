@@ -25,11 +25,12 @@ class MobileStaffBookingController extends Controller
             ], 403);
         }
 
-        $bookings = $this->assignedBookingQuery($staff->id)
+        $assignedBookings = $this->assignedBookingQuery($staff->id)
             ->orderByRaw("CASE WHEN status IN ('confirmed', 'in_progress') THEN 0 ELSE 1 END")
             ->orderBy('scheduled_date')
             ->orderBy('scheduled_time')
-            ->get()
+            ->get();
+        $bookings = $assignedBookings
             ->map(fn (Booking $booking) => $this->bookingPayload($booking))
             ->values();
 
@@ -41,7 +42,11 @@ class MobileStaffBookingController extends Controller
                 'in_progress' => $bookings->where('status', 'in_progress')->count(),
                 'completed' => $bookings->where('status', 'completed')->count(),
                 'cancelled' => $bookings->where('status', 'cancelled')->count(),
-                'total_earnings' => round((float) $bookings->where('status', 'completed')->sum('price'), 2),
+                // Booking price belongs to the legacy primary cleaner until a split policy is defined.
+                'total_earnings' => round((float) $assignedBookings
+                    ->where('status', 'completed')
+                    ->where('staff_id', $staff->id)
+                    ->sum('price'), 2),
             ],
         ]);
     }
@@ -56,13 +61,19 @@ class MobileStaffBookingController extends Controller
             ]);
         }
 
+        $locationBounds = Booking::serviceLocationBounds();
+
         $request->validate([
             'before_photos' => ['required', 'array', 'min:1', 'max:4'],
             'before_photos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'proof_captured_at' => ['required', 'date'],
-            'proof_latitude' => ['required', 'numeric', 'between:-90,90'],
-            'proof_longitude' => ['required', 'numeric', 'between:-180,180'],
+            'proof_captured_at' => ['required', 'date', 'before_or_equal:now'],
+            'proof_latitude' => ['required', 'numeric', 'between:'.$locationBounds['min_latitude'].','.$locationBounds['max_latitude']],
+            'proof_longitude' => ['required', 'numeric', 'between:'.$locationBounds['min_longitude'].','.$locationBounds['max_longitude']],
             'proof_source' => ['required', Rule::in(['camera'])],
+        ], [
+            'proof_captured_at.before_or_equal' => 'Proof capture time cannot be in the future.',
+            'proof_latitude.between' => 'Proof location must be within the service area.',
+            'proof_longitude.between' => 'Proof location must be within the service area.',
         ]);
 
         $proofMetadata = $this->proofMetadata($request);
@@ -114,14 +125,20 @@ class MobileStaffBookingController extends Controller
             ]);
         }
 
+        $locationBounds = Booking::serviceLocationBounds();
+
         $request->validate([
             'after_photos' => ['required', 'array', 'min:1', 'max:4'],
             'after_photos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'completion_video' => ['nullable', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm,video/x-msvideo', 'max:'.config('cleanflow.proof_uploads.max_video_kb', 102400)],
-            'proof_captured_at' => ['required', 'date'],
-            'proof_latitude' => ['required', 'numeric', 'between:-90,90'],
-            'proof_longitude' => ['required', 'numeric', 'between:-180,180'],
+            'proof_captured_at' => ['required', 'date', 'before_or_equal:now'],
+            'proof_latitude' => ['required', 'numeric', 'between:'.$locationBounds['min_latitude'].','.$locationBounds['max_latitude']],
+            'proof_longitude' => ['required', 'numeric', 'between:'.$locationBounds['min_longitude'].','.$locationBounds['max_longitude']],
             'proof_source' => ['required', Rule::in(['camera'])],
+        ], [
+            'proof_captured_at.before_or_equal' => 'Proof capture time cannot be in the future.',
+            'proof_latitude.between' => 'Proof location must be within the service area.',
+            'proof_longitude.between' => 'Proof location must be within the service area.',
         ]);
 
         $proofMetadata = $this->proofMetadata($request);
@@ -216,6 +233,8 @@ class MobileStaffBookingController extends Controller
             'scheduled_time' => $scheduledTime,
             'street_address' => $booking->street_address ?? '',
             'barangay' => $booking->barangay ?? '',
+            'client_latitude' => $booking->service_latitude !== null ? (float) $booking->service_latitude : null,
+            'client_longitude' => $booking->service_longitude !== null ? (float) $booking->service_longitude : null,
             'price' => (float) $booking->price,
             'before_photo_count' => (int) ($booking->before_photo_count ?? 0),
             'after_photo_count' => (int) ($booking->after_photo_count ?? 0),

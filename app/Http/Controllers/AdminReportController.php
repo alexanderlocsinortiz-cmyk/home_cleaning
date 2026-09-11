@@ -96,7 +96,7 @@ class AdminReportController extends Controller
         [, $dateRange] = $this->resolveReportFilters($request);
         $rows = $this->reportExportRows($dateRange);
         $title = 'Reports & Analytics - '.$dateRange['label'];
-        $timestamp = now()->format('Ymd_His');
+        $timestamp = Carbon::now($this->reportTimezone())->format('Ymd_His');
 
         if ($format === 'pdf') {
             return response($this->simplePdf($title, $rows), 200)
@@ -148,9 +148,10 @@ class AdminReportController extends Controller
     public function exportProviderPayouts(Request $request)
     {
         [$filters, $baseQuery] = $this->providerPayoutQuery($request);
-        $filename = 'provider_payouts_'.now()->format('Ymd_His').'.csv';
+        $filename = 'provider_payouts_'.Carbon::now($this->reportTimezone())->format('Ymd_His').'.csv';
+        $reportTimezone = $this->reportTimezone();
 
-        return response()->streamDownload(function () use ($baseQuery) {
+        return response()->streamDownload(function () use ($baseQuery, $reportTimezone) {
             $handle = fopen('php://output', 'w');
 
             fputcsv($handle, [
@@ -179,7 +180,7 @@ class AdminReportController extends Controller
             (clone $baseQuery)
                 ->orderByDesc('scheduled_date')
                 ->orderByDesc('id')
-                ->chunk(200, function ($bookings) use ($handle) {
+                ->chunk(200, function ($bookings) use ($handle, $reportTimezone) {
                     foreach ($bookings as $booking) {
                         $latestTransaction = $booking->providerPayoutTransactions->first();
 
@@ -194,17 +195,17 @@ class AdminReportController extends Controller
                             number_format((float) $booking->platform_commission_amount, 2, '.', ''),
                             number_format((float) $booking->provider_payout_amount, 2, '.', ''),
                             $booking->provider_payout_reference,
-                            $booking->provider_payout_paid_at?->format('Y-m-d H:i:s'),
+                            $booking->provider_payout_paid_at?->copy()->timezone($reportTimezone)->format('Y-m-d H:i:s'),
                             $booking->payment?->method === 'on_site_cash' ? 'Cash commission collection' : 'Provider payout',
                             number_format((float) $booking->cash_collected_amount, 2, '.', ''),
                             Booking::providerCommissionStatusLabel($booking->provider_commission_status),
                             $booking->provider_commission_reference,
-                            $booking->provider_commission_paid_at?->format('Y-m-d H:i:s'),
+                            $booking->provider_commission_paid_at?->copy()->timezone($reportTimezone)->format('Y-m-d H:i:s'),
                             $latestTransaction
                                 ? Booking::providerPayoutStatusLabel($latestTransaction->from_status).' -> '.Booking::providerPayoutStatusLabel($latestTransaction->to_status)
                                 : '',
                             $latestTransaction?->processor?->full_name ?? '',
-                            $latestTransaction?->created_at?->format('Y-m-d H:i:s'),
+                            $latestTransaction?->created_at?->copy()->timezone($reportTimezone)->format('Y-m-d H:i:s'),
                             filled($booking->provider_payout_proof_path) ? 'Yes' : 'No',
                         ]);
                     }
@@ -348,22 +349,23 @@ class AdminReportController extends Controller
         $start = null;
         $end = null;
         $label = 'All time';
+        $reportNow = Carbon::now($this->reportTimezone());
 
         if ($period === 'today') {
-            $start = now()->startOfDay();
-            $end = now()->endOfDay();
+            $start = $reportNow->copy()->startOfDay();
+            $end = $reportNow->copy()->endOfDay();
             $label = 'Today';
         } elseif ($period === 'this_week') {
-            $start = now()->startOfWeek();
-            $end = now()->endOfWeek();
+            $start = $reportNow->copy()->startOfWeek();
+            $end = $reportNow->copy()->endOfWeek();
             $label = 'This week';
         } elseif ($period === 'this_month') {
-            $start = now()->startOfMonth();
-            $end = now()->endOfMonth();
+            $start = $reportNow->copy()->startOfMonth();
+            $end = $reportNow->copy()->endOfMonth();
             $label = 'This month';
         } elseif ($period === 'last_month') {
-            $start = now()->subMonthNoOverflow()->startOfMonth();
-            $end = now()->subMonthNoOverflow()->endOfMonth();
+            $start = $reportNow->copy()->subMonthNoOverflow()->startOfMonth();
+            $end = $reportNow->copy()->subMonthNoOverflow()->endOfMonth();
             $label = 'Last month';
         } elseif ($period === 'custom') {
             $start = $this->parseReportDate($filters['date_from'])?->startOfDay();
@@ -381,12 +383,14 @@ class AdminReportController extends Controller
 
     private function parseReportDate(string $value): ?Carbon
     {
-        if (! filled($value)) {
+        if (! filled($value) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) !== 1) {
             return null;
         }
 
         try {
-            return Carbon::parse($value);
+            $date = Carbon::createFromFormat('!Y-m-d', $value, $this->reportTimezone());
+
+            return $date->format('Y-m-d') === $value ? $date : null;
         } catch (\Throwable) {
             return null;
         }
@@ -394,9 +398,17 @@ class AdminReportController extends Controller
 
     private function applyReportDateRange(Builder $query, array $dateRange): Builder
     {
+        $start = ($dateRange['start'] ?? null)?->copy()->utc();
+        $end = ($dateRange['end'] ?? null)?->copy()->utc();
+
         return $query
-            ->when($dateRange['start'] ?? null, fn (Builder $query, Carbon $start) => $query->where('bookings.created_at', '>=', $start))
-            ->when($dateRange['end'] ?? null, fn (Builder $query, Carbon $end) => $query->where('bookings.created_at', '<=', $end));
+            ->when($start, fn (Builder $query) => $query->where('bookings.created_at', '>=', $start))
+            ->when($end, fn (Builder $query) => $query->where('bookings.created_at', '<=', $end));
+    }
+
+    private function reportTimezone(): string
+    {
+        return config('cleanflow.attendance_timezone', 'Asia/Manila');
     }
 
     private function reportExportRows(array $dateRange): array
@@ -482,7 +494,7 @@ class AdminReportController extends Controller
 
     private function simplePdf(string $title, array $rows): string
     {
-        $lines = [$title, 'Generated: '.now()->format('Y-m-d H:i:s'), ''];
+        $lines = [$title, 'Generated: '.Carbon::now($this->reportTimezone())->format('Y-m-d H:i:s'), ''];
 
         foreach ($rows ?: [['Message' => 'No report data found']] as $row) {
             $lines[] = collect($row)->map(fn ($value, $key) => $key.': '.(string) $value)->implode(' | ');
@@ -550,7 +562,8 @@ class AdminReportController extends Controller
 
     private function buildAdvancedAnalytics(): array
     {
-        $now = Carbon::now();
+        $reportTimezone = $this->reportTimezone();
+        $now = Carbon::now($reportTimezone);
         $monthBuckets = collect(range(5, 0))
             ->map(fn (int $monthsAgo) => $now->copy()->startOfMonth()->subMonths($monthsAgo))
             ->values();
@@ -562,11 +575,11 @@ class AdminReportController extends Controller
         $previousMonthEnd = $currentMonthStart->copy()->subMonth()->endOfMonth();
 
         $bookingsInRange = Booking::query()
-            ->where('created_at', '>=', $rangeStart)
+            ->where('created_at', '>=', $rangeStart->copy()->utc())
             ->get(['id', 'status', 'price', 'created_at', 'scheduled_date', 'scheduled_time']);
 
-        $monthlyBookingTrend = $monthBuckets->map(function (Carbon $month) use ($bookingsInRange) {
-            $monthBookings = $bookingsInRange->filter(fn (Booking $booking) => $booking->created_at?->format('Y-m') === $month->format('Y-m'));
+        $monthlyBookingTrend = $monthBuckets->map(function (Carbon $month) use ($bookingsInRange, $reportTimezone) {
+            $monthBookings = $bookingsInRange->filter(fn (Booking $booking) => $booking->created_at?->copy()->timezone($reportTimezone)->format('Y-m') === $month->format('Y-m'));
             $completedMonthBookings = $monthBookings->where('status', 'completed');
 
             return (object) [
@@ -615,9 +628,9 @@ class AdminReportController extends Controller
             ->take(5);
 
         $weekdayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        $weekdayTrends = collect($weekdayOrder)->map(function (string $weekday) use ($bookingsForDemand) {
+        $weekdayTrends = collect($weekdayOrder)->map(function (string $weekday) use ($bookingsForDemand, $reportTimezone) {
             $weekdayBookings = $bookingsForDemand->filter(
-                fn (Booking $booking) => Carbon::parse($booking->scheduled_date)->format('l') === $weekday
+                fn (Booking $booking) => Carbon::parse($booking->scheduled_date->toDateString(), $reportTimezone)->format('l') === $weekday
             );
 
             return (object) [
@@ -628,11 +641,11 @@ class AdminReportController extends Controller
         })->values();
 
         $ratingsInRange = Rating::query()
-            ->where('created_at', '>=', $rangeStart)
+            ->where('created_at', '>=', $rangeStart->copy()->utc())
             ->get(['id', 'stars', 'created_at']);
 
-        $satisfactionTrend = $monthBuckets->map(function (Carbon $month) use ($ratingsInRange) {
-            $monthRatings = $ratingsInRange->filter(fn (Rating $rating) => $rating->created_at?->format('Y-m') === $month->format('Y-m'));
+        $satisfactionTrend = $monthBuckets->map(function (Carbon $month) use ($ratingsInRange, $reportTimezone) {
+            $monthRatings = $ratingsInRange->filter(fn (Rating $rating) => $rating->created_at?->copy()->timezone($reportTimezone)->format('Y-m') === $month->format('Y-m'));
             $reviewCount = $monthRatings->count();
             $positiveReviews = $monthRatings->filter(fn (Rating $rating) => (int) $rating->stars >= 4)->count();
 
@@ -652,25 +665,31 @@ class AdminReportController extends Controller
         $currentMonthAverageRating = $satisfactionTrend->last()->average;
         $previousMonthAverageRating = $satisfactionTrend->slice(-2, 1)->first()->average ?? null;
 
+        $staffPerformanceBookings = Booking::query()
+            ->with(['rating', 'staffAssignments:id,booking_id,staff_id'])
+            ->get(['id', 'staff_id', 'status', 'price', 'scheduled_date']);
+
         $staffPerformance = User::where('role', 'staff')
-            ->with(['assignedBookings.rating'])
             ->get()
-            ->map(function (User $staff) use ($currentMonthStart, $currentMonthEnd, $previousMonthStart, $previousMonthEnd) {
-                $assigned = $staff->assignedBookings;
+            ->map(function (User $staff) use ($staffPerformanceBookings, $currentMonthStart, $currentMonthEnd, $previousMonthStart, $previousMonthEnd, $reportTimezone) {
+                $assigned = $staffPerformanceBookings
+                    ->filter(fn (Booking $booking): bool => $booking->isAssignedToStaff((int) $staff->id));
                 $completed = $assigned->where('status', 'completed');
-                $ratings = $completed->pluck('rating')->filter();
+                $ratings = $completed
+                    ->filter(fn (Booking $booking): bool => (int) $booking->staff_id === (int) $staff->id)
+                    ->pluck('rating')
+                    ->filter();
                 $currentMonthCompleted = $completed->filter(
                     fn (Booking $booking) => filled($booking->scheduled_date)
-                        && Carbon::parse($booking->scheduled_date)->betweenIncluded($currentMonthStart, $currentMonthEnd)
+                        && Carbon::parse($booking->scheduled_date->toDateString(), $reportTimezone)->betweenIncluded($currentMonthStart, $currentMonthEnd)
                 );
                 $previousMonthCompleted = $completed->filter(
                     fn (Booking $booking) => filled($booking->scheduled_date)
-                        && Carbon::parse($booking->scheduled_date)->betweenIncluded($previousMonthStart, $previousMonthEnd)
+                        && Carbon::parse($booking->scheduled_date->toDateString(), $reportTimezone)->betweenIncluded($previousMonthStart, $previousMonthEnd)
                 );
                 $currentMonthRatings = $ratings->filter(
                     fn (Rating $rating) => $rating->created_at
-                        && $rating->created_at->gte($currentMonthStart)
-                        && $rating->created_at->lte($currentMonthEnd)
+                        && $rating->created_at->copy()->timezone($reportTimezone)->betweenIncluded($currentMonthStart, $currentMonthEnd)
                 );
 
                 $staff->total_assigned = $assigned->count();
@@ -685,7 +704,10 @@ class AdminReportController extends Controller
                 $staff->current_month_completed = $currentMonthCompleted->count();
                 $staff->previous_month_completed = $previousMonthCompleted->count();
                 $staff->trend_change = $staff->current_month_completed - $staff->previous_month_completed;
-                $staff->current_month_revenue = round((float) $currentMonthCompleted->sum('price'), 2);
+                // Booking price belongs to the legacy primary cleaner until a split policy is defined.
+                $staff->current_month_revenue = round((float) $currentMonthCompleted
+                    ->where('staff_id', $staff->id)
+                    ->sum('price'), 2);
                 $staff->current_month_avg_rating = $currentMonthRatings->count() > 0
                     ? round((float) $currentMonthRatings->avg('stars'), 1)
                     : null;

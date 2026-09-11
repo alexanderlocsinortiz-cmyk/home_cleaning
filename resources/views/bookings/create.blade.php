@@ -41,7 +41,7 @@
         ->values();
     $googleMapsApiKey = config('services.google.maps_api_key');
     $bookingNow = $bookingNow ?? now(config('cleanflow.attendance_timezone', 'Asia/Manila'));
-    $timeSlots = $timeSlots ?? ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
+    $timeSlots = $timeSlots ?? \App\Models\Booking::bookingTimeSlots();
     $profileAddress = $profileAddress ?? ['barangay' => auth()->user()?->barangay, 'street_address' => auth()->user()?->street];
     $selectedBarangay = old('barangay', $profileAddress['barangay'] ?? '');
     $selectedStreetAddress = old('street_address', $profileAddress['street_address'] ?? '');
@@ -311,7 +311,7 @@
                 <div>
                     <div>
                         <label class="mb-2 block text-sm font-semibold text-slate-700">Total Cleanable Floor Area (sqm)</label>
-                        <input type="number" name="floor_area" value="{{ old('floor_area', $includedFloorArea) }}" min="10" max="1000" step="1" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                        <input type="number" name="floor_area" value="{{ old('floor_area', $includedFloorArea) }}" min="10" max="1000" step="1" required class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                         <div class="mt-2 text-xs leading-5 text-slate-500">Enter the total floor area of all indoor spaces to be cleaned (e.g., bedrooms, living areas, kitchen, CR/bathrooms).</div>
                         <div class="text-xs leading-5 text-slate-500">Do not include lot area or outdoor areas unless they are part of the cleaning service.</div>
                         <div class="mt-1 text-xs font-semibold text-amber-700" id="scope-limit-note">Select a service to see its measurable scope limit.</div>
@@ -402,19 +402,19 @@
                 <div class="grid gap-4 md:grid-cols-2">
                     <div>
                         <label class="mb-2 block text-sm font-semibold text-slate-700">Preferred Date</label>
-                        <input type="date" name="scheduled_date" value="{{ old('scheduled_date') }}" min="{{ $bookingNow->toDateString() }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
+                        <input type="date" name="scheduled_date" value="{{ old('scheduled_date') }}" min="{{ $bookingNow->toDateString() }}" required class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
                         @error('scheduled_date')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                     </div>
 
                     <div>
                         <label class="mb-2 block text-sm font-semibold text-slate-700">Preferred Time</label>
-                        <select name="scheduled_time" id="scheduled-time-select" data-selected="{{ old('scheduled_time') }}" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
+                        <select name="scheduled_time" id="scheduled-time-select" data-selected="{{ old('scheduled_time') }}" required class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
                             <option value="">Select time</option>
                             @foreach($timeSlots as $time)
                             <option value="{{ $time }}" {{ old('scheduled_time') == $time ? 'selected' : '' }}>{{ date('h:i A', strtotime($time)) }}</option>
                             @endforeach
                         </select>
-                        <div id="schedule-availability-note" class="mt-2 text-xs leading-5 text-slate-500">For today, only future time slots are shown.</div>
+                        <div id="schedule-availability-note" class="mt-2 text-xs leading-5 text-slate-500">Available start times: 8:00 AM - 4:00 PM (Asia/Manila). For today, only future time slots are shown.</div>
                         @error('scheduled_time')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
@@ -422,7 +422,7 @@
                 <div class="mt-4 grid gap-4 md:grid-cols-2">
                     <div>
                         <label class="mb-2 block text-sm font-semibold text-slate-700">Barangay</label>
-                        <select name="barangay" id="barangay-select" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
+                        <select name="barangay" id="barangay-select" required class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
                             <option value="">Select barangay</option>
                             @foreach($barangays as $b)
                             <option value="{{ $b }}" {{ $selectedBarangay == $b ? 'selected' : '' }}>{{ ucfirst($b) }}</option>
@@ -439,7 +439,7 @@
                                 Use my current location
                             </button>
                         </div>
-                        <input type="text" name="street_address" id="street-address-input" value="{{ $selectedStreetAddress }}" placeholder="Example: Purok 5, House 12, near barangay hall" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                        <input type="text" name="street_address" id="street-address-input" value="{{ $selectedStreetAddress }}" placeholder="Example: Purok 5, House 12, near barangay hall" required class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-hidden transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                         <input type="hidden" name="service_latitude" id="service-latitude" value="{{ old('service_latitude') }}">
                         <input type="hidden" name="service_longitude" id="service-longitude" value="{{ old('service_longitude') }}">
                         <div id="location-status-message" class="mt-2 text-xs text-slate-500">
@@ -527,7 +527,7 @@
                     <div>
                         <div class="mb-3">
                             <h3 class="text-sm font-semibold text-slate-900">Payment Method</h3>
-                            <p class="mt-1 text-xs text-slate-500">Digital payments are recorded immediately with a reference number. Cash stays pending until the service is completed and confirmed by admin.</p>
+                            <p class="mt-1 text-xs text-slate-500">Digital payments are confirmed after PayMongo reports success. Complete online payment within {{ (int) config('cleanflow.payments.unpaid_online_expiry_minutes', 30) }} minutes or the unpaid booking will be cancelled automatically. Cash stays pending until the service is completed and confirmed by admin.</p>
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             @foreach($paymentMethods as $methodKey => $paymentLabel)
@@ -539,7 +539,7 @@
                                         @if($methodKey === 'on_site_cash')
                                         Pay after the service is finished and marked completed.
                                         @else
-                                        Pay digitally and store a payment reference in the booking record.
+                                        Complete payment through PayMongo within {{ (int) config('cleanflow.payments.unpaid_online_expiry_minutes', 30) }} minutes. Unpaid bookings are cancelled automatically and the schedule is released.
                                         @endif
                                     </div>
                                 </div>
@@ -721,7 +721,9 @@ const validBarangays = @json(array_values($barangays));
 const googleMapsEnabled = @json(!empty($googleMapsApiKey));
 const serviceCenters = @json(collect(config('cleanflow.service_areas'))->where('type', 'service_center')->values()->all());
 const barangayCenters = @json(config('cleanflow.barangay_centers'));
+const serviceMapBounds = @json(config('cleanflow.map.maxBounds'));
 const scheduleAvailability = @json($preferredCleanerAvailability ?? []);
+const serviceHoursLabel = 'Available start times: 8:00 AM - 4:00 PM (Asia/Manila).';
 const peso = '\u20B1';
 
 function formatCurrency(value) {
@@ -741,7 +743,7 @@ function minutesFromTime(timeValue) {
     return (hours * 60) + minutes;
 }
 
-function currentLocalDateValue() {
+function browserLocalDateValue() {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -750,10 +752,18 @@ function currentLocalDateValue() {
     return `${year}-${month}-${day}`;
 }
 
-function currentLocalTimeValue() {
+function browserLocalTimeValue() {
     const now = new Date();
 
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
+function currentBookingDateValue() {
+    return scheduleAvailability.today || browserLocalDateValue();
+}
+
+function currentBookingTimeValue() {
+    return scheduleAvailability.now || browserLocalTimeValue();
 }
 
 function formatTimeLabel(timeValue) {
@@ -782,12 +792,12 @@ function slotIsFutureForSelectedDate(dateValue, timeValue) {
         return true;
     }
 
-    if (dateValue !== currentLocalDateValue()) {
+    if (dateValue !== currentBookingDateValue()) {
         return true;
     }
 
     const slotMinutes = minutesFromTime(timeValue);
-    const nowMinutes = minutesFromTime(currentLocalTimeValue());
+    const nowMinutes = minutesFromTime(currentBookingTimeValue());
 
     return slotMinutes !== null && nowMinutes !== null && slotMinutes > nowMinutes;
 }
@@ -804,7 +814,7 @@ function refreshAvailableTimes() {
     const selectedDate = dateInput.value;
     const currentSelection = timeSelect.value || timeSelect.dataset.selected || '';
     const timeSlots = scheduleAvailability.timeSlots || [];
-    const todayValue = currentLocalDateValue();
+    const todayValue = currentBookingDateValue();
     const availableSlots = timeSlots.filter((timeValue) => slotIsFutureForSelectedDate(selectedDate, timeValue));
 
     timeSelect.innerHTML = '';
@@ -832,16 +842,16 @@ function refreshAvailableTimes() {
 
     if (note) {
         if (!selectedDate) {
-            note.textContent = 'Choose a date first. Today will only show future time slots.';
+            note.textContent = `${serviceHoursLabel} Choose a date first. Today will only show future time slots.`;
             note.className = 'mt-2 text-xs leading-5 text-slate-500';
         } else if (selectedDate === todayValue && availableSlots.length === 0) {
-            note.textContent = 'No booking times are left today. Please choose another date.';
+            note.textContent = `${serviceHoursLabel} No booking times are left today. Please choose another date.`;
             note.className = 'mt-2 text-xs leading-5 text-amber-700';
         } else if (selectedDate === todayValue) {
-            note.textContent = `Showing only times after ${formatTimeLabel(currentLocalTimeValue())} today.`;
+            note.textContent = `${serviceHoursLabel} Showing only times after ${formatTimeLabel(currentBookingTimeValue())} today.`;
             note.className = 'mt-2 text-xs leading-5 text-blue-700';
         } else {
-            note.textContent = 'All standard booking times are available for this date unless capacity fills up.';
+            note.textContent = `${serviceHoursLabel} All standard booking times are available for this date unless capacity fills up.`;
             note.className = 'mt-2 text-xs leading-5 text-slate-500';
         }
     }
@@ -881,7 +891,7 @@ function refreshPreferredCleaners() {
     const selectedTime = timeSelect.value;
     const previousSelection = cleanerSelect.value || cleanerSelect.dataset.selected || '';
     const staff = scheduleAvailability.staff || [];
-    const todayValue = currentLocalDateValue();
+    const todayValue = currentBookingDateValue();
 
     const availableStaff = staff.filter((cleaner) => {
         if (selectedDate === todayValue && !cleaner.presentToday) {
@@ -943,6 +953,24 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
               Math.sin(dLng / 2) * Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
+}
+
+function isWithinServiceMapBounds(lat, lng) {
+    const south = Number(serviceMapBounds?.[0]?.[0]);
+    const west = Number(serviceMapBounds?.[0]?.[1]);
+    const north = Number(serviceMapBounds?.[1]?.[0]);
+    const east = Number(serviceMapBounds?.[1]?.[1]);
+
+    return Number.isFinite(lat)
+        && Number.isFinite(lng)
+        && Number.isFinite(south)
+        && Number.isFinite(west)
+        && Number.isFinite(north)
+        && Number.isFinite(east)
+        && lat >= south
+        && lat <= north
+        && lng >= west
+        && lng <= east;
 }
 
 function findNearestServiceCenter(lat, lng) {
@@ -1156,6 +1184,10 @@ function streetAddressFromGoogle(results = []) {
 }
 
 function setAddressMap(lat, lng, options = {}) {
+    if (!isWithinServiceMapBounds(lat, lng)) {
+        return;
+    }
+
     const shell = document.getElementById('address-map-shell');
     const mapEl = document.getElementById('address-map');
     const fallback = document.getElementById('address-map-fallback');
@@ -1195,6 +1227,15 @@ function setAddressMap(lat, lng, options = {}) {
                 clickableIcons: true,
                 gestureHandling: 'greedy',
                 mapTypeId: 'roadmap',
+                restriction: {
+                    latLngBounds: {
+                        south: Number(serviceMapBounds[0][0]),
+                        west: Number(serviceMapBounds[0][1]),
+                        north: Number(serviceMapBounds[1][0]),
+                        east: Number(serviceMapBounds[1][1]),
+                    },
+                    strictBounds: false,
+                },
             });
 
             addressMap.addListener('click', (event) => {
@@ -1236,6 +1277,8 @@ function setAddressMap(lat, lng, options = {}) {
                 boxZoom: true,
                 keyboard: true,
                 tap: true,
+                maxBounds: serviceMapBounds,
+                maxBoundsViscosity: 0.85,
             }).setView([lat, lng], 17);
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1284,6 +1327,11 @@ function setAddressMap(lat, lng, options = {}) {
 }
 
 async function handleAddressPinMoved(lat, lng) {
+    if (!isWithinServiceMapBounds(lat, lng)) {
+        setLocationStatus('That pin is outside the CleanFlow service area. Choose a location within the coverage area.', 'error');
+        return;
+    }
+
     setAddressMap(lat, lng, { preserveViewport: true });
     setLocationStatus('Pin moved. Looking up the nearest street address...', 'neutral');
 
@@ -1370,6 +1418,19 @@ async function reverseGeocodeWithOpenStreetMap(lat, lng) {
 }
 
 function showLocationPreview(lat, lng, results = [], options = {}) {
+    if (!isWithinServiceMapBounds(lat, lng)) {
+        pendingLocation = null;
+        const confirmButton = document.getElementById('confirm-current-location');
+
+        if (confirmButton) {
+            confirmButton.disabled = true;
+        }
+
+        setLocationStatus('That location is outside the CleanFlow service area. Choose a location within the coverage area.', 'error');
+
+        return;
+    }
+
     const bestAddress = typeof results === 'string'
         ? results
         : streetAddressFromGoogle(results);
@@ -1521,6 +1582,12 @@ function useCurrentLocation() {
 
             const lat = Number(position.coords.latitude);
             const lng = Number(position.coords.longitude);
+
+            if (!isWithinServiceMapBounds(lat, lng)) {
+                setLocationStatus('Your current location is outside the CleanFlow service area. Select a location within the coverage area.', 'error');
+                resetCurrentLocationButton();
+                return;
+            }
 
             showLocationPreview(lat, lng, []);
             setLocationStatus('Location found. Loading street address...', 'neutral');
@@ -1739,7 +1806,7 @@ function updatePrice() {
     if (paymentSummaryNote) {
         paymentSummaryNote.textContent = paymentMethod === 'on_site_cash'
             ? 'This estimate includes the selected service, floor area, and add-ons. Cash payments stay pending until the service is completed and confirmed by admin.'
-            : `This estimate includes the selected service, floor area, and add-ons. ${paymentMethodLabels[paymentMethod] || 'Digital payment'} is recorded immediately with a payment reference.`;
+            : `This estimate includes the selected service, floor area, and add-ons. You'll be redirected to PayMongo to complete your ${paymentMethodLabels[paymentMethod] || 'online'} payment. The booking remains pending until PayMongo confirms success; unpaid online bookings expire after 30 minutes.`;
     }
 
     const servicePlanSummaryNote = document.getElementById('service-plan-summary-note');

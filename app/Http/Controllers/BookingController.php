@@ -15,6 +15,7 @@ use App\Models\Rating;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\PaymongoCheckoutService;
+use App\Services\PaymongoRefundService;
 use Carbon\Carbon;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class BookingController extends Controller
@@ -32,7 +34,7 @@ class BookingController extends Controller
         $user = $this->requireVerifiedClient();
 
         $bookings = Booking::where('user_id', $user->id)
-            ->with(['staff', 'service', 'preferredStaff', 'payment'])
+            ->with(['staff', 'staffAssignments:id,booking_id,staff_id', 'service', 'preferredStaff', 'payment'])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
@@ -59,7 +61,7 @@ class BookingController extends Controller
         $subscriptionFrequencies = Booking::subscriptionFrequencyLabels();
         $bookingTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
         $bookingNow = Carbon::now($bookingTimezone);
-        $timeSlots = $this->bookingTimeSlots();
+        $timeSlots = Booking::bookingTimeSlots();
         $profileAddress = [
             'barangay' => $user->barangay,
             'street_address' => $user->street,
@@ -72,6 +74,7 @@ class BookingController extends Controller
         $preferredCleanerAvailability = [
             'today' => $bookingNow->toDateString(),
             'now' => $bookingNow->format('H:i'),
+            'timezone' => $bookingTimezone,
             'timeSlots' => $timeSlots,
             'staff' => $preferredCleaners->map(fn (User $staff) => [
                 'id' => $staff->id,
@@ -80,18 +83,19 @@ class BookingController extends Controller
                 'presentToday' => in_array((int) $staff->id, $presentTodayStaffIds, true),
             ])->values(),
             'assignments' => Booking::query()
-                ->with('service')
+                ->with(['service', 'staffAssignments:id,booking_id,staff_id'])
                 ->whereIn('status', Booking::staffAssignmentConflictStatuses())
-                ->whereNotNull('staff_id')
                 ->whereDate('scheduled_date', '>=', $bookingNow->toDateString())
-                ->get(['staff_id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'service_id', 'status'])
-                ->map(fn (Booking $booking) => [
-                    'staffId' => (int) $booking->staff_id,
-                    'date' => Booking::normalizeScheduleDate($booking->scheduled_date),
-                    'time' => Carbon::parse($booking->scheduled_time)->format('H:i'),
-                    'duration' => (int) ($booking->duration_minutes ?: Service::durationForSlug($booking->service?->slug)),
-                    'status' => $booking->status,
-                ])->values(),
+                ->get(['id', 'staff_id', 'scheduled_date', 'scheduled_time', 'duration_minutes', 'service_id', 'status'])
+                ->flatMap(fn (Booking $booking) => collect($booking->assignedStaffIds())
+                    ->map(fn (int $staffId) => [
+                        'staffId' => $staffId,
+                        'date' => Booking::normalizeScheduleDate($booking->scheduled_date),
+                        'time' => Carbon::parse($booking->scheduled_time)->format('H:i'),
+                        'duration' => (int) ($booking->duration_minutes ?: Service::durationForSlug($booking->service?->slug)),
+                        'status' => $booking->status,
+                    ]))
+                ->values(),
             'serviceDurations' => $services->mapWithKeys(fn (Service $service) => [
                 $service->slug => (int) ($service->duration_minutes ?: Service::durationForSlug($service->slug)),
             ]),
@@ -447,10 +451,38 @@ class BookingController extends Controller
                 ->with('info', 'This booking is not using an online PayMongo payment method.');
         }
 
-        if ($payment?->status === 'paid') {
+        if ($payment?->status === 'refunded') {
+            return redirect()
+                ->route('bookings.show', $booking->id)
+                ->with('success', 'Your online payment has already been refunded.');
+        }
+
+        if ($payment?->status === 'paid' && $booking->status !== 'cancelled') {
             return redirect()
                 ->route('bookings.show', $booking->id)
                 ->with('success', 'Your payment is already confirmed.');
+        }
+
+        if ($payment?->status === 'paid' && $booking->status === 'cancelled') {
+            try {
+                $payment = app(PaymongoRefundService::class)->refund($payment);
+            } catch (\Throwable $exception) {
+                Log::error('Cancelled booking payment refund could not be completed after customer return.', [
+                    'booking_id' => $booking->id,
+                    'payment_id' => $payment->id,
+                    'error' => $exception->getMessage(),
+                ]);
+
+                return redirect()
+                    ->route('bookings.show', $booking->id)
+                    ->with('warning', 'The booking is cancelled, but the online refund needs admin review. Please do not pay again.');
+            }
+
+            return redirect()
+                ->route('bookings.show', $booking->id)
+                ->with('success', $payment->refund_status === 'succeeded'
+                    ? 'The cancelled booking payment has been refunded through PayMongo.'
+                    : 'The cancelled booking payment refund has been requested and is being processed.');
         }
 
         $checkoutSessionId = $payment?->checkout_session_id
@@ -459,7 +491,7 @@ class BookingController extends Controller
         if (! $checkoutSessionId) {
             return redirect()
                 ->route('bookings.show', $booking->id)
-                ->with('warning', 'We could not verify this PayMongo checkout automatically because the booking has no checkout session ID. Check the PayMongo dashboard and mark this booking as paid from admin if the GCash charge succeeded.');
+                ->with('warning', 'We could not verify this PayMongo checkout automatically because the booking has no checkout session ID. Check the PayMongo dashboard and mark this booking as paid from admin if the online payment succeeded.');
         }
 
         try {
@@ -474,16 +506,17 @@ class BookingController extends Controller
 
             return redirect()
                 ->route('bookings.show', $booking->id)
-                ->with('warning', 'Your booking was saved, but PayMongo payment verification is not available right now. If GCash charged you, check the PayMongo dashboard before asking the customer to pay again.');
+                ->with('warning', 'Your booking was saved, but PayMongo payment verification is not available right now. If the online payment was charged, check the PayMongo dashboard before asking the customer to pay again.');
         }
 
         if (! $paymongo->checkoutSessionIsPaid($checkoutSession)) {
             return redirect()
                 ->route('bookings.show', $booking->id)
-                ->with('warning', 'PayMongo has not confirmed this checkout as paid yet. If GCash already charged you, wait a moment and refresh before paying again.');
+                ->with('warning', 'PayMongo has not confirmed this checkout as paid yet. If the online payment was already charged, wait a moment and refresh before paying again.');
         }
 
         $paymentReference = $paymongo->paymentReferenceFromCheckoutSession($checkoutSession);
+        $providerPaymentId = $paymongo->paymentIdFromCheckoutSession($checkoutSession);
         $metadataBookingIds = collect(explode(',', (string) data_get($checkoutSession, 'data.attributes.metadata.booking_ids')))
             ->filter(fn (string $id): bool => ctype_digit($id))
             ->map(fn (string $id): int => (int) $id)
@@ -498,7 +531,8 @@ class BookingController extends Controller
             abort(403);
         }
 
-        $paidBookings->each(function (Booking $paidBooking) use ($user, $paymentReference): void {
+        $refundFailure = null;
+        $paidBookings->each(function (Booking $paidBooking) use ($user, $paymentReference, $providerPaymentId, &$refundFailure): void {
             $payment = $paidBooking->paymentOrCreate([
                 'method' => 'gcash',
                 'status' => 'pending',
@@ -506,13 +540,14 @@ class BookingController extends Controller
                 'currency' => 'PHP',
                 'provider' => 'paymongo',
             ]);
-            $wasPending = $payment->status !== 'paid';
+            $wasPending = ! in_array($payment->status, ['paid', 'refunded'], true);
             $shouldReplaceReference = ! $payment->reference || str_starts_with((string) $payment->reference, 'cs_');
 
             $payment->forceFill([
-                'status' => 'paid',
+                'status' => $payment->status === 'refunded' ? 'refunded' : 'paid',
                 'reference' => $shouldReplaceReference ? $paymentReference : $payment->reference,
                 'paid_at' => $payment->paid_at ?: now(),
+                'provider_payment_id' => $payment->provider_payment_id ?: $providerPaymentId,
             ])->save();
             $paidBooking->setRelation('payment', $payment);
 
@@ -523,7 +558,32 @@ class BookingController extends Controller
                     'payment_reference' => $payment->reference,
                 ]);
             }
+
+            if ($paidBooking->status === 'cancelled') {
+                try {
+                    $paidBooking->setRelation('payment', app(PaymongoRefundService::class)->refund($payment));
+                } catch (\Throwable $exception) {
+                    $refundFailure = $exception->getMessage();
+                    Log::error('Cancelled booking payment refund failed after PayMongo return verification.', [
+                        'booking_id' => $paidBooking->id,
+                        'payment_id' => $payment->id,
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+            }
         });
+
+        if ($refundFailure !== null) {
+            return redirect()
+                ->route('bookings.show', $booking->id)
+                ->with('warning', 'Payment was received for a cancelled booking, but the refund needs admin review. Please do not pay again.');
+        }
+
+        if ($booking->status === 'cancelled') {
+            return redirect()
+                ->route('bookings.show', $booking->id)
+                ->with('success', 'Payment was received after cancellation and has been sent for refund through PayMongo.');
+        }
 
         return redirect()
             ->route('bookings.show', $booking->id)
@@ -532,6 +592,14 @@ class BookingController extends Controller
 
     public function show($id)
     {
+        $user = auth()->user();
+
+        if ($user->role === 'client' && ! $user->hasVerifiedEmail()) {
+            return redirect()
+                ->route('verification.notice')
+                ->with('error', 'Please verify your email before viewing booking details.');
+        }
+
         $booking = Booking::with([
             'staff',
             'staffAssignments.staff',
@@ -545,8 +613,6 @@ class BookingController extends Controller
             'messages.sender',
         ])
             ->findOrFail($id);
-
-        $user = auth()->user();
 
         if ($user->role === 'client' && $booking->user_id !== $user->id) {
             abort(403);
@@ -633,8 +699,15 @@ class BookingController extends Controller
 
     public function downloadCashPaymentProof($id)
     {
-        $booking = Booking::with('payment')->findOrFail($id);
         $user = auth()->user();
+
+        if ($user->role === 'client' && ! $user->hasVerifiedEmail()) {
+            return redirect()
+                ->route('verification.notice')
+                ->with('error', 'Please verify your email before viewing payment documents.');
+        }
+
+        $booking = Booking::with('payment')->findOrFail($id);
 
         if ($user->role === 'client' && (int) $booking->user_id !== (int) $user->id) {
             abort(403);
@@ -684,8 +757,15 @@ class BookingController extends Controller
 
     public function receipt($id)
     {
-        $booking = Booking::with(['staff', 'staffAssignments', 'user', 'service', 'payment.collector'])->findOrFail($id);
         $user = auth()->user();
+
+        if ($user->role === 'client' && ! $user->hasVerifiedEmail()) {
+            return redirect()
+                ->route('verification.notice')
+                ->with('error', 'Please verify your email before viewing booking receipts.');
+        }
+
+        $booking = Booking::with(['staff', 'staffAssignments', 'user', 'service', 'payment.collector'])->findOrFail($id);
 
         if ($user->role === 'client' && $booking->user_id !== $user->id) {
             abort(403);
@@ -798,35 +878,84 @@ class BookingController extends Controller
     public function cancel($id)
     {
         $user = $this->requireVerifiedClient();
-        $booking = Booking::findOrFail($id);
+        $requestedBooking = Booking::findOrFail($id);
 
-        if ((int) $booking->user_id !== (int) $user->id) {
+        if ((int) $requestedBooking->user_id !== (int) $user->id) {
             abort(403);
         }
-        if ($booking->status !== 'pending') {
-            return back()->with('error', 'Only pending bookings can be cancelled from your dashboard.');
+
+        try {
+            return $this->withScheduleLocks([
+                ['scheduled_date' => $requestedBooking->scheduled_date, 'scheduled_time' => $requestedBooking->scheduled_time],
+            ], function () use ($id, $user): mixed {
+                $booking = Booking::with('payment')->where('id', $id)->where('user_id', $user->id)->firstOrFail();
+
+                if ($booking->hasAcceptedProviderAssignment() || $booking->assignedStaffIds() !== []) {
+                    return back()->with('error', 'This booking can no longer be cancelled because a cleaner has already been assigned.');
+                }
+
+                if (! $booking->clientCanCancel()) {
+                    return back()->with('error', 'Only pending bookings or confirmed online bookings without an assigned cleaner can be cancelled from your dashboard.');
+                }
+
+                $fromStatus = $booking->status;
+
+                [$canCancel, $refundMessage] = $this->prepareCancellationRefund($booking);
+
+                if (! $canCancel) {
+                    return back()->withErrors(['cancel' => $refundMessage]);
+                }
+
+                $booking->update(['status' => 'cancelled']);
+
+                $booking->logActivity($user, 'status_updated', 'Client cancelled the booking.', [
+                    'from_status' => $fromStatus,
+                    'to_status' => 'cancelled',
+                    'refund_status' => $booking->payment?->refund_status,
+                ]);
+
+                $this->createNotification([
+                    'user_id' => $user->id,
+                    'title' => 'Booking cancelled',
+                    'message' => 'Booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' has been cancelled successfully.'.($refundMessage ? ' '.$refundMessage : ''),
+                    'type' => 'info',
+                    'link' => route('bookings.index'),
+                ]);
+
+                return back()->with('success', 'Your '.($fromStatus === 'pending' ? 'booking request' : 'booking').' has been cancelled.'.($refundMessage ? ' '.$refundMessage : ''));
+            });
+        } catch (LockTimeoutException) {
+            return back()->withErrors(['cancel' => 'This booking is being updated right now. Please try again in a few seconds.']);
+        }
+    }
+
+    private function prepareCancellationRefund(Booking $booking): array
+    {
+        $payment = $booking->payment;
+
+        if ($payment?->status !== 'paid') {
+            return [true, null];
         }
 
-        if ($booking->staff_id) {
-            return back()->with('error', 'This booking can no longer be cancelled because a cleaner has already been assigned.');
+        if (! Booking::isDigitalPaymentMethod($payment->method)) {
+            return [false, 'This booking has a paid cash payment. Please contact support so an administrator can handle the cash refund.'];
         }
 
-        $booking->update(['status' => 'cancelled']);
+        try {
+            $booking->setRelation('payment', app(PaymongoRefundService::class)->refund($payment));
+        } catch (\Throwable $exception) {
+            Log::error('Online payment refund blocked booking cancellation.', [
+                'booking_id' => $booking->id,
+                'payment_id' => $payment->id,
+                'error' => $exception->getMessage(),
+            ]);
 
-        $booking->logActivity($user, 'status_updated', 'Client cancelled the booking.', [
-            'from_status' => 'pending',
-            'to_status' => 'cancelled',
-        ]);
+            return [false, 'Your online payment could not be refunded right now, so the booking was not cancelled. Please try again or contact support.'];
+        }
 
-        $this->createNotification([
-            'user_id' => $user->id,
-            'title' => 'Booking cancelled',
-            'message' => 'Booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' has been cancelled successfully.',
-            'type' => 'info',
-            'link' => route('bookings.index'),
-        ]);
-
-        return back()->with('success', 'Your booking request has been cancelled.');
+        return [true, $booking->payment?->refund_status === 'succeeded'
+            ? 'Your online payment has been refunded.'
+            : 'Your online payment refund has been requested and is being processed.'];
     }
 
     public function reschedule(Request $request, $id)
@@ -838,59 +967,90 @@ class BookingController extends Controller
             return back()->with('error', 'Only pending or confirmed bookings can be rescheduled.');
         }
 
-        $request->validate([
-            'scheduled_date' => 'required|date|after:today',
-            'scheduled_time' => 'required',
+        $bookingTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+        $bookingToday = Carbon::now($bookingTimezone)->toDateString();
+        $validated = $request->validate([
+            'scheduled_date' => ['required', 'date_format:Y-m-d', 'after:'.$bookingToday],
+            'scheduled_time' => ['required', Rule::in(Booking::bookingTimeSlots())],
+        ], [
+            'scheduled_date.date_format' => 'Please select a valid date.',
+            'scheduled_time.in' => 'Please select one of the available booking times.',
         ]);
 
-        if (Booking::clientHasScheduleConflict($user->id, $request->scheduled_date, $request->scheduled_time, $booking->id)) {
+        try {
+            return $this->withScheduleLocks([
+                ['scheduled_date' => $booking->scheduled_date, 'scheduled_time' => $booking->scheduled_time],
+                ['scheduled_date' => $validated['scheduled_date'], 'scheduled_time' => $validated['scheduled_time']],
+            ], function () use ($user, $id, $validated, $bookingTimezone): mixed {
+                $booking = Booking::with('staffAssignments')
+                    ->where('id', $id)
+                    ->where('user_id', $user->id)
+                    ->firstOrFail();
+
+                if (! in_array($booking->status, ['pending', 'confirmed'], true)) {
+                    return back()->with('error', 'Only pending or confirmed bookings can be rescheduled.');
+                }
+
+                if (Booking::clientHasScheduleConflict($user->id, $validated['scheduled_date'], $validated['scheduled_time'], $booking->id)) {
+                    return back()->withErrors([
+                        'scheduled_time' => 'You already have an active booking on that date and time.',
+                    ]);
+                }
+
+                foreach ($booking->assignedStaffIds() as $staffId) {
+                    if (Booking::staffHasScheduleConflict($staffId, $validated['scheduled_date'], $validated['scheduled_time'], $booking->id, (int) $booking->duration_minutes)) {
+                        return back()->withErrors([
+                            'scheduled_time' => 'One of the assigned cleaners is not available on that date and time.',
+                        ]);
+                    }
+                }
+
+                $hasCapacity = $booking->hasAcceptedProviderAssignment()
+                    ? ($booking->cleanerApplication?->hasDailyCapacityFor($validated['scheduled_date'], $booking->id) ?? false)
+                    : Booking::slotHasCapacity(
+                        $validated['scheduled_date'],
+                        $validated['scheduled_time'],
+                        $booking->id,
+                        max(1, (int) ($booking->required_cleaners ?: 1)),
+                        (int) ($booking->duration_minutes ?: Service::DEFAULT_DURATION_MINUTES)
+                    );
+
+                if (! $hasCapacity) {
+                    return back()->withErrors([
+                        'scheduled_time' => 'That time slot is already fully booked.',
+                    ]);
+                }
+
+                $oldDate = $booking->scheduled_date;
+                $oldTime = $booking->scheduled_time;
+
+                $booking->update([
+                    'scheduled_date' => $validated['scheduled_date'],
+                    'scheduled_time' => $validated['scheduled_time'],
+                ]);
+
+                $booking->logActivity($user, 'rescheduled', 'Client rescheduled the booking.', [
+                    'from_date' => $oldDate,
+                    'from_time' => $oldTime,
+                    'to_date' => $validated['scheduled_date'],
+                    'to_time' => $validated['scheduled_time'],
+                ]);
+
+                $this->createNotification([
+                    'user_id' => $user->id,
+                    'title' => 'Booking rescheduled',
+                    'message' => 'Booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' has been rescheduled to '.Carbon::parse($validated['scheduled_date'], $bookingTimezone)->format('F d, Y').' at '.Carbon::parse($validated['scheduled_time'], $bookingTimezone)->format('h:i A').'.',
+                    'type' => 'success',
+                    'link' => route('bookings.show', $booking->id),
+                ]);
+
+                return back()->with('success', 'Your booking has been rescheduled successfully.');
+            });
+        } catch (LockTimeoutException) {
             return back()->withErrors([
-                'scheduled_time' => 'You already have an active booking on that date and time.',
-            ]);
+                'scheduled_time' => 'Booking schedules are being updated right now. Please try again in a few seconds.',
+            ])->withInput();
         }
-
-        if ($booking->staff_id && Booking::staffHasScheduleConflict($booking->staff_id, $request->scheduled_date, $request->scheduled_time, $booking->id, (int) $booking->duration_minutes)) {
-            return back()->withErrors([
-                'scheduled_time' => 'The assigned cleaner is not available on that date and time.',
-            ]);
-        }
-
-        if (! Booking::slotHasCapacity(
-            $request->scheduled_date,
-            $request->scheduled_time,
-            $booking->id,
-            max(1, (int) ($booking->required_cleaners ?: 1)),
-            (int) ($booking->duration_minutes ?: Service::DEFAULT_DURATION_MINUTES)
-        )) {
-            return back()->withErrors([
-                'scheduled_time' => 'That time slot is already fully booked.',
-            ]);
-        }
-
-        $oldDate = $booking->scheduled_date;
-        $oldTime = $booking->scheduled_time;
-
-        $booking->update([
-            'scheduled_date' => $request->scheduled_date,
-            'scheduled_time' => $request->scheduled_time,
-        ]);
-
-        $booking->logActivity($user, 'rescheduled', 'Client rescheduled the booking.', [
-            'from_date' => $oldDate,
-            'from_time' => $oldTime,
-            'to_date' => $request->scheduled_date,
-            'to_time' => $request->scheduled_time,
-        ]);
-
-        $this->createNotification([
-            'user_id' => $user->id,
-            'title' => 'Booking rescheduled',
-            'message' => 'Booking CF-'.str_pad($booking->id, 5, '0', STR_PAD_LEFT).' has been rescheduled to '.Carbon::parse($request->scheduled_date)->format('F d, Y').' at '.Carbon::parse($request->scheduled_time)->format('h:i A').'.',
-            'type' => 'success',
-            'link' => route('bookings.show', $booking->id),
-        ]);
-
-        return back()->with('success', 'Your booking has been rescheduled successfully.');
     }
 
     private function requireVerifiedClient(): User
@@ -976,7 +1136,8 @@ class BookingController extends Controller
     {
         return match ($user->role) {
             'admin' => true,
-            'client' => (int) $booking->user_id === (int) $user->id,
+            'client' => $user->hasVerifiedEmail()
+                && (int) $booking->user_id === (int) $user->id,
             'staff' => $booking->isAssignedToStaff((int) $user->id),
             'provider' => $user->cleanerApplication
                 && $user->cleanerApplication->status === CleanerApplication::STATUS_APPROVED
@@ -1051,11 +1212,6 @@ class BookingController extends Controller
                 ];
             })
             ->all();
-    }
-
-    private function bookingTimeSlots(): array
-    {
-        return ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
     }
 
     private function preferredStaffIsAvailable(

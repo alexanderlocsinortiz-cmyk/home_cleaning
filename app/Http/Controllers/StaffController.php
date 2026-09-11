@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Booking;
 use App\Models\User;
 use App\Support\StrongPassword;
 use Illuminate\Http\Request;
@@ -47,11 +48,11 @@ class StaffController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
+            'first_name' => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'email' => 'required|email|max:150|unique:users,email',
             'phone' => ['required', 'regex:/^09[0-9]{9}$/'],
-            'username' => 'required|string|unique:users,username',
+            'username' => ['required', 'string', 'min:5', 'max:20', 'unique:users,username'],
             'password' => ['required', StrongPassword::rule()],
         ]);
 
@@ -113,7 +114,7 @@ class StaffController extends Controller
     {
         abort_if($staff->role !== 'staff', 404);
 
-        if ($staff->assignedBookings()->exists()) {
+        if (Booking::assignedToStaff($staff->id)->exists()) {
             return redirect()->route('admin.staff.index')
                 ->with('error', 'Staff members with booking history are protected from deletion.');
         }

@@ -63,7 +63,7 @@
         ['key' => 'boarding_house', 'label' => 'Boarding House', 'fee' => 0],
     ];
     $defaultInstantQuoteFloorArea = 30;
-    $defaultInstantQuoteTotal = (int) (($instantQuotePackages[0]['base'] ?? 0) + (($instantQuotePackages[0]['area_rate'] ?? 0) * $defaultInstantQuoteFloorArea) + ($instantQuotePropertyOptions[0]['fee'] ?? 0));
+    $defaultInstantQuoteTotal = round(($instantQuotePackages[0]['base'] ?? 0) + (($instantQuotePackages[0]['area_rate'] ?? 0) * $defaultInstantQuoteFloorArea) + ($instantQuotePropertyOptions[0]['fee'] ?? 0), 2);
 
     $serviceCardLabel = $isAuthenticated && $userRole === 'client'
         ? 'Book This Service'
@@ -71,7 +71,7 @@
     $quoteCheckoutUrl = $isAuthenticated && $userRole === 'client'
         ? route('bookings.create')
         : route('register');
-    $quoteCtaLabel = 'Continue with Estimate of &#8369;' . number_format($defaultInstantQuoteTotal, 0);
+    $quoteCtaLabel = 'Continue with Estimate of &#8369;' . number_format($defaultInstantQuoteTotal, 2);
     $quoteCtaNote = $isAuthenticated && $userRole === 'client'
         ? 'Your selections open directly in the booking form.'
         : 'Use this estimate as your starting point before you continue.';
@@ -626,7 +626,7 @@
 
                         <aside class="instant-quote-summary hidden rounded-3xl border border-white/70 bg-white/78 p-5 shadow-lg backdrop-blur-md lg:block sm:p-6">
                             <div class="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Total Estimate</div>
-                            <div id="iq_total" class="mt-3 text-4xl font-extrabold tracking-tight text-slate-900">&#8369;{{ number_format($defaultInstantQuoteTotal, 0) }}</div>
+                            <div id="iq_total" class="mt-3 text-4xl font-extrabold tracking-tight text-slate-900">&#8369;{{ number_format($defaultInstantQuoteTotal, 2) }}</div>
                             <div class="mt-2 text-xs font-medium text-slate-500">For Valencia City service areas. Final total is confirmed before the booking is submitted.</div>
 
                             <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50/85 p-4">
@@ -649,7 +649,7 @@
                     <div class="flex items-start gap-4">
                         <div class="min-w-0">
                             <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-700">Total Estimate</div>
-                            <div id="iq_mobile_total" class="mt-2 truncate text-2xl font-extrabold tracking-tight text-slate-900">&#8369;{{ number_format($defaultInstantQuoteTotal, 0) }}</div>
+                            <div id="iq_mobile_total" class="mt-2 truncate text-2xl font-extrabold tracking-tight text-slate-900">&#8369;{{ number_format($defaultInstantQuoteTotal, 2) }}</div>
                             <div class="mt-1 text-[11px] text-slate-500">Live estimate while you compare add-ons and home size.</div>
                         </div>
                     </div>
@@ -744,7 +744,7 @@
         return;
     }
 
-    const formatPeso = (amount) => `\u20B1${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    const formatPeso = (amount) => `\u20B1${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     let displayedTotal = 0;
     let totalAnimationFrame = null;
 

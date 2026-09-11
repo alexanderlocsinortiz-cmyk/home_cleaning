@@ -99,7 +99,7 @@
                                 <label for="first_name" class="mb-3 block text-sm font-bold text-slate-800">First Name <span class="text-red-500">*</span></label>
                                 <div class="relative">
                                     <span class="absolute inset-y-0 left-0 flex items-center pl-5 text-blue-600"><i class="fas fa-user"></i></span>
-                                    <input id="first_name" type="text" name="first_name" value="{{ old('first_name') }}" placeholder="First name" required autocomplete="given-name" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                                    <input id="first_name" type="text" name="first_name" value="{{ old('first_name') }}" placeholder="First name" maxlength="100" required autocomplete="given-name" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
                                 </div>
                                 @error('first_name')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
                             </div>
@@ -107,7 +107,7 @@
                                 <label for="last_name" class="mb-3 block text-sm font-bold text-slate-800">Last Name <span class="text-red-500">*</span></label>
                                 <div class="relative">
                                     <span class="absolute inset-y-0 left-0 flex items-center pl-5 text-blue-600"><i class="fas fa-user"></i></span>
-                                    <input id="last_name" type="text" name="last_name" value="{{ old('last_name') }}" placeholder="Last name" required autocomplete="family-name" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                                    <input id="last_name" type="text" name="last_name" value="{{ old('last_name') }}" placeholder="Last name" maxlength="100" required autocomplete="family-name" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
                                 </div>
                                 @error('last_name')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
                             </div>
@@ -117,7 +117,7 @@
                             <label for="email" class="mb-3 block text-sm font-bold text-slate-800">Email Address <span class="text-red-500">*</span></label>
                             <div class="relative">
                                 <span class="absolute inset-y-0 left-0 flex items-center pl-5 text-blue-600"><i class="fas fa-envelope"></i></span>
-                                <input id="email" type="email" name="email" value="{{ old('email') }}" placeholder="Enter your email" required autocomplete="email" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                                <input id="email" type="email" name="email" value="{{ old('email') }}" placeholder="Enter your email" maxlength="255" required autocomplete="email" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
                             </div>
                             @error('email')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
                         </div>
@@ -127,7 +127,7 @@
                                 <label for="phone" class="mb-3 block text-sm font-bold text-slate-800">Phone Number <span class="text-red-500">*</span></label>
                                 <div class="relative">
                                     <span class="absolute inset-y-0 left-0 flex items-center pl-5 text-blue-600"><i class="fas fa-phone"></i></span>
-                                    <input id="phone" type="text" name="phone" value="{{ old('phone') }}" placeholder="09XXXXXXXXX" required autocomplete="tel" inputmode="numeric" pattern="[0-9]{11}" maxlength="11" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11)" title="Enter exactly 11 digits" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                                    <input id="phone" type="tel" name="phone" value="{{ old('phone') }}" placeholder="09XXXXXXXXX" required autocomplete="tel" inputmode="numeric" pattern="09[0-9]{9}" maxlength="11" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11)" title="Enter an 11-digit Philippine mobile number starting with 09" class="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
                                 </div>
                                 @error('phone')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
                             </div>

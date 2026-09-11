@@ -108,6 +108,26 @@ class PaymongoCheckoutService
             ?: Booking::generatePaymentReference('gcash');
     }
 
+    public function paymentIdFromCheckoutSession(array $checkoutSession): ?string
+    {
+        $attributes = $checkoutSession['data']['attributes'] ?? [];
+        $payments = collect(data_get($attributes, 'payments', []))
+            ->merge(data_get($attributes, 'payment_intent.attributes.payments', []));
+
+        $paymentId = $payments
+            ->map(fn ($payment) => data_get($payment, 'id') ?: data_get($payment, 'attributes.id'))
+            ->first(fn ($id) => is_string($id) && str_starts_with($id, 'pay_'));
+
+        if (is_string($paymentId) && $paymentId !== '') {
+            return $paymentId;
+        }
+
+        $fallback = data_get($attributes, 'payment_id')
+            ?: data_get($attributes, 'payment_intent.attributes.payment_id');
+
+        return is_string($fallback) && str_starts_with($fallback, 'pay_') ? $fallback : null;
+    }
+
     private function sendCheckoutRequest(Collection $bookings, User $user): array
     {
         $secretKey = config('services.paymongo.secret_key');

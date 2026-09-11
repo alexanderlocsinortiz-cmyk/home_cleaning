@@ -7,6 +7,7 @@ use App\Models\Rating;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class AdminAnalyticsPageTest extends TestCase
@@ -116,6 +117,134 @@ class AdminAnalyticsPageTest extends TestCase
         $response->assertViewHas('staffPerformance', function (Collection $staffPerformance) use ($staff) {
             return $staffPerformance->count() === 1
                 && $staffPerformance->first()['name'] === $staff->full_name;
+        });
+    }
+
+    public function test_admin_analytics_counts_secondary_staff_assignments_without_copying_primary_rating(): void
+    {
+        $this->canonicalService([
+            'name' => 'Multi Cleaner Basic',
+            'slug' => 'multi-cleaner-basic',
+            'description' => 'Multi-cleaner service',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $admin = $this->createUser([
+            'email' => 'admin-analytics-secondary@example.com',
+            'username' => 'adminanalyticssecondary',
+            'role' => 'admin',
+        ]);
+        $client = $this->createUser([
+            'email' => 'client-analytics-secondary@example.com',
+            'username' => 'clientanalyticssecondary',
+            'role' => 'client',
+        ]);
+        $primaryStaff = $this->createUser([
+            'email' => 'primary-analytics-secondary@example.com',
+            'username' => 'primaryanalyticssecondary',
+            'role' => 'staff',
+            'first_name' => 'Primary',
+            'last_name' => 'Analytics',
+        ]);
+        $secondaryStaff = $this->createUser([
+            'email' => 'secondary-analytics-secondary@example.com',
+            'username' => 'secondaryanalyticssecondary',
+            'role' => 'staff',
+            'first_name' => 'Secondary',
+            'last_name' => 'Analytics',
+        ]);
+
+        $booking = Booking::create([
+            'user_id' => $client->id,
+            'service_type' => 'multi-cleaner-basic',
+            'property_type' => 'house',
+            'rooms' => 2,
+            'bathrooms' => 1,
+            'floor_area' => 35,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Rizal Street',
+            'scheduled_date' => now()->addDay()->toDateString(),
+            'scheduled_time' => '09:00',
+            'price' => 1180,
+            'status' => 'completed',
+            'staff_id' => $primaryStaff->id,
+        ]);
+        $booking->staffAssignments()->create([
+            'staff_id' => $secondaryStaff->id,
+            'task_group' => 'floors_surfaces',
+        ]);
+        Rating::create([
+            'booking_id' => $booking->id,
+            'client_id' => $client->id,
+            'staff_id' => $primaryStaff->id,
+            'stars' => 5,
+            'comment' => 'Excellent service.',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.analytics', ['date_range' => 30]));
+
+        $response->assertViewHas('staffPerformance', function (Collection $staffPerformance) use ($primaryStaff, $secondaryStaff) {
+            $primary = $staffPerformance->first(fn (array $row): bool => $row['name'] === $primaryStaff->full_name);
+            $secondary = $staffPerformance->first(fn (array $row): bool => $row['name'] === $secondaryStaff->full_name);
+
+            return $primary !== null
+                && $primary['assigned'] === 1
+                && $primary['completed'] === 1
+                && $primary['average_rating'] === 5.0
+                && $secondary !== null
+                && $secondary['assigned'] === 1
+                && $secondary['completed'] === 1
+                && $secondary['average_rating'] === null
+                && $secondary['reviews'] === 0;
+        });
+    }
+
+    public function test_admin_analytics_uses_business_dates_at_midnight_boundary(): void
+    {
+        $this->travelTo(Carbon::parse('2026-06-01 00:30:00', 'Asia/Manila'));
+
+        $this->canonicalService([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+        $admin = $this->createUser([
+            'email' => 'admin-analytics-timezone@example.com',
+            'username' => 'adminanalyticstimezone',
+            'role' => 'admin',
+        ]);
+        $client = $this->createUser([
+            'email' => 'client-analytics-timezone@example.com',
+            'username' => 'clientanalyticstimezone',
+        ]);
+        $booking = Booking::create([
+            'user_id' => $client->id,
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 2,
+            'bathrooms' => 1,
+            'floor_area' => 35,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Rizal Street',
+            'scheduled_date' => '2026-06-02',
+            'scheduled_time' => '09:00',
+            'price' => 1180,
+            'status' => 'completed',
+        ]);
+        $booking->forceFill([
+            'created_at' => Carbon::parse('2026-05-26 01:00:00', 'Asia/Manila')->utc(),
+            'updated_at' => Carbon::parse('2026-05-26 02:00:00', 'Asia/Manila')->utc(),
+        ])->save();
+
+        $response = $this->actingAs($admin)->get(route('admin.analytics', ['date_range' => 7]));
+
+        $response->assertOk();
+        $response->assertViewHas('bookingMetrics.total', 1);
+        $response->assertViewHas('dailyTrends', function (Collection $trends) {
+            return $trends->firstWhere('date', '2026-05-26')['bookings'] === 1;
         });
     }
 

@@ -15,6 +15,17 @@ test('client booking flow remains usable across common viewport sizes', async ({
         { name: 'desktop', width: 1440, height: 1000 },
     ]) {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
+        await page.goto('/bookings');
+
+        await expect(page).toHaveTitle(/My Bookings/);
+        if (viewport.width < 1024) {
+            await expect(page.locator('[aria-label="Mobile booking list"]')).toBeVisible();
+            await expect(page.getByText('View details').first()).toBeVisible();
+        } else {
+            await expect(page.locator('[aria-label="Mobile booking list"]')).toBeHidden();
+            await expect(page.locator('table').first()).toBeVisible();
+        }
+
         await page.goto('/bookings/create');
 
         await expect(page).toHaveTitle(/Book a Service/);

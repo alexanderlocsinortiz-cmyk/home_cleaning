@@ -13,6 +13,25 @@ class BookingRatingTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_client_rating_controls_have_accessible_labels_and_keyboard_file_upload(): void
+    {
+        $client = $this->createUser('client', 'accessible-rating@example.com', 'accessiblerating');
+        $staff = $this->createUser('staff', 'accessible-staff@example.com', 'accessiblestaff');
+        $booking = $this->createBooking($client, $staff, 'completed');
+
+        $response = $this->actingAs($client)->get(route('bookings.show', $booking->id));
+
+        $response->assertOk();
+        $response->assertSee('role="group" aria-label="Service rating"', false);
+        foreach (range(1, 5) as $stars) {
+            $response->assertSee('aria-label="Rate '.$stars.' out of 5 stars"', false);
+            $response->assertSee('aria-pressed="false"', false);
+        }
+        $response->assertSee('id="photo-input" class="sr-only"', false);
+        $response->assertSee('aria-describedby="photo-help"', false);
+        $response->assertSee('<label class="block cursor-pointer', false);
+    }
+
     public function test_client_can_rate_a_completed_booking_once(): void
     {
         $client = $this->createUser('client', 'client-rating@example.com', 'clientrating');

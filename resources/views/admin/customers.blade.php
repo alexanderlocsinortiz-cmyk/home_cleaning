@@ -5,6 +5,7 @@
 
 @section('content')
 @php
+    $adminTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
     $hasActiveFilters = $search !== '' || collect($filters)->contains(fn ($value) => $value !== '');
     $verificationClasses = [
         'verified'   => 'bg-emerald-100 text-emerald-700',
@@ -17,7 +18,7 @@
         'completed' => 'bg-emerald-100 text-emerald-700',
         'cancelled' => 'bg-danger-100 text-danger-700',
     ];
-    $customerDirectory = $customers->getCollection()->mapWithKeys(function ($customer) use ($genderOptions) {
+    $customerDirectory = $customers->getCollection()->mapWithKeys(function ($customer) use ($genderOptions, $adminTimezone) {
         return [
             $customer->id => [
                 'id' => $customer->id,
@@ -30,11 +31,11 @@
                 'street' => $customer->street,
                 'city' => $customer->city,
                 'zip_code' => $customer->zip_code,
-                'joined_date' => optional($customer->created_at)->format('M d, Y'),
+                'joined_date' => optional($customer->created_at?->copy()->timezone($adminTimezone))->format('M d, Y'),
                 'joined_relative' => optional($customer->created_at)->diffForHumans(),
                 'verification_label' => $customer->email_verified_at ? 'Verified' : 'Pending verification',
                 'verification_date' => $customer->email_verified_at
-                    ? $customer->email_verified_at->format('M d, Y h:i A')
+                    ? $customer->email_verified_at->copy()->timezone($adminTimezone)->format('M d, Y h:i A')
                     : 'Email not yet verified',
                 'bookings_count' => $customer->bookings_count,
                 'last_booking_date' => $customer->latest_booking_date
@@ -116,7 +117,7 @@
                 <div>
                     <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">New This Month</div>
                     <div class="mt-1 text-2xl font-black leading-none text-slate-900">{{ number_format($stats['new_this_month']) }}</div>
-                    <div class="mt-1 text-xs text-slate-500">Since {{ now()->startOfMonth()->format('M d') }}.</div>
+                    <div class="mt-1 text-xs text-slate-500">Since {{ $adminNow->format('M d') }}.</div>
                 </div>
                 <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-400 text-white">
                     <i class="fas fa-user-plus"></i>
@@ -274,7 +275,7 @@
                                     <div class="space-y-1 text-sm text-slate-600">
                                         <div class="font-semibold text-slate-800">{{ $customer->barangay_name }}</div>
                                         <div>{{ $streetPreview }}</div>
-                                        <div>{{ $customer->city ?: 'Puerto Princesa City' }}{{ $customer->zip_code ? ' - ' . $customer->zip_code : '' }}</div>
+                                        <div>{{ $customer->city ?: 'Valencia City' }}{{ $customer->zip_code ? ' - ' . $customer->zip_code : '' }}</div>
                                     </div>
                                 </td>
                                 <td class="px-4 py-3">
@@ -311,7 +312,7 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3">
-                                    <div class="font-semibold text-slate-800">{{ optional($customer->created_at)->format('M d, Y') }}</div>
+                                    <div class="font-semibold text-slate-800">{{ optional($customer->created_at?->copy()->timezone($adminTimezone))->format('M d, Y') }}</div>
                                     <div class="mt-1 text-xs text-slate-500">{{ optional($customer->created_at)->diffForHumans() }}</div>
                                 </td>
                                 <td class="px-4 py-3">
@@ -600,7 +601,7 @@
         document.getElementById('detail-gender').textContent = customer.gender;
         document.getElementById('detail-barangay').textContent = customer.barangay || '--';
         document.getElementById('detail-street').textContent = customer.street || '--';
-        document.getElementById('detail-city-zip').textContent = [customer.city || 'Puerto Princesa City', customer.zip_code || ''].filter(Boolean).join(' - ');
+        document.getElementById('detail-city-zip').textContent = [customer.city || 'Valencia City', customer.zip_code || ''].filter(Boolean).join(' - ');
 
         const lastBookingLink = document.getElementById('detail-last-booking-link');
         if (customer.last_booking_url) {

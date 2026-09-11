@@ -26,6 +26,12 @@ class BookingLiveVideoController extends Controller
             abort(403);
         }
 
+        if ($user->role === 'client' && ! $user->hasVerifiedEmail()) {
+            return redirect()
+                ->route('verification.notice')
+                ->with('error', 'Please verify your email before using live video.');
+        }
+
         try {
             if (in_array($user->role, ['admin', 'staff'], true)) {
                 $booking = $dailyVideo->ensureRoomForBooking($booking);

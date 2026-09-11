@@ -19,6 +19,8 @@ class AdminCustomerController extends Controller
             'booking_activity' => (string) $request->get('booking_activity', ''),
             'registration_month' => (string) $request->get('registration_month', ''),
         ];
+        $adminTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+        $adminNow = Carbon::now($adminTimezone);
 
         $baseCustomerQuery = User::query()->where('role', 'client');
 
@@ -27,7 +29,10 @@ class AdminCustomerController extends Controller
             'verified' => (clone $baseCustomerQuery)->whereNotNull('email_verified_at')->count(),
             'with_bookings' => (clone $baseCustomerQuery)->whereHas('bookings')->count(),
             'new_this_month' => (clone $baseCustomerQuery)
-                ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfDay()])
+                ->whereBetween('created_at', [
+                    $adminNow->copy()->startOfMonth()->utc(),
+                    $adminNow->copy()->endOfMonth()->utc(),
+                ])
                 ->count(),
         ];
 
@@ -81,11 +86,11 @@ class AdminCustomerController extends Controller
             ->when($filters['booking_activity'] === 'without_bookings', fn ($query) => $query->doesntHave('bookings'))
             ->when(
                 preg_match('/^\d{4}-\d{2}$/', $filters['registration_month']) === 1,
-                function ($query) use ($filters) {
-                    $date = Carbon::createFromFormat('Y-m', $filters['registration_month']);
+                function ($query) use ($filters, $adminTimezone) {
+                    $date = Carbon::createFromFormat('Y-m', $filters['registration_month'], $adminTimezone);
                     $query->whereBetween('created_at', [
-                        $date->startOfMonth(),
-                        $date->endOfMonth(),
+                        $date->copy()->startOfMonth()->utc(),
+                        $date->copy()->endOfMonth()->utc(),
                     ]);
                 }
             );
@@ -103,10 +108,10 @@ class AdminCustomerController extends Controller
             ->get(['created_at'])
             ->pluck('created_at')
             ->filter()
-            ->map(function ($createdAt) {
+            ->map(function ($createdAt) use ($adminTimezone) {
                 $date = $createdAt instanceof Carbon ? $createdAt : Carbon::parse($createdAt);
 
-                return $date->copy()->startOfMonth();
+                return $date->copy()->timezone($adminTimezone)->startOfMonth();
             })
             ->unique(fn (Carbon $date) => $date->format('Y-m'))
             ->sortByDesc(fn (Carbon $date) => $date->timestamp)
@@ -115,7 +120,7 @@ class AdminCustomerController extends Controller
 
         return view('admin.customers', compact(
             'customers', 'search', 'filters', 'stats',
-            'filteredCount', 'barangays', 'genderOptions', 'registrationMonthOptions',
+            'filteredCount', 'barangays', 'genderOptions', 'registrationMonthOptions', 'adminNow',
         ));
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Closure;
 use App\Http\Controllers\Concerns\AttendanceHelpers;
 use App\Jobs\SendBookingCompletedEmail;
 use App\Jobs\SendBookingConfirmedEmail;
@@ -14,11 +15,14 @@ use App\Models\Booking;
 use App\Models\BookingStaffAssignment;
 use App\Models\CleanerApplication;
 use App\Models\ProviderPayoutTransaction;
+use App\Models\Service;
 use App\Models\User;
+use App\Services\PaymongoRefundService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -28,7 +32,7 @@ class AdminBookingController extends Controller
 
     public function bookings(Request $request)
     {
-        $today = Carbon::today()->toDateString();
+        $today = Carbon::today($this->attendanceTimezone())->toDateString();
         $tab = $request->get('tab', 'active') === 'completed' ? 'completed' : 'active';
         $activeFilter = in_array($request->get('filter'), ['today', 'unassigned', 'overdue', 'review', 'in_progress', 'provider_declined'], true)
             ? $request->get('filter')
@@ -204,7 +208,10 @@ class AdminBookingController extends Controller
 
     public function updateBookingStatus(Request $request, $id)
     {
-        $booking = Booking::with(['cleanerApplication.documents', 'payment', 'staffAssignments'])->findOrFail($id);
+        $booking = Booking::findOrFail($id);
+
+        return $this->withBookingScheduleLock($booking, function () use ($request, $id): mixed {
+            $booking = Booking::with(['cleanerApplication.documents', 'payment', 'staffAssignments'])->findOrFail($id);
         $oldStaffId = $booking->staff_id;
         $oldStatus = $booking->status;
         $oldPaymentStatus = $booking->payment?->status ?? 'pending';
@@ -216,10 +223,11 @@ class AdminBookingController extends Controller
                 'nullable',
                 Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'staff')),
             ],
-            'payment_collected_amount' => ['nullable', 'numeric', 'min:0.01'],
-            'payment_collected_at' => ['nullable', 'date'],
+            'payment_collected_amount' => ['nullable', 'numeric', 'decimal:0,2', 'min:0.01', 'max:99999999.99'],
+            'payment_collected_at' => ['nullable', 'date', $this->businessDateTimeNotFutureRule()],
             'payment_receipt_notes' => ['nullable', 'string', 'max:1000'],
         ]);
+        $validated['payment_collected_at'] = $this->normalizeBusinessDateTime($validated['payment_collected_at'] ?? null);
 
         $newStatus = $validated['status'];
         $newStaffId = array_key_exists('staff_id', $validated) ? $validated['staff_id'] : $booking->staff_id;
@@ -290,6 +298,14 @@ class AdminBookingController extends Controller
             ]);
         }
 
+        if ($statusChanged
+            && $newStatus === 'confirmed'
+            && ! $this->bookingHasConfirmationCapacity($booking, $requiredCleaners)) {
+            return back()->withErrors([
+                'status' => 'This time slot no longer has enough cleaner capacity. The booking remains pending until another schedule is chosen or capacity becomes available.',
+            ]);
+        }
+
         if ($booking->preferred_staff_id && $newStaffId) {
             $booking->preferred_staff_status = (int) $newStaffId === (int) $booking->preferred_staff_id
                 ? 'assigned'
@@ -305,6 +321,22 @@ class AdminBookingController extends Controller
 
             if ($cashPaymentError = $this->cashPaymentDetailsError($booking, $validated)) {
                 return back()->withErrors(['payment_collected_amount' => $cashPaymentError])->withInput();
+            }
+        }
+
+        $refundMessage = null;
+
+        if ($statusChanged && $newStatus === 'cancelled' && $booking->payment?->status === 'paid') {
+            if (Booking::isDigitalPaymentMethod($booking->payment->method) && $newPaymentStatus !== 'paid') {
+                return back()->withErrors([
+                    'payment_status' => 'Keep the confirmed online payment status while cancelling so the system can refund it safely.',
+                ]);
+            }
+
+            [$canCancel, $refundMessage] = $this->prepareCancellationRefund($booking);
+
+            if (! $canCancel) {
+                return back()->withErrors(['status' => $refundMessage]);
             }
         }
 
@@ -433,12 +465,20 @@ class AdminBookingController extends Controller
             $message = 'Payment status has been updated.';
         }
 
+        if ($newStatus === 'cancelled' && $refundMessage) {
+            $message .= ' '.$refundMessage;
+        }
+
         return back()->with('success', $message);
+        });
     }
 
     public function updateBookingAssignments(Request $request, $id)
     {
-        $booking = Booking::with('staffAssignments')->findOrFail($id);
+        $booking = Booking::findOrFail($id);
+
+        return $this->withBookingScheduleLock($booking, function () use ($request, $id): mixed {
+            $booking = Booking::with('staffAssignments')->findOrFail($id);
         $requiredCleaners = max((int) ($booking->required_cleaners ?: 1), 1);
 
         if ($requiredCleaners <= 1) {
@@ -520,6 +560,7 @@ class AdminBookingController extends Controller
         }
 
         return back()->with('success', 'All '.$requiredCleaners.' cleaners and their task groups have been assigned.');
+        });
     }
 
     public function updateBookingPayment(Request $request, $id)
@@ -528,13 +569,20 @@ class AdminBookingController extends Controller
 
         $validated = $request->validate([
             'payment_status' => ['required', Rule::in(Booking::paymentStatuses())],
-            'payment_collected_amount' => ['nullable', 'numeric', 'min:0.01'],
-            'payment_collected_at' => ['nullable', 'date'],
+            'payment_collected_amount' => ['nullable', 'numeric', 'decimal:0,2', 'min:0.01', 'max:99999999.99'],
+            'payment_collected_at' => ['nullable', 'date', $this->businessDateTimeNotFutureRule()],
             'payment_receipt_notes' => ['nullable', 'string', 'max:1000'],
         ]);
+        $validated['payment_collected_at'] = $this->normalizeBusinessDateTime($validated['payment_collected_at'] ?? null);
 
         $oldPaymentStatus = $booking->payment?->status ?? 'pending';
         $newPaymentStatus = $validated['payment_status'];
+
+        if ($oldPaymentStatus === 'refunded' && $newPaymentStatus !== 'refunded') {
+            return back()->withErrors([
+                'payment_status' => 'A refunded payment cannot be changed back to pending or paid.',
+            ]);
+        }
 
         if ($newPaymentStatus === 'paid' && $booking->payment?->method === 'on_site_cash') {
             if ($booking->payment?->cash_proof_path && $booking->payment?->cash_proof_status !== 'approved') {
@@ -565,6 +613,44 @@ class AdminBookingController extends Controller
         return back()->with('success', 'Payment status updated successfully.');
     }
 
+    public function refundBookingPayment(Request $request, $id)
+    {
+        $booking = Booking::with('payment')->findOrFail($id);
+        $payment = $booking->payment;
+
+        if (! $payment || ! Booking::isDigitalPaymentMethod($payment->method) || $payment->provider !== 'paymongo') {
+            return back()->withErrors(['refund' => 'This booking does not have a PayMongo online payment to refund.']);
+        }
+
+        if (! in_array($payment->status, ['paid', 'refunded'], true)) {
+            return back()->withErrors(['refund' => 'Only a confirmed online payment can be refunded.']);
+        }
+
+        try {
+            $payment = app(PaymongoRefundService::class)->refund($payment, 'Administrator requested a refund for cancelled booking.');
+            $booking->setRelation('payment', $payment);
+        } catch (\Throwable $exception) {
+            Log::error('Admin retry of online payment refund failed.', [
+                'booking_id' => $booking->id,
+                'payment_id' => $payment->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return back()->withErrors(['refund' => 'PayMongo could not complete the refund. The failure was recorded; verify the payment in PayMongo and try again.']);
+        }
+
+        $booking->logActivity($request->user(), 'payment_refund_requested', 'Administrator requested a PayMongo refund.', [
+            'refund_status' => $payment->refund_status,
+            'refund_reference' => $payment->refund_reference,
+            'refund_amount' => $payment->refund_amount,
+        ]);
+        $this->createClientRefundNotification($booking);
+
+        return back()->with('success', $payment->refund_status === 'succeeded'
+            ? 'The online payment has been refunded.'
+            : 'The online payment refund has been requested and is being processed.');
+    }
+
     public function reviewCashPaymentProof(Request $request, $id)
     {
         $booking = Booking::with(['payment', 'user'])->findOrFail($id);
@@ -572,11 +658,12 @@ class AdminBookingController extends Controller
 
         $validated = $request->validate([
             'decision' => ['required', Rule::in(['approve', 'reject'])],
-            'payment_collected_amount' => ['required_if:decision,approve', 'nullable', 'numeric', 'min:0.01'],
-            'payment_collected_at' => ['required_if:decision,approve', 'nullable', 'date'],
+            'payment_collected_amount' => ['required_if:decision,approve', 'nullable', 'numeric', 'decimal:0,2', 'min:0.01', 'max:99999999.99'],
+            'payment_collected_at' => ['required_if:decision,approve', 'nullable', 'date', $this->businessDateTimeNotFutureRule()],
             'payment_receipt_notes' => ['nullable', 'string', 'max:1000'],
             'cash_proof_rejection_reason' => ['required_if:decision,reject', 'nullable', 'string', 'min:5', 'max:1000'],
         ]);
+        $validated['payment_collected_at'] = $this->normalizeBusinessDateTime($validated['payment_collected_at'] ?? null);
 
         if ($payment?->method !== 'on_site_cash' || ! $payment->cash_proof_path) {
             return back()->withErrors(['cash_payment_proof' => 'There is no uploaded cash payment proof to review.']);
@@ -655,9 +742,10 @@ class AdminBookingController extends Controller
         $validated = $request->validate([
             'provider_payout_status' => ['required', Rule::in(Booking::providerPayoutStatuses())],
             'provider_payout_reference' => ['required_if:provider_payout_status,paid', 'nullable', 'string', 'max:120'],
-            'provider_payout_paid_at' => ['required_if:provider_payout_status,paid', 'nullable', 'date'],
+            'provider_payout_paid_at' => ['required_if:provider_payout_status,paid', 'nullable', 'date', $this->businessDateTimeNotFutureRule()],
             'provider_payout_proof' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
         ]);
+        $validated['provider_payout_paid_at'] = $this->normalizeBusinessDateTime($validated['provider_payout_paid_at'] ?? null);
 
         if (! $booking->cleaner_application_id || $booking->provider_gross_amount === null) {
             return back()->withErrors([
@@ -768,9 +856,10 @@ class AdminBookingController extends Controller
         $validated = $request->validate([
             'provider_commission_status' => ['required', Rule::in(Booking::providerCommissionStatuses())],
             'provider_commission_reference' => ['required_if:provider_commission_status,paid', 'nullable', 'string', 'max:120'],
-            'provider_commission_paid_at' => ['required_if:provider_commission_status,paid', 'nullable', 'date'],
+            'provider_commission_paid_at' => ['required_if:provider_commission_status,paid', 'nullable', 'date', $this->businessDateTimeNotFutureRule()],
             'provider_commission_proof' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
         ]);
+        $validated['provider_commission_paid_at'] = $this->normalizeBusinessDateTime($validated['provider_commission_paid_at'] ?? null);
 
         if ($booking->payment?->method !== 'on_site_cash' || ! $booking->cleaner_application_id || $booking->provider_commission_due === null) {
             return back()->withErrors([
@@ -860,7 +949,7 @@ class AdminBookingController extends Controller
 
     public function updateBookingDispute(Request $request, $id)
     {
-        $booking = Booking::with('cleanerApplication.documents')->findOrFail($id);
+        $booking = Booking::with(['cleanerApplication.documents', 'payment'])->findOrFail($id);
 
         if (! $booking->hasOpenDispute()) {
             return back()->withErrors([
@@ -871,7 +960,46 @@ class AdminBookingController extends Controller
         $validated = $request->validate([
             'dispute_resolution' => ['required', Rule::in(array_keys(Booking::disputeResolutions()))],
             'dispute_admin_notes' => ['nullable', 'string', 'max:2000'],
+            'refund_amount' => ['required_if:dispute_resolution,partial_refund', 'nullable', 'numeric', 'decimal:0,2', 'min:0.01', 'max:99999999.99'],
         ]);
+
+        $refundStatus = null;
+        $refundReference = null;
+
+        if (in_array($validated['dispute_resolution'], ['refund_customer', 'partial_refund'], true)
+            && $booking->payment?->status === 'paid') {
+            if (! Booking::isDigitalPaymentMethod($booking->payment->method)) {
+                return back()->withErrors([
+                    'dispute_resolution' => 'This payment was collected in cash. Process the cash refund manually and keep the dispute open until it is recorded.',
+                ]);
+            }
+
+            if ($validated['dispute_resolution'] === 'partial_refund'
+                && (float) $validated['refund_amount'] > (float) $booking->payment->amount) {
+                return back()->withErrors([
+                    'refund_amount' => 'The partial refund cannot exceed the paid amount of PHP '.number_format((float) $booking->payment->amount, 2).'.',
+                ])->withInput();
+            }
+
+            try {
+                $payment = $validated['dispute_resolution'] === 'partial_refund'
+                    ? app(PaymongoRefundService::class)->refundAmount($booking->payment, (float) $validated['refund_amount'], 'Partial refund approved for booking dispute.')
+                    : app(PaymongoRefundService::class)->refund($booking->payment, 'Full refund approved for booking dispute.');
+                $booking->setRelation('payment', $payment);
+                $refundStatus = $payment->refund_status;
+                $refundReference = $payment->refund_reference;
+            } catch (\Throwable $exception) {
+                Log::error('Booking dispute refund could not be completed.', [
+                    'booking_id' => $booking->id,
+                    'payment_id' => $booking->payment->id,
+                    'error' => $exception->getMessage(),
+                ]);
+
+                return back()->withErrors([
+                    'dispute_resolution' => 'The PayMongo refund could not be completed, so the dispute remains open. Verify the payment and try again.',
+                ]);
+            }
+        }
 
         $status = $validated['dispute_resolution'] === 'reject_dispute' ? 'rejected' : 'resolved';
         $payoutStatus = $booking->provider_payout_status;
@@ -900,8 +1028,14 @@ class AdminBookingController extends Controller
             [
                 'dispute_resolution' => $validated['dispute_resolution'],
                 'provider_payout_status' => $booking->provider_payout_status,
+                'refund_status' => $refundStatus,
+                'refund_reference' => $refundReference,
             ]
         );
+
+        if ($refundStatus !== null) {
+            $this->createClientRefundNotification($booking);
+        }
 
         return back()->with('success', 'Booking dispute has been updated.');
     }
@@ -909,6 +1043,9 @@ class AdminBookingController extends Controller
     public function updateBookingReview(Request $request, $id)
     {
         $booking = Booking::findOrFail($id);
+
+        return $this->withBookingScheduleLock($booking, function () use ($request, $id): mixed {
+            $booking = Booking::with('payment')->findOrFail($id);
 
         $validated = $request->validate([
             'review_status' => ['required', Rule::in(['approved', 'blocked'])],
@@ -921,6 +1058,14 @@ class AdminBookingController extends Controller
         $reviewStatus = $validated['review_status'];
         $oldStatus = $booking->status;
 
+        if ($reviewStatus === 'approved'
+            && $booking->status === 'pending'
+            && ! $this->bookingHasConfirmationCapacity($booking, max(1, (int) ($booking->required_cleaners ?: 1)))) {
+            return back()->withErrors([
+                'review_status' => 'This time slot no longer has enough cleaner capacity. Keep the booking pending until another schedule is chosen or capacity becomes available.',
+            ]);
+        }
+
         $booking->manual_review_status = $reviewStatus;
         $booking->reviewed_by = auth()->id();
         $booking->reviewed_at = now();
@@ -931,6 +1076,14 @@ class AdminBookingController extends Controller
         }
 
         if ($reviewStatus === 'blocked') {
+            if ($booking->status !== 'cancelled' && $booking->payment?->status === 'paid' && Booking::isDigitalPaymentMethod($booking->payment->method)) {
+                [$canCancel, $refundMessage] = $this->prepareCancellationRefund($booking);
+
+                if (! $canCancel) {
+                    return back()->withErrors(['review_status' => $refundMessage]);
+                }
+            }
+
             $booking->staff_id = null;
             $booking->staffAssignments()->delete();
 
@@ -960,6 +1113,7 @@ class AdminBookingController extends Controller
             : 'Booking blocked during manual review and removed from the active queue.';
 
         return back()->with('success', $message);
+        });
     }
 
     private function pendingEscalationSummary(): array
@@ -1064,7 +1218,12 @@ class AdminBookingController extends Controller
             ],
             'cancelled' => [
                 'Booking cancelled',
-                'Booking '.$bookingCode.' has been cancelled. If this was unexpected, please contact support before creating another booking.',
+                'Booking '.$bookingCode.' has been cancelled.'.match ($booking->payment?->refund_status) {
+                    'succeeded' => ' Your online payment has been refunded.',
+                    'pending', 'processing' => ' Your online payment refund is being processed.',
+                    'failed' => ' Your online payment refund needs admin review. Please do not pay again.',
+                    default => ' If this was unexpected, please contact support before creating another booking.',
+                },
                 'info',
             ],
             default => [null, null, null],
@@ -1093,9 +1252,23 @@ class AdminBookingController extends Controller
             ->where('subscription_group_id', $booking->subscription_group_id)
             ->where('id', '!=', $booking->id)
             ->whereNotIn('status', ['completed', 'cancelled'])
+            ->with('payment')
             ->get()
             ->each(function (Booking $occurrence) use ($actor, $booking): void {
                 $oldStatus = $occurrence->status;
+
+                if ($occurrence->payment?->status === 'paid' && Booking::isDigitalPaymentMethod($occurrence->payment->method)) {
+                    try {
+                        $occurrence->setRelation('payment', app(PaymongoRefundService::class)->refund($occurrence->payment, 'Subscription booking group cancelled by administrator.'));
+                    } catch (\Throwable $exception) {
+                        Log::error('Subscription occurrence online payment refund failed during group cancellation.', [
+                            'booking_id' => $occurrence->id,
+                            'payment_id' => $occurrence->payment->id,
+                            'error' => $exception->getMessage(),
+                        ]);
+                    }
+                }
+
                 $occurrence->status = 'cancelled';
                 $occurrence->save();
 
@@ -1105,6 +1278,117 @@ class AdminBookingController extends Controller
                     'subscription_group_id' => $booking->subscription_group_id,
                 ]);
             });
+    }
+
+    private function withBookingScheduleLock(Booking $booking, callable $callback): mixed
+    {
+        $lockKeys = [
+            'booking-capacity-date:'.Booking::normalizeScheduleDate($booking->scheduled_date),
+            'booking-slot:'.Booking::scheduleSlotKey($booking->scheduled_date, $booking->scheduled_time),
+        ];
+
+        sort($lockKeys);
+
+        return $this->withSequentialLocks($lockKeys, $callback);
+    }
+
+    private function withSequentialLocks(array $lockKeys, callable $callback, int $index = 0): mixed
+    {
+        if ($index >= count($lockKeys)) {
+            return $callback();
+        }
+
+        return Cache::lock($lockKeys[$index], 10)->block(5, function () use ($lockKeys, $callback, $index): mixed {
+            return $this->withSequentialLocks($lockKeys, $callback, $index + 1);
+        });
+    }
+
+    private function bookingHasConfirmationCapacity(Booking $booking, int $requiredCleaners): bool
+    {
+        if ($booking->hasAcceptedProviderAssignment()) {
+            return $booking->cleanerApplication?->hasDailyCapacityFor($booking->scheduled_date, $booking->id) ?? false;
+        }
+
+        return Booking::slotHasCapacity(
+            $booking->scheduled_date,
+            $booking->scheduled_time,
+            $booking->id,
+            $requiredCleaners,
+            (int) ($booking->duration_minutes ?: Service::DEFAULT_DURATION_MINUTES)
+        );
+    }
+
+    private function prepareCancellationRefund(Booking $booking): array
+    {
+        $payment = $booking->payment;
+
+        if ($payment?->status !== 'paid') {
+            return [true, null];
+        }
+
+        if (! Booking::isDigitalPaymentMethod($payment->method)) {
+            return [true, 'The paid cash payment still requires manual cash-refund handling.'];
+        }
+
+        try {
+            $booking->setRelation('payment', app(PaymongoRefundService::class)->refund($payment, 'Booking cancelled by administrator.'));
+        } catch (\Throwable $exception) {
+            Log::error('Admin cancellation online payment refund failed.', [
+                'booking_id' => $booking->id,
+                'payment_id' => $payment->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return [false, 'The online payment could not be refunded, so the booking was not cancelled. Verify the payment in PayMongo and try again.'];
+        }
+
+        return [true, $booking->payment?->refund_status === 'succeeded'
+            ? 'The online payment has been refunded.'
+            : 'The online payment refund has been requested and is being processed.'];
+    }
+
+    private function normalizeBusinessDateTime(mixed $value): mixed
+    {
+        if ($value instanceof Carbon) {
+            return $value->copy()->utc();
+        }
+
+        if (! is_string($value) || trim($value) === '') {
+            return $value;
+        }
+
+        $value = trim($value);
+
+        // datetime-local has no timezone. Treat the browser value as the
+        // CleanFlow business time, then persist the instant in UTC.
+        if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/', $value) === 1) {
+            $format = strlen($value) === 16 ? '!Y-m-d\\TH:i' : '!Y-m-d\\TH:i:s';
+
+            return Carbon::createFromFormat($format, $value, $this->attendanceTimezone())->utc();
+        }
+
+        // Keep supporting existing non-browser integrations that submit a
+        // normal server-formatted timestamp without a timezone.
+        return $value;
+    }
+
+    private function businessDateTimeNotFutureRule(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (! is_string($value) || trim($value) === '') {
+                return;
+            }
+
+            try {
+                $dateTime = Carbon::parse($value, $this->attendanceTimezone());
+            } catch (\Throwable) {
+                return;
+            }
+
+            if ($dateTime->isFuture()) {
+                $fail('The '.$attribute.' cannot be in the future.');
+            }
+        };
     }
 
     private function cashPaymentDetailsError(Booking $booking, array $validated): ?string
@@ -1194,6 +1478,24 @@ class AdminBookingController extends Controller
             'title' => $title,
             'message' => $message,
             'type' => $type,
+            'link' => route('bookings.show', $booking->id),
+        ]);
+    }
+
+    private function createClientRefundNotification(Booking $booking): void
+    {
+        $bookingCode = 'CF-'.str_pad((string) $booking->id, 5, '0', STR_PAD_LEFT);
+        $message = match ($booking->payment?->refund_status) {
+            'succeeded' => 'The online payment for booking '.$bookingCode.' has been refunded through PayMongo.',
+            'pending', 'processing' => 'The online payment refund for booking '.$bookingCode.' is being processed.',
+            default => 'The online payment refund for booking '.$bookingCode.' needs admin review.',
+        };
+
+        $this->createNotification([
+            'user_id' => $booking->user_id,
+            'title' => 'Payment refund update',
+            'message' => $message,
+            'type' => $booking->payment?->refund_status === 'succeeded' ? 'success' : 'info',
             'link' => route('bookings.show', $booking->id),
         ]);
     }

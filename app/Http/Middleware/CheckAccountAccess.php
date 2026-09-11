@@ -15,6 +15,8 @@ class CheckAccountAccess
             return $next($request);
         }
 
-        abort(403, 'This account is restricted until '.$user->access_restricted_until->format('M d, Y h:i A').'.');
+        $timezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+
+        abort(403, 'This account is restricted until '.$user->access_restricted_until->copy()->timezone($timezone)->format('M d, Y h:i A').'.');
     }
 }

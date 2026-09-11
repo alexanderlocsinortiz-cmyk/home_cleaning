@@ -138,6 +138,45 @@ class AttendanceApiTest extends TestCase
             ]);
     }
 
+    public function test_punch_rejects_invalid_identity_limits_and_future_timestamps(): void
+    {
+        $staff = $this->createStaff('emp005');
+        $device = $this->createDevice('ESP32-05', str_repeat('e', 64));
+
+        $templatePayload = [
+            'template_id' => 163,
+            'punch_type' => 'in',
+        ];
+
+        $this->withHeaders($this->signedDeviceHeaders($device, 'POST', '/api/iot/attendance/punch', $templatePayload))
+            ->postJson('/api/iot/attendance/punch', $templatePayload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('template_id');
+
+        $employeeCodePayload = [
+            'employee_code' => str_repeat('x', 21),
+            'punch_type' => 'in',
+        ];
+
+        $this->withHeaders($this->signedDeviceHeaders($device, 'POST', '/api/iot/attendance/punch', $employeeCodePayload))
+            ->postJson('/api/iot/attendance/punch', $employeeCodePayload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('employee_code');
+
+        $futurePayload = [
+            'employee_code' => $staff->username,
+            'punch_type' => 'in',
+            'timestamp' => now()->addHour()->toDateTimeString(),
+        ];
+
+        $this->withHeaders($this->signedDeviceHeaders($device, 'POST', '/api/iot/attendance/punch', $futurePayload))
+            ->postJson('/api/iot/attendance/punch', $futurePayload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('timestamp');
+
+        $this->assertDatabaseCount('attendance_logs', 0);
+    }
+
     public function test_signed_device_request_cannot_be_replayed_with_the_same_nonce(): void
     {
         $staff = $this->createStaff('emp004');

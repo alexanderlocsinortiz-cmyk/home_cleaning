@@ -49,6 +49,23 @@ class AdminStaffManagementTest extends TestCase
         ]);
     }
 
+    public function test_admin_cannot_create_staff_with_username_outside_edit_limits(): void
+    {
+        $admin = $this->createUser('admin', 'admin-staff-username@example.com', 'adminstaffusername');
+
+        $response = $this->actingAs($admin)->post(route('admin.staff.store'), [
+            'first_name' => 'Invalid',
+            'last_name' => 'Username',
+            'email' => 'invalid-username-staff@example.com',
+            'phone' => '09123456789',
+            'username' => 'abc',
+            'password' => 'Password123!',
+        ]);
+
+        $response->assertSessionHasErrors('username');
+        $this->assertDatabaseMissing('users', ['email' => 'invalid-username-staff@example.com']);
+    }
+
     public function test_admin_cannot_delete_staff_with_booking_history(): void
     {
         $admin = $this->createUser('admin', 'admin-staff-protect@example.com', 'adminstaffprotect');
@@ -84,6 +101,48 @@ class AdminStaffManagementTest extends TestCase
         $response->assertRedirect(route('admin.staff.index'));
         $response->assertSessionHas('error', 'Staff members with booking history are protected from deletion.');
         $this->assertDatabaseHas('users', ['id' => $staff->id, 'role' => 'staff']);
+    }
+
+    public function test_admin_cannot_delete_secondary_staff_with_booking_history(): void
+    {
+        $admin = $this->createUser('admin', 'admin-secondary-staff-protect@example.com', 'adminsecondarystaffprotect');
+        $client = $this->createUser('client', 'client-secondary-staff-protect@example.com', 'clientsecondarystaffprotect');
+        $primaryStaff = $this->createUser('staff', 'primary-secondary-staff-protect@example.com', 'primarysecondarystaffprotect');
+        $secondaryStaff = $this->createUser('staff', 'secondary-staff-protect@example.com', 'secondarystaffprotect');
+
+        $this->canonicalService([
+            'name' => 'Secondary Staff Clean',
+            'slug' => 'secondary-staff-clean',
+            'description' => 'Multi-cleaner service',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $booking = Booking::create([
+            'user_id' => $client->id,
+            'staff_id' => $primaryStaff->id,
+            'service_type' => 'secondary-staff-clean',
+            'property_type' => 'house',
+            'rooms' => 2,
+            'bathrooms' => 1,
+            'floor_area' => 35,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Rizal Street',
+            'scheduled_date' => now()->addDay()->toDateString(),
+            'scheduled_time' => '09:00',
+            'price' => 570,
+            'status' => 'completed',
+        ]);
+        $booking->staffAssignments()->create([
+            'staff_id' => $secondaryStaff->id,
+            'task_group' => 'floors_surfaces',
+        ]);
+
+        $response = $this->actingAs($admin)->delete(route('admin.staff.destroy', $secondaryStaff));
+
+        $response->assertRedirect(route('admin.staff.index'));
+        $response->assertSessionHas('error', 'Staff members with booking history are protected from deletion.');
+        $this->assertDatabaseHas('users', ['id' => $secondaryStaff->id, 'role' => 'staff']);
     }
 
     private function createUser(string $role, string $email, string $username): User

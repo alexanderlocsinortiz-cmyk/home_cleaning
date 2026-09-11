@@ -29,10 +29,10 @@ class AttendanceController extends Controller
         $device = $this->authenticateDevice($request);
 
         $request->validate([
-            'employee_code' => 'nullable|string|required_without:template_id',
-            'template_id' => 'nullable|integer|min:1|required_without:employee_code',
+            'employee_code' => 'nullable|string|max:20|required_without:template_id',
+            'template_id' => 'nullable|integer|min:1|max:162|required_without:employee_code',
             'punch_type' => 'required|in:in,out,auto',
-            'timestamp' => 'nullable|date',
+            'timestamp' => 'nullable|date|before_or_equal:now',
         ]);
 
         $staff = User::where('role', 'staff')

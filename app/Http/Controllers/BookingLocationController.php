@@ -6,6 +6,9 @@ use App\Models\Booking;
 use App\Models\BookingLocation;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class BookingLocationController extends Controller
 {
@@ -28,6 +31,13 @@ class BookingLocationController extends Controller
             abort(403, 'You are not allowed to view this location.');
         }
 
+        if ($user->role === 'client' && ! $user->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Please verify your email before viewing booking location.',
+                'requires_email_verification' => true,
+            ], 403);
+        }
+
         // Block everyone if booking is completed or cancelled
         if (in_array($booking->status, ['completed', 'cancelled'])) {
             return response()->json(['tracking' => false, 'reason' => 'Booking has ended.']);
@@ -39,7 +49,7 @@ class BookingLocationController extends Controller
         }
 
         // No location shared yet
-        if (! $booking->current_latitude || ! $booking->current_longitude) {
+        if ($booking->current_latitude === null || $booking->current_longitude === null) {
             return response()->json(['tracking' => false]);
         }
 
@@ -110,19 +120,33 @@ class BookingLocationController extends Controller
             return response()->json(['success' => true, 'recorded' => false]);
         }
 
-        $booking->update([
-            'current_latitude' => $latitude,
-            'current_longitude' => $longitude,
-            'location_updated_at' => now(),
-        ]);
+        try {
+            DB::transaction(function () use ($booking, $id, $latitude, $longitude, $user): void {
+                $booking->update([
+                    'current_latitude' => $latitude,
+                    'current_longitude' => $longitude,
+                    'location_updated_at' => now(),
+                ]);
 
-        BookingLocation::create([
-            'booking_id' => $id,
-            'staff_id' => $user->id,
-            'latitude' => $latitude,
-            'longitude' => $longitude,
-            'captured_at' => now(),
-        ]);
+                BookingLocation::create([
+                    'booking_id' => $id,
+                    'staff_id' => $user->id,
+                    'latitude' => $latitude,
+                    'longitude' => $longitude,
+                    'captured_at' => now(),
+                ]);
+            });
+        } catch (Throwable $exception) {
+            Log::error('Booking live location update failed.', [
+                'booking_id' => $booking->id,
+                'staff_id' => $user->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'We could not save your location right now. Please retry in a few seconds.',
+            ], 503);
+        }
 
         return response()->json(['success' => true]);
     }

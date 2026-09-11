@@ -4,6 +4,7 @@
 @section('page-subtitle', 'Control account restrictions and staff page access')
 
 @php
+    $adminTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
     $restrictedStaffCount = $staff->filter->hasActiveAccessRestriction()->count();
     $restrictedClientCount = $clients->filter->hasActiveAccessRestriction()->count();
     $pageLockedStaffCount = $staff->filter(fn ($member) => count($member->staff_restricted_pages ?? []) > 0)->count();
@@ -251,12 +252,12 @@
                         <p class="mt-1 text-sm leading-6 text-slate-600">
                             This creates a temporary backup file and downloads it immediately. Store it somewhere private because it can contain customers, staff, bookings, payments, and messages.
                         </p>
-                        <button type="button" data-database-backup-password-toggle class="mt-4 inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm font-black text-blue-700 transition hover:bg-blue-50">
+                        <button type="button" data-database-backup-password-toggle aria-expanded="true" aria-controls="database-backup-password-form" class="mt-4 inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm font-black text-blue-700 transition hover:bg-blue-50">
                             <i class="fas fa-key"></i>
                             Change backup password
                         </button>
 
-                        <form method="POST" action="{{ route('admin.settings.database-backup.password') }}" class="mt-4 hidden rounded-2xl border border-blue-100 bg-white p-4" data-database-backup-password-form>
+                        <form id="database-backup-password-form" method="POST" action="{{ route('admin.settings.database-backup.password') }}" class="mt-4 rounded-2xl border border-blue-100 bg-white p-4" data-database-backup-password-form>
                             @csrf
                             @method('PATCH')
                             <div class="mb-4 text-sm font-black text-slate-900">Change backup password</div>
@@ -308,11 +309,15 @@
             <div class="space-y-4">
                 <form method="POST" action="{{ route('admin.settings.database-backup') }}" class="rounded-2xl border border-slate-100 bg-white p-4" data-database-backup-form>
                     @csrf
-                    @unless($generalSettings->database_backup_password_hash)
+                    @if($generalSettings->database_backup_password_hash)
+                        <div class="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold leading-6 text-emerald-900" role="status">
+                            Database backup password is configured. You can now download or upload backups securely.
+                        </div>
+                    @else
                         <div class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-900">
                             Set a backup password before downloading database backups.
                         </div>
-                    @endunless
+                    @endif
                     <div class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900 hidden" data-database-backup-confirm>
                         <div class="font-black">Warning:</div>
                         <p class="mt-1">
@@ -422,7 +427,7 @@
                     <div class="text-sm leading-6 text-slate-600">
                         @if($history->action === 'account_restricted')
                             <span class="font-semibold text-slate-900">{{ $history->duration_days }} day{{ $history->duration_days === 1 ? '' : 's' }}</span>
-                            until {{ optional($history->restricted_until)->format('M d, Y h:i A') }}.
+                            until {{ optional($history->restricted_until?->copy()->timezone($adminTimezone))->format('M d, Y h:i A') }}.
                             <span class="text-slate-500">Reason: {{ $history->reason ?: 'No reason recorded.' }}</span>
                         @elseif($history->action === 'account_restriction_cleared')
                             Cleared by {{ $history->actorUser?->display_name ?? 'Unknown admin' }}.
@@ -438,8 +443,8 @@
                     </div>
 
                     <div class="text-xs text-slate-500 lg:text-right">
-                        <div class="font-bold text-slate-700">{{ $history->created_at->format('M d, Y') }}</div>
-                        <div>{{ $history->created_at->format('h:i A') }}</div>
+                        <div class="font-bold text-slate-700">{{ $history->created_at->copy()->timezone($adminTimezone)->format('M d, Y') }}</div>
+                        <div>{{ $history->created_at->copy()->timezone($adminTimezone)->format('h:i A') }}</div>
                         <div class="mt-1">By {{ $history->actorUser?->display_name ?? 'System' }}</div>
                     </div>
                 </article>
@@ -489,7 +494,7 @@
 
                             @if($member->hasActiveAccessRestriction())
                                 <div class="rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-xs leading-5 text-red-800">
-                                    <div class="font-bold">Until {{ $member->access_restricted_until->format('M d, Y h:i A') }}</div>
+                                    <div class="font-bold">Until {{ $member->access_restricted_until->copy()->timezone($adminTimezone)->format('M d, Y h:i A') }}</div>
                                     <div class="text-red-700/80">{{ $member->access_restriction_reason ?: 'No reason recorded.' }}</div>
                                 </div>
                             @else
@@ -524,7 +529,7 @@
                                 @csrf
                                 @method('PATCH')
                                 <input type="hidden" name="action" value="restrict">
-                                <input type="number" name="restriction_days" min="1" max="365" placeholder="Days" class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                                <input type="number" name="restriction_days" min="1" max="365" step="1" placeholder="Days" required class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
                                 <input type="text" name="access_restriction_reason" placeholder="Reason for restriction" class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
                                 <button type="submit" class="h-11 rounded-xl bg-red-600 px-4 text-sm font-black text-white transition hover:bg-red-700">Restrict</button>
                             </form>
@@ -583,7 +588,7 @@
                             <div class="mt-1 text-xs text-slate-500">{{ $client->email }}</div>
                             @if($client->hasActiveAccessRestriction())
                                 <div class="mt-2 text-xs font-semibold text-red-700">
-                                    Restricted until {{ $client->access_restricted_until->format('M d, Y h:i A') }}
+                                    Restricted until {{ $client->access_restricted_until->copy()->timezone($adminTimezone)->format('M d, Y h:i A') }}
                                 </div>
                             @endif
                         </div>
@@ -603,7 +608,7 @@
                             @csrf
                             @method('PATCH')
                             <input type="hidden" name="action" value="restrict">
-                            <input type="number" name="restriction_days" min="1" max="365" placeholder="Days" class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                            <input type="number" name="restriction_days" min="1" max="365" step="1" placeholder="Days" required class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
                             <input type="text" name="access_restriction_reason" placeholder="Reason for restriction" class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
                             <button type="submit" class="h-11 rounded-xl bg-red-600 px-4 text-sm font-black text-white transition hover:bg-red-700">Restrict</button>
                         </form>
@@ -743,7 +748,9 @@
         const form = document.querySelector('[data-database-backup-password-form]');
 
         button.addEventListener('click', () => {
-            form?.classList.toggle('hidden');
+            const willShow = form?.classList.contains('hidden');
+            form?.classList.toggle('hidden', !willShow);
+            button.setAttribute('aria-expanded', willShow ? 'true' : 'false');
             form?.querySelector('input')?.focus();
         });
     });
@@ -751,6 +758,7 @@
     if (passwordFormHasErrors) {
         const form = document.querySelector('[data-database-backup-password-form]');
         form?.classList.remove('hidden');
+        document.querySelector('[data-database-backup-password-toggle]')?.setAttribute('aria-expanded', 'true');
         form?.querySelector('input')?.focus();
     }
 

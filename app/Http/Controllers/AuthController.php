@@ -40,15 +40,16 @@ class AuthController extends Controller
             ->toDateString();
 
         $validated = $request->validate([
-            'first_name' => ['required', 'string', 'min:2'],
-            'last_name' => ['required', 'string', 'min:2'],
-            'email' => ['required', 'email', 'unique:users,email'],
-            'phone' => ['required', 'regex:/^[0-9]{11}$/'],
-            'date_of_birth' => ['required', 'date', 'before_or_equal:'.$minimumBirthDate],
+            'first_name' => ['required', 'string', 'min:2', 'max:100'],
+            'last_name' => ['required', 'string', 'min:2', 'max:100'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'phone' => ['required', 'regex:/^09[0-9]{9}$/'],
+            'date_of_birth' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$minimumBirthDate],
             'password' => ['required', 'confirmed', StrongPassword::rule()],
         ], [
             'date_of_birth.before_or_equal' => 'Clients must be at least 18 years old to register.',
-            'phone.regex' => 'Phone number must contain exactly 11 digits.',
+            'date_of_birth.date_format' => 'Date of birth must use YYYY-MM-DD format.',
+            'phone.regex' => 'Phone number must start with 09 and contain exactly 11 digits.',
         ]);
 
         $user = User::create([
@@ -336,7 +337,7 @@ class AuthController extends Controller
                 $request->session()->regenerateToken();
 
                 return back()->withErrors([
-                    'email' => 'This account is restricted until '.$user->access_restricted_until->format('M d, Y h:i A').'.',
+                    'email' => 'This account is restricted until '.$user->access_restricted_until->copy()->timezone(config('cleanflow.attendance_timezone', 'Asia/Manila'))->format('M d, Y h:i A').'.',
                 ])->onlyInput('email');
             }
 

@@ -3,6 +3,7 @@
 
 @section('content')
 @php
+    $profileTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
     $birthday = optional($user->date_of_birth)->format('M d, Y') ?: 'Not set';
     $gender = $user->gender ? ucfirst(str_replace('_', ' ', $user->gender)) : 'Not set';
     $barangayLabel = $user->barangay ? ($barangays[$user->barangay] ?? $user->barangay) : 'Not set';
@@ -44,7 +45,7 @@
                         </span>
                         <span class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold text-white/85">
                             <i class="fas fa-calendar-day"></i>
-                            Member since {{ optional($user->created_at)->format('M Y') }}
+                            Member since {{ optional($user->created_at?->copy()->timezone($profileTimezone))->format('M Y') }}
                         </span>
                     </div>
                     <a href="{{ route('profile.edit') }}" class="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50">

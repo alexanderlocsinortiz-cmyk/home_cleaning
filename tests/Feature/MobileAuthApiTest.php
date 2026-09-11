@@ -44,6 +44,23 @@ class MobileAuthApiTest extends TestCase
         $this->assertSame(1, MobileApiToken::count());
     }
 
+    public function test_mobile_registration_rejects_a_non_philippine_mobile_phone_shape(): void
+    {
+        $this->postJson('/api/mobile/register', [
+            'first_name' => 'Invalid',
+            'last_name' => 'Phone',
+            'email' => 'invalid-mobile-phone@example.com',
+            'phone' => '12345678901',
+            'date_of_birth' => '1999-01-10',
+            'password' => 'CleanFlow!Mobile123',
+            'password_confirmation' => 'CleanFlow!Mobile123',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('phone');
+
+        $this->assertDatabaseMissing('users', ['email' => 'invalid-mobile-phone@example.com']);
+    }
+
     public function test_mobile_user_can_login_and_fetch_profile(): void
     {
         $user = User::factory()->create([
@@ -145,6 +162,24 @@ class MobileAuthApiTest extends TestCase
             'event' => 'mobile_login_failed',
             'user_id' => User::where('email', 'bad-password@example.com')->value('id'),
         ]);
+    }
+
+    public function test_mobile_login_rejects_a_role_not_supported_by_the_mobile_app(): void
+    {
+        User::factory()->create([
+            'email' => 'admin-mobile@example.com',
+            'role' => 'admin',
+            'password' => Hash::make('Password123'),
+        ]);
+
+        $this->postJson('/api/mobile/login', [
+            'email' => 'admin-mobile@example.com',
+            'password' => 'Password123',
+        ])
+            ->assertForbidden()
+            ->assertJsonPath('message', 'This account role is not available in the mobile app.');
+
+        $this->assertDatabaseCount('mobile_api_tokens', 0);
     }
 
     public function test_mobile_logout_revokes_current_token(): void

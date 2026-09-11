@@ -38,12 +38,12 @@
 
                 <section class="border-t border-slate-100 pt-6">
                     <h2 class="text-lg font-extrabold text-slate-900">3. Pricing and Payment</h2>
-                    <p class="mt-2">Displayed pricing is based on the information provided during booking. Final charges may reflect confirmed service details and approved add-ons. Supported payment options may include cash on service day, GCash, Maya, or bank transfer, and payment status is tracked through the platform.</p>
+                    <p class="mt-2">Displayed pricing is based on the information provided during booking. Final charges may reflect confirmed service details and approved add-ons. Current payment options are cash on service day, GCash, and Maya, and payment status is tracked through the platform.</p>
                 </section>
 
                 <section class="border-t border-slate-100 pt-6">
                     <h2 class="text-lg font-extrabold text-slate-900">4. Cancellations</h2>
-                    <p class="mt-2">Pending bookings may be cancelled through the platform. Once a booking has been confirmed, a staff member has been assigned, or a recurring schedule has been created, cancellation or rescheduling options may be more limited.</p>
+                    <p class="mt-2">Pending bookings and confirmed online bookings without an assigned cleaner may be cancelled through the platform. Once a cleaner has been assigned or a recurring schedule has been created, cancellation or rescheduling options may be more limited. Paid online cancellations are sent through PayMongo for refund processing.</p>
                 </section>
 
                 <section class="border-t border-slate-100 pt-6">

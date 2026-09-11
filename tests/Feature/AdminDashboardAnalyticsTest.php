@@ -40,6 +40,13 @@ class AdminDashboardAnalyticsTest extends TestCase
             'first_name' => 'Peak',
             'last_name' => 'Cleaner',
         ]);
+        $secondaryStaff = $this->createUser([
+            'email' => 'secondary-dashboard-analytics@example.com',
+            'username' => 'secondarydashboardanalytics',
+            'role' => 'staff',
+            'first_name' => 'Second',
+            'last_name' => 'Cleaner',
+        ]);
 
         $currentBooking = Booking::create([
             'user_id' => $client->id,
@@ -60,6 +67,10 @@ class AdminDashboardAnalyticsTest extends TestCase
             'created_at' => now()->subDays(3),
             'updated_at' => now()->subDay(),
         ])->save();
+        $currentBooking->staffAssignments()->create([
+            'staff_id' => $secondaryStaff->id,
+            'task_group' => 'floors_surfaces',
+        ]);
 
         $previousMonthBooking = Booking::create([
             'user_id' => $client->id,
@@ -94,13 +105,14 @@ class AdminDashboardAnalyticsTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.dashboard'));
 
         $response->assertOk();
-        $response->assertSee('Today: 2 bookings | 0 pending | 0 in progress | 1 staff');
+        $response->assertSee('Today: 2 bookings | 0 pending | 0 in progress | 2 staff');
         $response->assertSee('Active Queue - Recent Bookings');
         $response->assertSee('Quick Actions');
         $response->assertSee('Today Snapshot');
         $response->assertSee('Staff Trends');
         $response->assertSee('Completed');
         $response->assertSee($staff->full_name);
+        $response->assertSee($secondaryStaff->full_name);
         $response->assertDontSee('Booking Trend Snapshot');
         $response->assertDontSee('Customer Satisfaction Trends');
         $response->assertDontSee('Peak Booking Demand');

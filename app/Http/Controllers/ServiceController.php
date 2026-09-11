@@ -29,9 +29,9 @@ class ServiceController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:100',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:5000',
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'price' => 'required|numeric|min:1',
+            'price' => 'required|numeric|decimal:0,2|min:1|max:99999999.99',
             'duration_minutes' => 'required|integer|min:30|max:720',
             'sort_order' => 'nullable|integer|min:0|max:9999',
             'scope_status' => ['nullable', Rule::in(Service::SCOPE_STATUSES)],
@@ -93,9 +93,9 @@ class ServiceController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:100',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:5000',
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'price' => 'required|numeric|min:1',
+            'price' => 'required|numeric|decimal:0,2|min:1|max:99999999.99',
             'duration_minutes' => 'required|integer|min:30|max:720',
             'sort_order' => 'nullable|integer|min:0|max:9999',
             'scope_status' => ['nullable', Rule::in(Service::SCOPE_STATUSES)],
@@ -222,7 +222,7 @@ class ServiceController extends Controller
         $validated = $request->validate([
             'label' => 'required|string|max:100',
             'description' => 'nullable|string|max:500',
-            'price' => 'required|numeric|min:0|max:999999.99',
+            'price' => 'required|numeric|decimal:0,2|min:0|max:99999999.99',
             'pricing_unit' => 'nullable|string|max:60',
             'sort_order' => 'nullable|integer|min:0|max:9999',
             'is_active' => 'nullable|boolean',
@@ -260,7 +260,7 @@ class ServiceController extends Controller
                 Rule::unique('service_add_ons', 'label')->ignore($addOn->id),
             ],
             'description' => 'nullable|string|max:500',
-            'price' => 'required|numeric|min:0|max:999999.99',
+            'price' => 'required|numeric|decimal:0,2|min:0|max:99999999.99',
             'pricing_unit' => 'nullable|string|max:60',
             'sort_order' => 'nullable|integer|min:0|max:9999',
             'is_active' => 'nullable|boolean',

@@ -51,6 +51,62 @@ class AdminServiceCatalogTest extends TestCase
         ]);
     }
 
+    public function test_admin_service_price_cannot_overflow_the_decimal_column(): void
+    {
+        $admin = $this->createAdmin();
+
+        $response = $this->actingAs($admin)->post(route('admin.services.store'), [
+            'name' => 'Oversized Service',
+            'price' => '100000000.00',
+            'duration_minutes' => 120,
+        ]);
+
+        $response->assertSessionHasErrors('price');
+        $this->assertDatabaseMissing('services', ['name' => 'Oversized Service']);
+    }
+
+    public function test_admin_service_description_has_a_practical_length_limit(): void
+    {
+        $admin = $this->createAdmin();
+
+        $response = $this->actingAs($admin)->post(route('admin.services.store'), [
+            'name' => 'Overlong Description Service',
+            'description' => str_repeat('A', 5001),
+            'price' => 100,
+            'duration_minutes' => 120,
+        ]);
+
+        $response->assertSessionHasErrors('description');
+        $this->assertDatabaseMissing('services', ['name' => 'Overlong Description Service']);
+    }
+
+    public function test_admin_add_on_price_cannot_overflow_the_decimal_column(): void
+    {
+        $admin = $this->createAdmin();
+
+        $response = $this->actingAs($admin)->post(route('admin.services.add-ons.store'), [
+            'label' => 'Oversized Add-on',
+            'price' => '100000000.00',
+        ]);
+
+        $response->assertSessionHasErrors('price');
+        $this->assertDatabaseMissing('service_add_ons', ['label' => 'Oversized Add-on']);
+    }
+
+    public function test_admin_service_price_cannot_have_more_than_two_decimal_places(): void
+    {
+        $admin = $this->createAdmin();
+
+        $response = $this->actingAs($admin)->post(route('admin.services.store'), [
+            'name' => 'Fractional Service',
+            'price' => '100.123',
+            'duration_minutes' => 120,
+        ]);
+
+        $response->assertSessionHasErrors('price');
+        $this->assertDatabaseMissing('services', ['name' => 'Fractional Service']);
+    }
+
     public function test_admin_can_manually_edit_measurable_scope_controls(): void
     {
         $admin = $this->createAdmin();
@@ -249,6 +305,8 @@ class AdminServiceCatalogTest extends TestCase
         $response->assertSee('Booking Add-ons', false);
         $response->assertSee('Window Glass Cleaning', false);
         $response->assertSee('Add Add-on', false);
+        $response->assertSee('id="addon-sort-order" type="number"', false);
+        $response->assertSee('min="0" max="9999" step="1"', false);
     }
 
     public function test_admin_can_create_update_and_deactivate_booking_add_on(): void

@@ -32,15 +32,16 @@ class MobileAuthController extends Controller
             ->toDateString();
 
         $validated = $request->validate([
-            'first_name' => ['required', 'string', 'min:2', 'max:255'],
-            'last_name' => ['required', 'string', 'min:2', 'max:255'],
+            'first_name' => ['required', 'string', 'min:2', 'max:100'],
+            'last_name' => ['required', 'string', 'min:2', 'max:100'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'phone' => ['required', 'regex:/^[0-9]{11}$/'],
-            'date_of_birth' => ['required', 'date', 'before_or_equal:'.$minimumBirthDate],
+            'phone' => ['required', 'regex:/^09[0-9]{9}$/'],
+            'date_of_birth' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$minimumBirthDate],
             'password' => ['required', 'confirmed', StrongPassword::rule()],
         ], [
             'date_of_birth.before_or_equal' => 'Clients must be at least 18 years old to register.',
-            'phone.regex' => 'Phone number must contain exactly 11 digits.',
+            'date_of_birth.date_format' => 'Date of birth must use YYYY-MM-DD format.',
+            'phone.regex' => 'Phone number must start with 09 and contain exactly 11 digits.',
         ]);
 
         $user = User::create([
@@ -126,6 +127,17 @@ class MobileAuthController extends Controller
                 'message' => 'This account is temporarily restricted.',
                 'restricted_until' => $user->access_restricted_until?->toISOString(),
                 'reason' => $user->access_restriction_reason,
+            ], 403);
+        }
+
+        if (! in_array($user->role, ['client', 'staff'], true)) {
+            SecurityEvent::record('mobile_login_blocked', $user, [
+                'reason' => 'unsupported_role',
+                'role' => $user->role,
+            ]);
+
+            return response()->json([
+                'message' => 'This account role is not available in the mobile app.',
             ], 403);
         }
 
@@ -297,10 +309,13 @@ class MobileAuthController extends Controller
             'full_name' => $user->full_name,
             'email' => $user->email,
             'phone' => $user->phone,
+            'gender' => $user->gender,
+            'street' => $user->street,
             'role' => $user->role,
             'date_of_birth' => $user->date_of_birth?->toDateString(),
             'barangay' => $user->barangay,
             'city' => $user->city,
+            'zip_code' => $user->zip_code,
             'email_verified' => $user->hasVerifiedEmail(),
         ];
     }

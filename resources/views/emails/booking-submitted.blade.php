@@ -63,8 +63,10 @@
 <p class="muted-note">
     @if($booking->payment?->method === 'on_site_cash')
         Cash payment stays pending until the visit is completed, receipt proof is reviewed, and the amount is confirmed by the admin team.
-    @else
+    @elseif($booking->payment?->status === 'paid')
         Your digital payment has been recorded{{ $booking->payment?->reference ? ' under reference ' . $booking->payment->reference : '' }}.
+    @else
+        Your online payment is still waiting for PayMongo confirmation. Complete payment within {{ (int) config('cleanflow.payments.unpaid_online_expiry_minutes', 30) }} minutes of checkout creation or this unpaid booking will be cancelled automatically and the schedule released.
     @endif
 </p>
 

@@ -19,8 +19,11 @@ class AdminLogController extends Controller
     {
         $filters = $this->filters($request);
         $attendanceTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
-        $todayStartUtc = Carbon::now($attendanceTimezone)->startOfDay()->utc();
-        $todayEndUtc = Carbon::now($attendanceTimezone)->endOfDay()->utc();
+        $attendanceNow = Carbon::now($attendanceTimezone);
+        $todayStartUtc = $attendanceNow->copy()->startOfDay()->utc();
+        $todayEndUtc = $attendanceNow->copy()->endOfDay()->utc();
+        $monthStartUtc = $attendanceNow->copy()->startOfMonth()->utc();
+        $monthEndUtc = $attendanceNow->copy()->endOfMonth()->utc();
 
         $bookingLogsQuery = $this->bookingLogsQuery($filters);
         $attendanceLogsQuery = $this->attendanceLogsQuery($filters);
@@ -52,8 +55,8 @@ class AdminLogController extends Controller
             'total' => BookingActivityLog::count() + AttendanceLog::count() + AccessRestrictionHistory::count() + SecurityEvent::count(),
             'attendance_today' => AttendanceLog::where('punch_type', 'in')->whereBetween('logged_at', [$todayStartUtc, $todayEndUtc])->count(),
             'late_arrivals' => AttendanceLog::where('punch_type', 'in')->where('status', 'late')->count(),
-            'cancelled_bookings' => Booking::where('status', 'cancelled')->whereMonth('updated_at', now()->month)->whereYear('updated_at', now()->year)->count(),
-            'completed_bookings' => Booking::where('status', 'completed')->whereMonth('updated_at', now()->month)->whereYear('updated_at', now()->year)->count(),
+            'cancelled_bookings' => Booking::where('status', 'cancelled')->whereBetween('updated_at', [$monthStartUtc, $monthEndUtc])->count(),
+            'completed_bookings' => Booking::where('status', 'completed')->whereBetween('updated_at', [$monthStartUtc, $monthEndUtc])->count(),
             'booking_filtered' => (clone $bookingLogsQuery)->count(),
             'attendance_filtered' => (clone $attendanceLogsQuery)->count(),
             'admin_filtered' => (clone $adminLogsQuery)->count() + (clone $securityLogsQuery)->count(),
@@ -70,7 +73,7 @@ class AdminLogController extends Controller
         $filters = $this->filters($request);
         $rows = $this->exportRows($source, $filters);
         $title = str($source)->replace('_', ' ')->title().' Logs';
-        $timestamp = now()->format('Ymd_His');
+        $timestamp = Carbon::now(config('cleanflow.attendance_timezone', 'Asia/Manila'))->format('Ymd_His');
 
         if ($format === 'pdf') {
             return response($this->simplePdf($title, $rows), 200)
@@ -214,7 +217,7 @@ class AdminLogController extends Controller
     {
         return match ($source) {
             'bookings' => $this->bookingLogsQuery($filters)->latest()->limit(5000)->get()->map(fn ($log) => [
-                'Date' => optional($log->created_at)->format('Y-m-d H:i:s'),
+                'Date' => optional($log->created_at?->copy()->timezone(config('cleanflow.attendance_timezone', 'Asia/Manila')))->format('Y-m-d H:i:s'),
                 'Action' => str($log->action)->replace('_', ' ')->title(),
                 'Description' => $log->description,
                 'Booking' => $log->booking_id ? 'CF-'.str_pad($log->booking_id, 5, '0', STR_PAD_LEFT) : '',
@@ -236,7 +239,7 @@ class AdminLogController extends Controller
                 ];
             })->all(),
             'admin' => $this->adminLogsQuery($filters)->latest()->limit(5000)->get()->map(fn ($log) => [
-                'Date' => optional($log->created_at)->format('Y-m-d H:i:s'),
+                'Date' => optional($log->created_at?->copy()->timezone(config('cleanflow.attendance_timezone', 'Asia/Manila')))->format('Y-m-d H:i:s'),
                 'Action' => str($log->action)->replace('_', ' ')->title(),
                 'Target' => $log->target_name,
                 'Target Email' => $log->target_email,
@@ -244,7 +247,7 @@ class AdminLogController extends Controller
                 'Actor' => $log->actorUser?->display_name ?? 'System',
                 'Reason' => $log->reason,
             ])->concat($this->securityLogsQuery($filters)->latest()->limit(5000)->get()->map(fn ($log) => [
-                'Date' => optional($log->created_at)->format('Y-m-d H:i:s'),
+                'Date' => optional($log->created_at?->copy()->timezone(config('cleanflow.attendance_timezone', 'Asia/Manila')))->format('Y-m-d H:i:s'),
                 'Action' => str($log->event)->replace('_', ' ')->title(),
                 'Target' => $log->user?->display_name ?? 'System / Device',
                 'Target Email' => $log->user?->email,
@@ -265,7 +268,7 @@ class AdminLogController extends Controller
 
     private function simplePdf(string $title, array $rows): string
     {
-        $lines = [$title, 'Generated: '.now()->format('Y-m-d H:i:s'), ''];
+        $lines = [$title, 'Generated: '.Carbon::now(config('cleanflow.attendance_timezone', 'Asia/Manila'))->format('Y-m-d H:i:s'), ''];
 
         foreach ($rows ?: [['Message' => 'No records found']] as $row) {
             $lines[] = collect($row)->map(fn ($value, $key) => $key.': '.(string) $value)->implode(' | ');

@@ -8,6 +8,7 @@ use App\Models\Service;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class BookingTest extends TestCase
@@ -230,5 +231,39 @@ class BookingTest extends TestCase
         $booking->update(['status' => 'cancelled']);
 
         $this->assertEquals('cancelled', $booking->fresh()->status);
+    }
+
+    public function test_assignment_window_uses_the_business_timezone(): void
+    {
+        $start = Booking::assignmentWindowStart('2026-06-01', '09:00');
+
+        $this->assertSame('Asia/Manila', $start->getTimezone()->getName());
+        $this->assertSame('2026-06-01 09:00:00', $start->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-06-01 01:00:00', $start->copy()->utc()->format('Y-m-d H:i:s'));
+    }
+
+    public function test_completed_staff_rest_buffer_is_compared_in_the_business_timezone(): void
+    {
+        $booking = Booking::factory()->create([
+            'user_id' => $this->client->id,
+            'service_id' => $this->service->id,
+            'staff_id' => $this->staff->id,
+            'status' => 'completed',
+            'scheduled_date' => '2026-06-01',
+            'scheduled_time' => '09:00',
+        ]);
+
+        // Completion at 9:00 AM Manila is 1:00 AM UTC in the database.
+        DB::table('bookings')->where('id', $booking->id)->update([
+            'updated_at' => '2026-06-01 01:00:00',
+        ]);
+        $booking->refresh();
+
+        $this->assertTrue(
+            Booking::staffHasScheduleConflict($this->staff->id, '2026-06-01', '09:30', null, 60)
+        );
+        $this->assertFalse(
+            Booking::staffHasScheduleConflict($this->staff->id, '2026-06-01', '10:00', null, 60)
+        );
     }
 }

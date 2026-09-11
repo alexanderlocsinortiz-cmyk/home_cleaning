@@ -88,6 +88,40 @@ class AdminCustomerManagementTest extends TestCase
         $this->assertNotEquals($olderBooking->id, $latestBooking->id);
     }
 
+    public function test_customer_month_stats_and_filter_use_the_business_timezone(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 9, 1, 0, 30, 0, 'Asia/Manila'));
+
+        try {
+            $admin = $this->createUser('admin', 'admin-customer-month@example.com', 'admincustomermonth');
+            $localSeptemberCustomer = $this->createUser('client', 'client-local-september@example.com', 'clientlocalseptember');
+            $utcAugustCustomer = $this->createUser('client', 'client-utc-august@example.com', 'clientutcaugust');
+
+            $localSeptemberCustomer->forceFill([
+                'created_at' => Carbon::create(2026, 8, 31, 16, 30, 0, 'UTC'),
+            ])->save();
+            $utcAugustCustomer->forceFill([
+                'created_at' => Carbon::create(2026, 8, 31, 15, 30, 0, 'UTC'),
+            ])->save();
+
+            $response = $this->actingAs($admin)->get(route('admin.customers'));
+
+            $response->assertOk();
+            $response->assertSee('>1</div>', false);
+            $response->assertSee('Since Sep 01.');
+
+            $filteredResponse = $this->actingAs($admin)->get(route('admin.customers', [
+                'registration_month' => '2026-09',
+            ]));
+
+            $filteredResponse->assertOk();
+            $filteredResponse->assertSee('client-local-september@example.com');
+            $filteredResponse->assertDontSee('client-utc-august@example.com');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     private function createUser(string $role, string $email, string $username): User
     {
         $user = User::create([

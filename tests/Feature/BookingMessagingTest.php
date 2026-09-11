@@ -105,6 +105,36 @@ class BookingMessagingTest extends TestCase
         ]);
     }
 
+    public function test_secondary_assigned_staff_can_message_booking_client(): void
+    {
+        [$client, $primaryStaff, $booking] = $this->bookingWithAssignedStaff();
+        $secondaryStaff = User::factory()->create(['role' => 'staff']);
+
+        $booking->staffAssignments()->createMany([
+            ['staff_id' => $primaryStaff->id, 'task_group' => 'general_cleaning'],
+            ['staff_id' => $secondaryStaff->id, 'task_group' => 'bathroom_sanitation'],
+        ]);
+
+        $response = $this->actingAs($secondaryStaff)->post(route('bookings.messages.store', $booking), [
+            'message' => 'I am handling the bathroom tasks.',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('booking_messages', [
+            'booking_id' => $booking->id,
+            'sender_id' => $secondaryStaff->id,
+            'message' => 'I am handling the bathroom tasks.',
+        ]);
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $client->id,
+            'booking_id' => $booking->id,
+            'title' => 'New booking message',
+        ]);
+    }
+
     public function test_unassigned_staff_cannot_message_booking(): void
     {
         [, , $booking] = $this->bookingWithAssignedStaff();

@@ -328,98 +328,113 @@ class ProviderPortalController extends Controller
 
         $actor = auth()->user();
 
-        DB::transaction(function () use ($booking, $request, $actor, $validated) {
-            if ($validated['status'] === 'in_progress') {
-                $beforePhotoCount = $this->storeProofBatch(
+        try {
+            DB::transaction(function () use ($booking, $request, $actor, $validated) {
+                if ($validated['status'] === 'in_progress') {
+                    $beforePhotoCount = $this->storeProofBatch(
+                        $booking,
+                        $request->file('before_photos', []),
+                        'before',
+                        'image',
+                        $actor
+                    );
+
+                    $booking->status = 'in_progress';
+                    $booking->markServiceStarted();
+                    $booking->save();
+
+                    $booking->logActivity($actor, 'provider_proof_uploaded', 'Provider uploaded '.$beforePhotoCount.' before-service photo'.($beforePhotoCount === 1 ? '' : 's').'.', [
+                        'stage' => 'before',
+                        'media_type' => 'image',
+                        'count' => $beforePhotoCount,
+                    ]);
+
+                    $booking->logActivity($actor, 'provider_status_updated', 'Provider marked the booking as in progress.', [
+                        'from_status' => 'confirmed',
+                        'to_status' => 'in_progress',
+                    ]);
+
+                    $this->createClientProofNotification($booking, 'service_started', [
+                        'before_photo_count' => $beforePhotoCount,
+                    ]);
+
+                    return;
+                }
+
+                $afterPhotoCount = $this->storeProofBatch(
                     $booking,
-                    $request->file('before_photos', []),
-                    'before',
+                    $request->file('after_photos', []),
+                    'after',
                     'image',
                     $actor
                 );
 
-                $booking->status = 'in_progress';
-                $booking->markServiceStarted();
+                $videoUploaded = false;
+                if ($request->hasFile('completion_video')) {
+                    $this->storeProofBatch(
+                        $booking,
+                        [$request->file('completion_video')],
+                        'after',
+                        'video',
+                        $actor,
+                        'completion_video'
+                    );
+                    $videoUploaded = true;
+                }
+
+                $booking->status = 'completed';
+                $booking->markServiceCompleted();
+
+                if ($booking->payment?->method === 'on_site_cash') {
+                    $booking->cash_collected_amount = $booking->cash_collected_amount ?: $booking->provider_gross_amount;
+                    $booking->provider_commission_due = $booking->provider_commission_due ?: $booking->platform_commission_amount;
+                    $booking->provider_commission_status = $booking->provider_commission_status ?: 'unpaid';
+                }
+
                 $booking->save();
 
-                $booking->logActivity($actor, 'provider_proof_uploaded', 'Provider uploaded '.$beforePhotoCount.' before-service photo'.($beforePhotoCount === 1 ? '' : 's').'.', [
-                    'stage' => 'before',
-                    'media_type' => 'image',
-                    'count' => $beforePhotoCount,
-                ]);
-
-                $booking->logActivity($actor, 'provider_status_updated', 'Provider marked the booking as in progress.', [
-                    'from_status' => 'confirmed',
-                    'to_status' => 'in_progress',
-                ]);
-
-                $this->createClientProofNotification($booking, 'service_started', [
-                    'before_photo_count' => $beforePhotoCount,
-                ]);
-
-                return;
-            }
-
-            $afterPhotoCount = $this->storeProofBatch(
-                $booking,
-                $request->file('after_photos', []),
-                'after',
-                'image',
-                $actor
-            );
-
-            $videoUploaded = false;
-            if ($request->hasFile('completion_video')) {
-                $this->storeProofBatch(
-                    $booking,
-                    [$request->file('completion_video')],
-                    'after',
-                    'video',
-                    $actor,
-                    'completion_video'
-                );
-                $videoUploaded = true;
-            }
-
-            $booking->status = 'completed';
-            $booking->markServiceCompleted();
-
-            if ($booking->payment?->method === 'on_site_cash') {
-                $booking->cash_collected_amount = $booking->cash_collected_amount ?: $booking->provider_gross_amount;
-                $booking->provider_commission_due = $booking->provider_commission_due ?: $booking->platform_commission_amount;
-                $booking->provider_commission_status = $booking->provider_commission_status ?: 'unpaid';
-            }
-
-            $booking->save();
-
-            $booking->logActivity($actor, 'provider_proof_uploaded', 'Provider uploaded '.$afterPhotoCount.' after-service photo'.($afterPhotoCount === 1 ? '' : 's').'.', [
-                'stage' => 'after',
-                'media_type' => 'image',
-                'count' => $afterPhotoCount,
-            ]);
-
-            if ($videoUploaded) {
-                $booking->logActivity($actor, 'provider_proof_uploaded', 'Provider uploaded a completion video.', [
+                $booking->logActivity($actor, 'provider_proof_uploaded', 'Provider uploaded '.$afterPhotoCount.' after-service photo'.($afterPhotoCount === 1 ? '' : 's').'.', [
                     'stage' => 'after',
-                    'media_type' => 'video',
-                    'count' => 1,
+                    'media_type' => 'image',
+                    'count' => $afterPhotoCount,
                 ]);
-            }
 
-            $booking->logActivity($actor, 'provider_status_updated', 'Provider marked the booking as completed.', [
-                'from_status' => 'in_progress',
-                'to_status' => 'completed',
-                'payment_status' => $booking->payment?->status ?? 'pending',
-                'on_time_status' => $booking->on_time_status,
-                'started_late_minutes' => $booking->started_late_minutes,
-                'completed_late_minutes' => $booking->completed_late_minutes,
+                if ($videoUploaded) {
+                    $booking->logActivity($actor, 'provider_proof_uploaded', 'Provider uploaded a completion video.', [
+                        'stage' => 'after',
+                        'media_type' => 'video',
+                        'count' => 1,
+                    ]);
+                }
+
+                $booking->logActivity($actor, 'provider_status_updated', 'Provider marked the booking as completed.', [
+                    'from_status' => 'in_progress',
+                    'to_status' => 'completed',
+                    'payment_status' => $booking->payment?->status ?? 'pending',
+                    'on_time_status' => $booking->on_time_status,
+                    'started_late_minutes' => $booking->started_late_minutes,
+                    'completed_late_minutes' => $booking->completed_late_minutes,
+                ]);
+
+                $this->createClientProofNotification($booking, 'service_completed', [
+                    'after_photo_count' => $afterPhotoCount,
+                    'video_uploaded' => $videoUploaded,
+                ]);
+            });
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            Log::error('Provider booking status update failed.', [
+                'booking_id' => $booking->id,
+                'provider_user_id' => auth()->id(),
+                'status' => $validated['status'],
+                'error' => $exception->getMessage(),
             ]);
 
-            $this->createClientProofNotification($booking, 'service_completed', [
-                'after_photo_count' => $afterPhotoCount,
-                'video_uploaded' => $videoUploaded,
-            ]);
-        });
+            return back()
+                ->withErrors(['status' => 'We could not update this service right now. Please try again in a few seconds.'])
+                ->withInput();
+        }
 
         return back()->with('success', $validated['status'] === 'completed'
             ? 'Service marked as completed and proof of service has been uploaded.'

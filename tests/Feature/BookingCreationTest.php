@@ -60,8 +60,18 @@ class BookingCreationTest extends TestCase
         $response->assertSee('Budget Summary', false);
         $response->assertSee('Estimated total', false);
         $response->assertSee('Estimate only: the current calculator adds no travel, tax, discount, or manual-adjustment charges.', false);
+        $response->assertSee("You'll be redirected to PayMongo to complete your", false);
+        $response->assertSee('The booking remains pending until PayMongo confirms success; unpaid online bookings expire after 30 minutes.', false);
+        $response->assertDontSee('is recorded immediately with a payment reference', false);
         $response->assertSee('Package features are a summary, not a promise that every possible task is included.', false);
         $response->assertSee('Street / Purok / House Details', false);
+        foreach (['floor_area', 'scheduled_date', 'scheduled_time', 'barangay', 'street_address'] as $requiredField) {
+        $this->assertMatchesRegularExpression(
+                '/name="'.preg_quote($requiredField, '/').'"[^>]*\brequired\b/s',
+                $response->getContent(),
+                $requiredField.' should be required in the booking form.'
+            );
+        }
         $response->assertSee('Preferred Cleaner (optional)', false);
         $response->assertSee('Payment and Service Plan', false);
         $response->assertSee('Cash on Service Day', false);
@@ -76,6 +86,43 @@ class BookingCreationTest extends TestCase
         $response->assertSee('Office Cleaning (Deep)', false);
         $response->assertSee('&#8369;60/sqm', false);
         $response->assertSee('Yard Sweeping', false);
+    }
+
+    public function test_client_booking_history_has_a_responsive_mobile_card_list(): void
+    {
+        $this->canonicalService([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $client = $this->createVerifiedUser([
+            'email' => 'responsive-bookings@example.com',
+            'username' => 'responsivebookings',
+        ]);
+        $booking = Booking::factory()->create([
+            'user_id' => $client->id,
+            'service_type' => 'basic',
+            'status' => 'pending',
+            'scheduled_date' => now()->addDays(2)->toDateString(),
+            'scheduled_time' => '09:00',
+            'street_address' => '123 Responsive Street',
+            'barangay' => 'Poblacion',
+            'price' => 1200,
+        ]);
+
+        $response = $this->actingAs($client)->get(route('bookings.index'));
+
+        $response->assertOk();
+        $response->assertSee('aria-label="Mobile booking list"', false);
+        $response->assertSee('View details', false);
+        $response->assertSee('One-time cleaning service', false);
+        $response->assertSee('123 Responsive Street', false);
+        $response->assertSee('hidden overflow-x-auto lg:block', false);
+        $response->assertSee('min-w-[1020px]', false);
+        $response->assertSee(route('bookings.show', $booking->id), false);
     }
 
     public function test_booking_form_prefills_address_from_client_profile(): void
@@ -110,6 +157,55 @@ class BookingCreationTest extends TestCase
         $response->assertOk();
         $response->assertSee('value="Lourdes" selected', false);
         $response->assertSee('value="P-11 Kanayan"', false);
+    }
+
+    public function test_booking_form_marks_secondary_cleaners_busy_in_preferred_cleaner_availability(): void
+    {
+        $this->canonicalService([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $client = $this->createVerifiedUser([
+            'email' => 'availability-client@example.com',
+            'username' => 'availabilityclient',
+        ]);
+        $primaryStaff = $this->createVerifiedUser([
+            'email' => 'availability-primary@example.com',
+            'username' => 'availabilityprimary',
+            'role' => 'staff',
+        ]);
+        $secondaryStaff = $this->createVerifiedUser([
+            'email' => 'availability-secondary@example.com',
+            'username' => 'availabilitysecondary',
+            'role' => 'staff',
+        ]);
+        $scheduledDate = now()->addDays(2)->toDateString();
+
+        $existingBooking = Booking::factory()->create([
+            'user_id' => $client->id,
+            'staff_id' => $primaryStaff->id,
+            'status' => 'confirmed',
+            'scheduled_date' => $scheduledDate,
+            'scheduled_time' => '09:00',
+            'duration_minutes' => 60,
+        ]);
+        $existingBooking->staffAssignments()->createMany([
+            ['staff_id' => $primaryStaff->id, 'task_group' => 'general_cleaning'],
+            ['staff_id' => $secondaryStaff->id, 'task_group' => 'bathroom_sanitation'],
+        ]);
+
+        $response = $this->actingAs($client)->get(route('bookings.create'));
+
+        $response->assertOk();
+        $availability = $response->viewData('preferredCleanerAvailability');
+        $this->assertContains(
+            $secondaryStaff->id,
+            collect($availability['assignments'])->pluck('staffId')->all()
+        );
     }
 
     public function test_authenticated_client_can_create_a_booking_with_calculated_price(): void
@@ -235,6 +331,56 @@ class BookingCreationTest extends TestCase
             ->post(route('bookings.store'), $basePayload + ['service_longitude' => 125.0926])
             ->assertRedirect(route('bookings.create'))
             ->assertSessionHasErrors('service_latitude');
+
+        $this->assertDatabaseCount('bookings', 0);
+    }
+
+    public function test_booking_rejects_service_coordinates_outside_the_configured_coverage_bounds(): void
+    {
+        $this->canonicalService([
+            'name' => 'Basic Clean',
+            'slug' => 'basic',
+            'description' => 'Routine cleaning',
+            'price' => 570,
+            'is_active' => true,
+        ]);
+
+        $client = $this->createVerifiedUser([
+            'email' => 'out-of-bounds-coordinates@example.com',
+            'username' => 'outofboundscoordinates',
+        ]);
+
+        $payload = [
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'rooms' => 1,
+            'bathrooms' => 1,
+            'floor_area' => 30,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Rizal Street',
+            'scheduled_date' => now()->addDays(3)->toDateString(),
+            'scheduled_time' => '09:00',
+            'payment_method' => 'on_site_cash',
+            'service_plan' => 'one_time',
+        ];
+
+        $this->actingAs($client)
+            ->from(route('bookings.create'))
+            ->post(route('bookings.store'), $payload + [
+                'service_latitude' => 7.2,
+                'service_longitude' => 125.0926,
+            ])
+            ->assertRedirect(route('bookings.create'))
+            ->assertSessionHasErrors('service_latitude');
+
+        $this->actingAs($client)
+            ->from(route('bookings.create'))
+            ->post(route('bookings.store'), $payload + [
+                'service_latitude' => 7.9041,
+                'service_longitude' => 125.5,
+            ])
+            ->assertRedirect(route('bookings.create'))
+            ->assertSessionHasErrors('service_longitude');
 
         $this->assertDatabaseCount('bookings', 0);
     }

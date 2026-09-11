@@ -80,7 +80,7 @@ class CleanerApplicationController extends Controller
                 ])),
             ],
             'phone' => ['required', 'regex:/^09[0-9]{9}$/'],
-            'date_of_birth' => ['nullable', 'required_if:applicant_type,'.CleanerApplication::TYPE_INDIVIDUAL, 'date', 'before_or_equal:'.$minimumBirthDate],
+            'date_of_birth' => ['nullable', 'required_if:applicant_type,'.CleanerApplication::TYPE_INDIVIDUAL, 'date_format:Y-m-d', 'before_or_equal:'.$minimumBirthDate],
             'individual_current_address' => ['nullable', 'required_if:applicant_type,'.CleanerApplication::TYPE_INDIVIDUAL, 'string', 'max:255'],
             'business_address' => ['nullable', 'required_if:applicant_type,'.CleanerApplication::TYPE_TEAM, 'string', 'max:255'],
             'location_area' => ['required', 'string', Rule::in(array_keys($locationCenters))],
@@ -116,6 +116,7 @@ class CleanerApplicationController extends Controller
         ], [
             'email.unique' => 'An application for this email is already pending or approved.',
             'date_of_birth.before_or_equal' => 'Individual cleaners must be at least 18 years old to apply.',
+            'date_of_birth.date_format' => 'Date of birth must use YYYY-MM-DD format.',
             'government_id_number.regex' => 'Government ID number may contain letters, numbers, spaces, and hyphens only.',
             'phone.regex' => 'Phone number must start with 09 and contain exactly 11 digits.',
         ]);

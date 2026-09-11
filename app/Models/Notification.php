@@ -18,6 +18,7 @@ class Notification extends Model
         'type',
         'link',
         'data',
+        'dedupe_key',
         'sent_at',
         'read_at',
     ];

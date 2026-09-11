@@ -25,7 +25,7 @@
         ],
         [
             'label' => 'Revenue',
-            'value' => '&#8369;' . number_format($revenueMetrics['total_revenue'], 0),
+            'value' => '&#8369;' . number_format($revenueMetrics['total_revenue'], 2),
             'description' => 'Completed-booking revenue in this window',
             'icon' => 'fa-wallet',
             'iconWrap' => 'bg-cyan-50 text-cyan-600',
@@ -101,7 +101,7 @@
             <div class="grid gap-3 rounded-3xl border border-white/18 bg-white/10 px-5 py-4 shadow-[0_18px_40px_rgba(15,23,42,0.15)] backdrop-blur sm:grid-cols-2 xl:min-w-85">
                 <div>
                     <div class="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Total Revenue</div>
-                    <div class="mt-2 text-4xl font-black leading-none">&#8369;{{ number_format($revenueMetrics['total_revenue'], 0) }}</div>
+                    <div class="mt-2 text-4xl font-black leading-none">&#8369;{{ number_format($revenueMetrics['total_revenue'], 2) }}</div>
                     <div class="mt-2 text-sm text-white/72">{{ $bookingMetrics['completed'] }} completed booking{{ $bookingMetrics['completed'] === 1 ? '' : 's' }}</div>
                 </div>
                 <div>

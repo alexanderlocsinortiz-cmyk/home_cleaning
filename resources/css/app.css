@@ -1063,6 +1063,21 @@ input[type='radio'] {
 }
 
 @media (max-width: 767px) {
+    .home-page .hero-section > * {
+        min-width: 0;
+    }
+
+    .home-page .home-hero-slider {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .home-page .home-hero-slider > .relative {
+        width: 100%;
+        min-width: 0;
+        aspect-ratio: auto !important;
+    }
+
     .home-page .home-hero-shell {
         min-height: calc(100vh - 64px);
     }
@@ -2008,6 +2023,19 @@ input[type='radio'] {
     .admin-topbar {
         padding-left: 1rem !important;
         padding-right: 1rem !important;
+    }
+
+    .admin-topbar .admin-date-range-menu,
+    .admin-topbar .admin-topbar-user-name {
+        display: none !important;
+    }
+
+    .admin-topbar > div {
+        min-width: 0 !important;
+    }
+
+    .admin-topbar > div > div:last-child {
+        gap: 0.5rem !important;
     }
 
     .admin-stats-row-1,
