@@ -282,6 +282,11 @@ class AdminSettingsAccessControlTest extends TestCase
             ->assertSessionHasErrors('database_backup_new_password');
 
         $this->assertNull(SiteSetting::current()->database_backup_password_hash);
+
+        $this->actingAs($admin)
+            ->get(route('admin.settings'))
+            ->assertOk()
+            ->assertSee('We could not save the database backup password.');
     }
 
     public function test_admin_can_download_sqlite_database_backup_with_backup_password(): void

@@ -261,11 +261,29 @@
                             @csrf
                             @method('PATCH')
                             <div class="mb-4 text-sm font-black text-slate-900">Change backup password</div>
+                            @if(session('success') === 'Database backup password updated.')
+                                <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800" role="status">
+                                    Database backup password updated successfully.
+                                </div>
+                            @endif
+                            @if($errors->has('database_backup_admin_password') || $errors->has('database_backup_new_password'))
+                                <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" role="alert">
+                                    <div>We could not save the database backup password.</div>
+                                    <ul class="mt-1 list-disc pl-5 font-medium">
+                                        @foreach($errors->get('database_backup_admin_password') as $error)
+                                            <li>{{ $error }}</li>
+                                        @endforeach
+                                        @foreach($errors->get('database_backup_new_password') as $error)
+                                            <li>{{ $error }}</li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
                             <div class="space-y-3">
                                 <label class="block">
                                     <span class="text-sm font-bold text-slate-700">Current password</span>
                                     <div class="relative mt-2">
-                                        <input type="password" name="database_backup_admin_password" autocomplete="current-password" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                                        <input type="password" name="database_backup_admin_password" autocomplete="current-password" required class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
                                         <button type="button" data-password-toggle class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-blue-700" aria-label="Show current password">
                                             <i class="fas fa-eye"></i>
                                         </button>
@@ -277,7 +295,7 @@
                                 <label class="block">
                                     <span class="text-sm font-bold text-slate-700">New backup password</span>
                                     <div class="relative mt-2">
-                                        <input type="password" name="database_backup_new_password" autocomplete="new-password" minlength="8" aria-describedby="backup-password-help" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                                        <input type="password" name="database_backup_new_password" autocomplete="new-password" minlength="8" aria-describedby="backup-password-help" required class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
                                         <button type="button" data-password-toggle class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-blue-700" aria-label="Show new backup password">
                                             <i class="fas fa-eye"></i>
                                         </button>
@@ -290,7 +308,7 @@
                                 <label class="block">
                                     <span class="text-sm font-bold text-slate-700">Confirm new backup password</span>
                                     <div class="relative mt-2">
-                                        <input type="password" name="database_backup_new_password_confirmation" autocomplete="new-password" minlength="8" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                                        <input type="password" name="database_backup_new_password_confirmation" autocomplete="new-password" minlength="8" required class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-11 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
                                         <button type="button" data-password-toggle class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-blue-700" aria-label="Show confirm new backup password">
                                             <i class="fas fa-eye"></i>
                                         </button>
