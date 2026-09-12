@@ -248,7 +248,7 @@
                                     <div class="mt-2 text-xs leading-5 text-slate-500">{{ count($application->coverage_barangays) }} covered area{{ count($application->coverage_barangays) === 1 ? '' : 's' }}</div>
                                 @endif
                                 <div class="mt-2 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 ring-1 ring-slate-200">
-                                    {{ $application->years_experience }} year{{ $application->years_experience === 1 ? '' : 's' }} experience
+                                    {{ $application->experience_label }}
                                 </div>
                                 @if($application->isTeam())
                                     <div class="mt-2 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-100">
@@ -292,10 +292,18 @@
                                         $applicationFiles = [
                                             'profile-photo' => ['Profile photo', $application->profile_photo_path],
                                             'business-logo' => ['Business logo', $application->business_logo_path],
-                                            'government-id' => ['Government ID', $application->government_id_document_path],
                                             'clearance' => ['Clearance', $application->nbi_clearance_document_path],
                                             'selfie-with-id' => ['Selfie with ID', $application->selfie_with_id_path],
                                         ];
+                                        if ($application->government_id_front_document_path) {
+                                            $applicationFiles['government-id-front'] = ['ID front', $application->government_id_front_document_path];
+                                        }
+                                        if ($application->government_id_back_document_path) {
+                                            $applicationFiles['government-id-back'] = ['ID back', $application->government_id_back_document_path];
+                                        }
+                                        if (! $application->government_id_front_document_path && ! $application->government_id_back_document_path && $application->government_id_document_path) {
+                                            $applicationFiles['government-id'] = ['Government ID', $application->government_id_document_path];
+                                        }
                                     @endphp
                                     @if($application->verificationDocumentsComplete())
                                         <div class="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-black text-emerald-700 ring-1 ring-emerald-100"><i class="fas fa-circle-check"></i> Required documents complete</div>

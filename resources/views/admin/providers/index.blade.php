@@ -195,7 +195,7 @@
                             <td class="px-5 py-5">
                                 <div class="max-w-[240px] font-semibold leading-5 text-slate-700">{{ $provider->coverageLabel() }}</div>
                                 <div class="mt-2 text-xs font-bold text-blue-700"><i class="fas fa-map-pin mr-1"></i>{{ $provider->location_area ?: 'Base location not pinned' }}</div>
-                                <div class="mt-2 text-xs text-slate-500">{{ $provider->years_experience ?: 0 }} year{{ $provider->years_experience == 1 ? '' : 's' }} experience</div>
+                                <div class="mt-2 text-xs text-slate-500">{{ $provider->experience_label }}</div>
                                 <div class="mt-1 text-xs text-slate-500">{{ $provider->services_offered ?: 'Services not listed' }}</div>
                             </td>
                             <td class="px-5 py-5">

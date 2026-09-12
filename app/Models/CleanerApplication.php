@@ -112,10 +112,15 @@ class CleanerApplication extends Model
         'service_area',
         'coverage_barangays',
         'years_experience',
+        'experience_unit',
         'team_size',
         'services_offered',
         'government_id_type',
         'government_id_number',
+        'government_id_front_document_path',
+        'government_id_front_document_original_filename',
+        'government_id_back_document_path',
+        'government_id_back_document_original_filename',
         'government_id_document_path',
         'government_id_document_original_filename',
         'nbi_clearance_number',
@@ -224,9 +229,20 @@ class CleanerApplication extends Model
     public function missingVerificationDocuments(): array
     {
         return collect([
-            'Government ID' => $this->government_id_document_path,
+            'Government ID front' => $this->governmentIdFrontDocumentPath(),
+            'Government ID back' => $this->governmentIdBackDocumentPath(),
             'Selfie with ID' => $this->selfie_with_id_path,
         ])->filter(fn (?string $path): bool => blank($path))->keys()->all();
+    }
+
+    public function governmentIdFrontDocumentPath(): ?string
+    {
+        return $this->government_id_front_document_path ?: $this->government_id_document_path;
+    }
+
+    public function governmentIdBackDocumentPath(): ?string
+    {
+        return $this->government_id_back_document_path ?: $this->government_id_document_path;
     }
 
     public function verificationDocumentsComplete(): bool
@@ -242,6 +258,14 @@ class CleanerApplication extends Model
     public function isTeam(): bool
     {
         return $this->applicant_type === self::TYPE_TEAM;
+    }
+
+    public function getExperienceLabelAttribute(): string
+    {
+        $value = max(0, (int) $this->years_experience);
+        $unit = $this->experience_unit === 'months' ? 'month' : 'year';
+
+        return $value.' '.$unit.($value === 1 ? '' : 's').' experience';
     }
 
     public function coversBarangay(?string $barangay): bool
@@ -548,6 +572,73 @@ class CleanerApplication extends Model
             ->replaceMatches('/\s+/', ' ')
             ->trim()
             ->value();
+    }
+
+    /**
+     * Return the normalized service-offering keys stored by the application.
+     *
+     * Applications created by the current form store the human-readable labels,
+     * while older records and tests may contain the original keys or an array.
+     * Keeping the normalization here makes the booking checks consistent for
+     * both formats.
+     */
+    public function serviceOfferingKeys(): array
+    {
+        $values = is_array($this->services_offered)
+            ? $this->services_offered
+            : (preg_split('/[,;|]+/', (string) $this->services_offered) ?: []);
+
+        $normalizedLabels = collect(self::SERVICE_OFFERINGS)
+            ->mapWithKeys(fn (string $label, string $key): array => [
+                self::normalizeCoverageText($label) => $key,
+            ]);
+
+        return collect($values)
+            ->flatMap(function ($value) use ($normalizedLabels): array {
+                $value = (string) $value;
+
+                if (array_key_exists($value, self::SERVICE_OFFERINGS)) {
+                    return [$value];
+                }
+
+                $normalized = self::normalizeCoverageText($value);
+
+                return $normalizedLabels->has($normalized)
+                    ? [$normalizedLabels->get($normalized)]
+                    : [$normalized];
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function offersService(?string $serviceSlug): bool
+    {
+        $catalogSlug = Service::catalogSlug($serviceSlug);
+
+        $requiredOffering = match ($catalogSlug) {
+            'basic', 'weeklymaintenance' => 'basic_cleaning',
+            'deep' => 'deep_cleaning',
+            'moveinout' => 'move_in_move_out_cleaning',
+            'postconstruction' => 'post_construction_cleaning',
+            'commercial', 'office-basic', 'office-deep' => 'office_cleaning',
+            default => null,
+        };
+
+        if (! $requiredOffering) {
+            return false;
+        }
+
+        $offeredServices = $this->serviceOfferingKeys();
+
+        // Preserve compatibility with applications submitted before the
+        // service-specific checklist existed.
+        if (in_array('residential cleaning', $offeredServices, true)) {
+            return $requiredOffering !== 'office_cleaning';
+        }
+
+        return in_array($requiredOffering, $offeredServices, true);
     }
 
     public function issueActivationToken(int $expiresInDays = 7): string

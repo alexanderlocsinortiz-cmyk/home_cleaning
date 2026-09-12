@@ -69,8 +69,29 @@ class CleanerApplicationTest extends TestCase
         $this->assertSame('12345', CleanerApplication::where('email', 'bright@example.com')->firstOrFail()->government_id_number);
 
         $application = CleanerApplication::where('email', 'bright@example.com')->firstOrFail();
-        Storage::disk('local')->assertExists($application->government_id_document_path);
+        Storage::disk('local')->assertExists($application->government_id_front_document_path);
+        Storage::disk('local')->assertExists($application->government_id_back_document_path);
         Storage::disk('local')->assertExists($application->selfie_with_id_path);
+    }
+
+    public function test_cleaner_application_can_submit_experience_in_months(): void
+    {
+        Storage::fake('local');
+
+        $this->from(route('cleaner-applications.create'))
+            ->post(route('cleaner-applications.store'), $this->validCleanerApplicationPayload([
+                'email' => 'monthly-experience@example.com',
+                'years_experience' => 18,
+                'experience_unit' => 'months',
+            ]))
+            ->assertRedirect(route('cleaner-applications.create'))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('cleaner_applications', [
+            'email' => 'monthly-experience@example.com',
+            'years_experience' => 18,
+            'experience_unit' => 'months',
+        ]);
     }
 
     public function test_applicant_receives_a_private_tracking_link_after_submission(): void
@@ -97,10 +118,25 @@ class CleanerApplicationTest extends TestCase
         $response = $this->get(route('cleaner-applications.create'));
 
         $response->assertOk();
+        $response->assertSee('data-provider-location-confirm', false);
+        $response->assertSee('name="location_confirmed"', false);
+        $response->assertDontSee('vendor/leaflet/leaflet.css', false);
+        $response->assertSee('cleanflowGoogleMapsEnabled', false);
         $response->assertSee('JPG, PNG, or PDF. Maximum 5 MB.', false);
         $response->assertSee('Use a clear JPG or PNG image. Maximum 5 MB.', false);
         $response->assertSee('Final review', false);
         $response->assertSee('data-summary-value="files"', false);
+    }
+
+    public function test_application_form_loads_google_maps_when_a_key_is_configured(): void
+    {
+        Config::set('services.google.maps_api_key', 'test-google-maps-key');
+
+        $response = $this->get(route('cleaner-applications.create'));
+
+        $response->assertOk();
+        $response->assertSee('https://maps.googleapis.com/maps/api/js?key=test-google-maps-key&callback=initCleanflowProviderMap', false);
+        $response->assertDontSee('vendor/leaflet/leaflet.css', false);
     }
 
     public function test_cleaner_application_files_use_the_configured_private_disk(): void
@@ -120,7 +156,8 @@ class CleanerApplicationTest extends TestCase
 
         $application = CleanerApplication::where('email', 'configured-private-disk@example.com')->firstOrFail();
 
-        Storage::disk('private-test')->assertExists($application->government_id_document_path);
+        Storage::disk('private-test')->assertExists($application->government_id_front_document_path);
+        Storage::disk('private-test')->assertExists($application->government_id_back_document_path);
         Storage::disk('private-test')->assertExists($application->selfie_with_id_path);
     }
 
@@ -229,6 +266,18 @@ class CleanerApplicationTest extends TestCase
         $this->assertTrue($application->coversBarangay('Poblacion'));
         $this->assertTrue($application->coversBarangay('Bagontaas'));
         $this->assertFalse($application->coversBarangay('Malaybalay City'));
+    }
+
+    public function test_provider_service_offerings_match_the_selected_booking_service(): void
+    {
+        $application = new CleanerApplication([
+            'services_offered' => 'Basic Cleaning, Office Cleaning',
+        ]);
+
+        $this->assertTrue($application->offersService('basic'));
+        $this->assertTrue($application->offersService('office-basic'));
+        $this->assertFalse($application->offersService('deep'));
+        $this->assertSame(['basic_cleaning', 'office_cleaning'], $application->serviceOfferingKeys());
     }
 
     public function test_specific_coverage_requires_at_least_one_bukidnon_area(): void
@@ -358,7 +407,7 @@ class CleanerApplicationTest extends TestCase
         Storage::fake('local');
 
         $payload = $this->validCleanerApplicationPayload();
-        unset($payload['government_id_document'], $payload['terms_certify_accurate']);
+        unset($payload['government_id_front_document'], $payload['government_id_back_document'], $payload['terms_certify_accurate']);
 
         $this->from(route('cleaner-applications.create'))
             ->post(route('cleaner-applications.store'), $payload)
@@ -373,7 +422,7 @@ class CleanerApplicationTest extends TestCase
     public function test_cleaner_application_prioritizes_step_one_errors_over_later_errors(): void
     {
         $payload = $this->validCleanerApplicationPayload();
-        unset($payload['individual_name'], $payload['government_id_document']);
+        unset($payload['individual_name'], $payload['government_id_front_document'], $payload['government_id_back_document']);
 
         $this->from(route('cleaner-applications.create'))
             ->post(route('cleaner-applications.store'), $payload)
@@ -1018,6 +1067,8 @@ class CleanerApplicationTest extends TestCase
             'location_area' => 'Valencia City',
             'location_latitude' => '7.9047000',
             'location_longitude' => '125.0940000',
+            'location_confirmed' => '1',
+            'experience_unit' => 'years',
             'profile_photo' => UploadedFile::fake()->create('profile.jpg', 120, 'image/jpeg'),
             'business_logo' => UploadedFile::fake()->create('logo.jpg', 120, 'image/jpeg'),
             'coverage_mode' => 'all',
@@ -1026,7 +1077,8 @@ class CleanerApplicationTest extends TestCase
             'services_offered' => ['basic_cleaning', 'deep_cleaning'],
             'government_id_type' => CleanerApplication::GOVERNMENT_ID_NATIONAL_ID,
             'government_id_number' => '12345',
-            'government_id_document' => UploadedFile::fake()->create('government-id.jpg', 120, 'image/jpeg'),
+            'government_id_front_document' => UploadedFile::fake()->create('government-id-front.jpg', 120, 'image/jpeg'),
+            'government_id_back_document' => UploadedFile::fake()->create('government-id-back.jpg', 120, 'image/jpeg'),
             'nbi_clearance_number' => 'NBI-12345',
             'nbi_clearance_document' => UploadedFile::fake()->create('clearance.pdf', 120, 'application/pdf'),
             'selfie_with_id' => UploadedFile::fake()->create('selfie.jpg', 120, 'image/jpeg'),

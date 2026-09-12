@@ -12,11 +12,26 @@ async function fillProviderLocation(page) {
     const map = page.locator('#provider-location-map');
 
     await expect(map).toBeVisible();
-    await expect(map.locator('.leaflet-control-zoom')).toBeVisible();
     await page.locator('#location_area').selectOption({ index: 1 });
-    await map.click({ position: { x: 160, y: 160 } });
-    await expect(page.locator('#location_latitude')).not.toHaveValue('');
-    await expect(page.locator('#location_longitude')).not.toHaveValue('');
+
+    if (await map.locator('.gm-style').count()) {
+        await expect(map.locator('.gm-style')).toBeVisible();
+        await map.click({ position: { x: 160, y: 160 } });
+        await expect(page.locator('#location_latitude')).not.toHaveValue('');
+        await expect(page.locator('#location_longitude')).not.toHaveValue('');
+        await expect(page.locator('[data-provider-location-confirm]')).toBeEnabled();
+        await page.locator('[data-provider-location-confirm]').click();
+    } else {
+        // The testing environment intentionally has no paid Google Maps key.
+        await expect(map).toContainText('Google Maps is not available');
+        await page.locator('#location_latitude').evaluate((input) => { input.value = '7.9047000'; });
+        await page.locator('#location_longitude').evaluate((input) => { input.value = '125.0940000'; });
+        await page.locator('#location_confirmed').evaluate((input) => { input.value = '1'; });
+    }
+
+    await expect(page.locator('#location_confirmed')).toHaveValue('1');
+    await page.locator('#experience_unit').selectOption('months');
+    await page.locator('#years_experience').fill('18');
 }
 
 test('applicant can complete the cleaner application review flow', async ({ page }) => {
@@ -37,10 +52,15 @@ test('applicant can complete the cleaner application review flow', async ({ page
     await expect(page.locator('[data-step-panel="3"]')).toBeVisible();
     await page.locator('#government_id_type').selectOption({ index: 1 });
     await page.locator('#government_id_number').fill('N01-12-123456');
-    await page.locator('#government_id_document').setInputFiles({
-        name: 'government-id.pdf',
+    await page.locator('#government_id_front_document').setInputFiles({
+        name: 'government-id-front.pdf',
         mimeType: 'application/pdf',
         buffer: Buffer.from('browser-test-id'),
+    });
+    await page.locator('#government_id_back_document').setInputFiles({
+        name: 'government-id-back.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from('browser-test-id-back'),
     });
     await page.locator('#selfie_with_id').setInputFiles({
         name: 'selfie.png',
@@ -60,7 +80,8 @@ test('applicant can complete the cleaner application review flow', async ({ page
     await expect(page.locator('[data-step-panel="4"]')).toBeVisible();
     await expect(page.locator('[data-summary-value="applicant"]')).toHaveText('Browser Test Applicant');
     await expect(page.locator('[data-summary-value="email"]')).toHaveText('browser-test@example.com');
-    await expect(page.locator('[data-summary-value="files"]')).toContainText('government-id.pdf');
+    await expect(page.locator('[data-summary-value="files"]')).toContainText('government-id-front.pdf');
+    await expect(page.locator('[data-summary-value="files"]')).toContainText('government-id-back.pdf');
     await expect(page.locator('[data-summary-value="files"]')).toContainText('selfie.png');
 });
 
@@ -116,11 +137,11 @@ test('step two shows selection progress and explains missing choices', async ({ 
 
     await page.locator('[data-step-next]').click();
     await expect(page.locator('[data-step-panel="2"]')).toBeVisible();
-    await expect(page.locator('[data-form-warning]')).toHaveText('Choose at least one service before continuing.');
+    await expect(page.locator('[data-form-warning]')).toHaveText('Choose at least one or more services before continuing.');
 
     await page.locator('input[name="services_offered[]"]').first().check();
     await page.locator('[data-step-next]').click();
-    await expect(page.locator('[data-form-warning]')).toHaveText('Choose at least one available day before continuing.');
+    await expect(page.locator('[data-form-warning]')).toHaveText('Choose at least one or more available days before continuing.');
 });
 
 test('applicant cannot continue with an identity file larger than 5 MB', async ({ page }) => {
@@ -134,10 +155,15 @@ test('applicant cannot continue with an identity file larger than 5 MB', async (
 
     await page.locator('#government_id_type').selectOption({ index: 1 });
     await page.locator('#government_id_number').fill('N01-12-123456');
-    await page.locator('#government_id_document').setInputFiles({
-        name: 'oversized-government-id.pdf',
+    await page.locator('#government_id_front_document').setInputFiles({
+        name: 'oversized-government-id-front.pdf',
         mimeType: 'application/pdf',
         buffer: Buffer.alloc(5 * 1024 * 1024 + 1),
+    });
+    await page.locator('#government_id_back_document').setInputFiles({
+        name: 'government-id-back.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from('browser-test-id-back'),
     });
     await page.locator('#selfie_with_id').setInputFiles({
         name: 'selfie.png',
@@ -156,5 +182,5 @@ test('applicant cannot continue with an identity file larger than 5 MB', async (
 
     await expect(page.locator('[data-step-panel="3"]')).toBeVisible();
     await expect(page.locator('[data-form-warning]')).toHaveText('Remove files larger than 5 MB before continuing.');
-    await expect(page.locator('#government_id_document')).toHaveClass(/cleaner-apply-invalid/);
+    await expect(page.locator('#government_id_front_document')).toHaveClass(/cleaner-apply-invalid/);
 });
