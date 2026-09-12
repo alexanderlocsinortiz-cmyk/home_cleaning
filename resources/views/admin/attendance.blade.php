@@ -88,26 +88,34 @@
     <div data-attendance-tab-panel="today" class="space-y-6 {{ $activeAttendanceTab === 'today' ? '' : 'hidden' }}">
 
     @if(session('generated_device_token'))
-        <section class="rounded-[30px] bg-slate-950 px-6 py-6 text-white shadow-[0_24px_60px_rgba(15,23,42,0.18)]">
+        <section data-generated-device-credentials class="rounded-[30px] bg-slate-950 px-6 py-6 text-white shadow-[0_24px_60px_rgba(15,23,42,0.18)]">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                     <div class="text-xs font-extrabold uppercase tracking-[0.18em] text-emerald-300">Generated Device Credentials</div>
                     <p class="mt-3 text-sm leading-7 text-slate-300">
-                        Copy the token, serial, and signing secret into your ESP32 device configuration.
-                        The full values are only shown right after generation or token rotation.
+                        Copy the device serial and signing secret into your ESP32 device configuration.
+                        The API token is retained for fallback integrations. The full values are only shown right after generation or token rotation.
                     </p>
                 </div>
                 <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
                     <div class="font-bold">{{ session('generated_device_name') }}</div>
                     <div class="mt-1 text-xs text-slate-400">Serial: {{ session('generated_device_serial') }}</div>
                 </div>
+                <button type="button" data-dismiss-generated-device-credentials class="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/20" aria-label="Close generated device credentials">
+                    <i class="fas fa-xmark"></i>
+                    Close
+                </button>
             </div>
-            <div class="mt-5 rounded-3xl border border-white/10 bg-white/5 px-4 py-4 font-mono text-sm break-all text-emerald-100">
-                {{ session('generated_device_token') }}
+            <div class="mt-5 rounded-3xl border border-emerald-300/20 bg-emerald-300/5 px-4 py-4">
+                <div class="text-xs font-extrabold uppercase tracking-[0.16em] text-emerald-300">API token</div>
+                <div class="mt-2 font-mono text-sm break-all text-emerald-100">{{ session('generated_device_token') }}</div>
+                <p class="mt-2 text-xs leading-5 text-slate-400">Fallback credential for older or manual API integrations. The current ESP32 sketch does not use this value.</p>
             </div>
             @if(session('generated_device_secret'))
-                <div class="mt-3 rounded-3xl border border-white/10 bg-white/5 px-4 py-4 font-mono text-sm break-all text-amber-100">
-                    {{ session('generated_device_secret') }}
+                <div class="mt-3 rounded-3xl border border-amber-300/20 bg-amber-300/5 px-4 py-4">
+                    <div class="text-xs font-extrabold uppercase tracking-[0.16em] text-amber-300">Signing secret — use this in DEVICE_SECRET</div>
+                    <div class="mt-2 font-mono text-sm break-all text-amber-100">{{ session('generated_device_secret') }}</div>
+                    <p class="mt-2 text-xs leading-5 text-slate-400">Required by the current ESP32 firmware to sign heartbeat, enrollment, and attendance requests. Keep it private.</p>
                 </div>
             @endif
         </section>
@@ -772,6 +780,8 @@
     document.addEventListener('DOMContentLoaded', () => {
         const buttons = document.querySelectorAll('[data-attendance-tab-target]');
         const panels = document.querySelectorAll('[data-attendance-tab-panel]');
+        const generatedCredentials = document.querySelector('[data-generated-device-credentials]');
+        const dismissGeneratedCredentials = document.querySelector('[data-dismiss-generated-device-credentials]');
         const baseUrl = '{{ route('admin.attendance') }}';
         let activeTab = @json($activeAttendanceTab);
 
@@ -812,6 +822,10 @@
 
         buttons.forEach((button) => {
             button.addEventListener('click', () => setTab(button.dataset.attendanceTabTarget));
+        });
+
+        dismissGeneratedCredentials?.addEventListener('click', () => {
+            generatedCredentials?.remove();
         });
 
         setTab(activeTab, false);
