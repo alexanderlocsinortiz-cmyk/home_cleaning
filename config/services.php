@@ -64,4 +64,13 @@ return [
         'token_ttl_minutes' => (int) env('DAILY_TOKEN_TTL_MINUTES', 120),
     ],
 
+    'expo_push' => [
+        'url' => env('EXPO_PUSH_URL', 'https://exp.host/--/api/v2/push/send'),
+        'access_token' => env('EXPO_PUSH_ACCESS_TOKEN'),
+        // Reuse the existing managed email queue by default. Deployments that
+        // run a dedicated notifications worker can set EXPO_PUSH_QUEUE.
+        'queue' => env('EXPO_PUSH_QUEUE', 'emails'),
+        'timeout_seconds' => (int) env('EXPO_PUSH_TIMEOUT_SECONDS', 10),
+    ],
+
 ];

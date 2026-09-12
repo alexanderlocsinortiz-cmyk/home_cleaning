@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\SendExpoPushNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -29,6 +30,17 @@ class Notification extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::created(function (Notification $notification): void {
+            if (! MobilePushToken::where('user_id', $notification->user_id)->exists()) {
+                return;
+            }
+
+            SendExpoPushNotification::dispatch($notification->id)->afterCommit();
+        });
+    }
 
     public function recipient()
     {

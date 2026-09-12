@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\MobileBookingMediaController;
 use App\Http\Controllers\Api\MobileNotificationController;
 use App\Http\Controllers\Api\MobilePasswordResetController;
 use App\Http\Controllers\Api\MobileProfileController;
+use App\Http\Controllers\Api\MobilePushTokenController;
 use App\Http\Controllers\Api\MobileServiceController;
 use App\Http\Controllers\Api\MobileStaffBookingController;
 use App\Http\Controllers\Api\MobileStaffPerformanceController;
@@ -44,6 +45,10 @@ Route::prefix('mobile')->group(function () {
         Route::post('/logout', [MobileAuthController::class, 'logout']);
         Route::post('/logout-all', [MobileAuthController::class, 'logoutAll'])
             ->middleware('throttle:5,1');
+        Route::post('/push-tokens', [MobilePushTokenController::class, 'store'])
+            ->middleware('throttle:10,1');
+        Route::delete('/push-tokens', [MobilePushTokenController::class, 'destroy'])
+            ->middleware('throttle:10,1');
         Route::get('/notifications', [MobileNotificationController::class, 'index']);
         Route::post('/notifications/read-all', [MobileNotificationController::class, 'markAllAsRead']);
         Route::post('/notifications/{notification}/read', [MobileNotificationController::class, 'markAsRead']);

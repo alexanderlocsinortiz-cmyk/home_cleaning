@@ -158,6 +158,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Notification::class, 'user_id');
     }
 
+    public function mobilePushTokens()
+    {
+        return $this->hasMany(MobilePushToken::class);
+    }
+
     /**
      * Get unread notifications for this user.
      */
