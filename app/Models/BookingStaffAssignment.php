@@ -19,6 +19,21 @@ class BookingStaffAssignment extends Model
         'office_workstations' => 'Office and workstations',
     ];
 
+    public static function taskGroupsForService(?Service $service): array
+    {
+        $taskGroups = [];
+        $taskGroupKeys = $service?->specialistTaskGroupKeys()
+            ?? Service::specialistTaskGroupKeysForSlug(null);
+
+        foreach ($taskGroupKeys as $taskGroupKey) {
+            if (array_key_exists($taskGroupKey, self::TASK_GROUPS)) {
+                $taskGroups[$taskGroupKey] = self::TASK_GROUPS[$taskGroupKey];
+            }
+        }
+
+        return $taskGroups;
+    }
+
     protected $fillable = [
         'booking_id',
         'staff_id',

@@ -521,8 +521,9 @@ class AdminBookingController extends Controller
         $booking = Booking::findOrFail($id);
 
         return $this->withBookingScheduleLock($booking, function () use ($request, $id): mixed {
-            $booking = Booking::with('staffAssignments')->findOrFail($id);
+            $booking = Booking::with(['staffAssignments', 'service'])->findOrFail($id);
         $requiredCleaners = max((int) ($booking->required_cleaners ?: 1), 1);
+        $allowedTaskGroups = BookingStaffAssignment::taskGroupsForService($booking->service);
 
         if ($requiredCleaners <= 1) {
             return back()->withErrors([
@@ -545,8 +546,10 @@ class AdminBookingController extends Controller
                 'integer',
                 Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'staff')),
             ],
-            'assignments.*.task_group' => ['required', Rule::in(array_keys(BookingStaffAssignment::TASK_GROUPS))],
+            'assignments.*.task_group' => ['required', Rule::in(array_keys($allowedTaskGroups))],
             'assignments.*.task_notes' => ['nullable', 'string', 'max:1000'],
+        ], [
+            'assignments.*.task_group.in' => 'Choose a work group included in the selected service details.',
         ]);
 
         $assignments = collect($validated['assignments']);

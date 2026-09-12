@@ -640,13 +640,21 @@
                                     </div>
                                 @endif
                                 @if((int) ($booking->required_cleaners ?? 1) > 1)
+                                    @php
+                                        $bookingTaskGroups = \App\Models\BookingStaffAssignment::taskGroupsForService($booking->service);
+                                        $serviceDetails = $booking->service?->scope_included_tasks;
+                                    @endphp
                                     <form action="{{ route('admin.bookings.assignments', $booking->id) }}" method="POST" class="mt-3 space-y-3 rounded-xl border border-violet-200 bg-violet-50/40 p-3">
                                         @csrf
                                         @method('PATCH')
                                         <div class="flex items-start justify-between gap-3">
                                             <div>
                                                 <div class="text-[10px] font-bold uppercase tracking-[0.14em] text-violet-700">Specialist task plan</div>
-                                                <p class="mt-1 text-[11px] leading-4 text-slate-600">This confirmed booking needs {{ $booking->required_cleaners }} cleaners. Assign each cleaner one work group before the service starts.</p>
+                                                <p class="mt-1 text-[11px] leading-4 text-slate-600">This {{ $booking->service_label }} booking needs {{ $booking->required_cleaners }} cleaners. Assign each cleaner one work group before the service starts.</p>
+                                                <p class="mt-1 text-[11px] leading-4 text-violet-800">Only work groups included in this service are listed.</p>
+                                                @if(filled($serviceDetails))
+                                                    <p class="mt-1 text-[10px] leading-4 text-slate-500"><span class="font-bold">Included service details:</span> {{ $serviceDetails }}</p>
+                                                @endif
                                             </div>
                                             <span class="rounded-full bg-violet-100 px-2 py-1 text-[10px] font-bold text-violet-700">{{ $booking->staffAssignments->count() }}/{{ $booking->required_cleaners }}</span>
                                         </div>
@@ -672,9 +680,12 @@
                                                     </select>
                                                     <select name="assignments[{{ $assignmentIndex }}][task_group]" {{ $reviewLocked ? 'disabled' : '' }} class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-violet-500 focus:outline-hidden {{ $reviewLocked ? 'bg-slate-100 text-slate-400' : '' }}">
                                                         <option value="">Choose work group</option>
-                                                        @foreach(\App\Models\BookingStaffAssignment::TASK_GROUPS as $taskKey => $taskLabel)
+                                                        @foreach($bookingTaskGroups as $taskKey => $taskLabel)
                                                             <option value="{{ $taskKey }}" {{ ($assignment?->task_group ?? '') === $taskKey ? 'selected' : '' }}>{{ $taskLabel }}</option>
                                                         @endforeach
+                                                        @if($assignment?->task_group && ! array_key_exists($assignment->task_group, $bookingTaskGroups))
+                                                            <option value="{{ $assignment->task_group }}" selected disabled>Invalid for this service - choose again</option>
+                                                        @endif
                                                     </select>
                                                 </div>
                                                 <input type="text" name="assignments[{{ $assignmentIndex }}][task_notes]" value="{{ $assignment?->task_notes }}" {{ $reviewLocked ? 'disabled' : '' }} placeholder="Optional instructions for this cleaner" class="mt-2 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:border-violet-500 focus:outline-hidden {{ $reviewLocked ? 'bg-slate-100 text-slate-400' : '' }}">

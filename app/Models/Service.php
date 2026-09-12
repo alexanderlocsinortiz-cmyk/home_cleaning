@@ -63,6 +63,76 @@ class Service extends Model
         'approved',
     ];
 
+    /**
+     * Work groups available when an admin splits a booking between multiple
+     * internal cleaners. Keep this list aligned with each package's included
+     * and excluded service-scope details below.
+     */
+    public const SPECIALIST_TASK_GROUP_KEYS_BY_CATALOG_SLUG = [
+        'basic' => [
+            'general_cleaning',
+            'kitchen_bathroom',
+            'floors_surfaces',
+        ],
+        'deep' => [
+            'general_cleaning',
+            'kitchen_bathroom',
+            'floors_surfaces',
+        ],
+        'moveinout' => [
+            'general_cleaning',
+            'kitchen_bathroom',
+            'floors_surfaces',
+            'move_in_out',
+        ],
+        'postconstruction' => [
+            'general_cleaning',
+            'floors_surfaces',
+            'post_construction',
+        ],
+        'commercial' => [
+            'general_cleaning',
+            'kitchen_bathroom',
+            'floors_surfaces',
+            'office_workstations',
+        ],
+        'office-basic' => [
+            'general_cleaning',
+            'floors_surfaces',
+            'office_workstations',
+        ],
+        'office-deep' => [
+            'general_cleaning',
+            'floors_surfaces',
+            'office_workstations',
+            'kitchen_bathroom',
+        ],
+        'weeklymaintenance' => [
+            'general_cleaning',
+            'kitchen_bathroom',
+            'floors_surfaces',
+        ],
+        // Custom services get only the universally safe residential groups.
+        'custom' => [
+            'general_cleaning',
+            'kitchen_bathroom',
+            'floors_surfaces',
+        ],
+    ];
+
+    public static function specialistTaskGroupKeysForSlug(?string $slug): array
+    {
+        $catalogSlug = self::catalogSlug($slug) ?? 'custom';
+
+        return self::SPECIALIST_TASK_GROUP_KEYS_BY_CATALOG_SLUG[$catalogSlug]
+            ?? self::SPECIALIST_TASK_GROUP_KEYS_BY_CATALOG_SLUG['custom'];
+    }
+
+    public function specialistTaskGroupKeys(): array
+    {
+        return self::specialistTaskGroupKeysForSlug($this->slug);
+    }
+
     public function scopeIsApproved(): bool
     {
         return $this->scope_status === 'approved' && $this->scopeApprovalIsComplete();

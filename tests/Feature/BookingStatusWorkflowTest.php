@@ -54,6 +54,51 @@ class BookingStatusWorkflowTest extends TestCase
         $this->assertSame($firstStaff->id, $booking->fresh()->staff_id);
     }
 
+    public function test_admin_cannot_assign_a_work_group_outside_the_selected_service_scope(): void
+    {
+        $admin = $this->createUser('admin', 'admin-service-task-scope@example.com', 'adminservicetaskscope');
+        $client = $this->createUser('client', 'client-service-task-scope@example.com', 'clientservicetaskscope');
+        $firstStaff = $this->createUser('staff', 'staff-service-task-scope-one@example.com', 'staffservicetaskscopeone');
+        $secondStaff = $this->createUser('staff', 'staff-service-task-scope-two@example.com', 'staffservicetascopetwo');
+        $moveInOut = $this->canonicalService(['slug' => 'moveinout']);
+        $booking = $this->createBooking($client, null, 'pending', null, '09:00', 120);
+        $booking->forceFill([
+            'service_id' => $moveInOut->id,
+            'required_cleaners' => 2,
+        ])->save();
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.bookings'))
+            ->patch(route('admin.bookings.assignments', $booking->id), [
+                'assignments' => [
+                    ['staff_id' => $firstStaff->id, 'task_group' => 'post_construction'],
+                    ['staff_id' => $secondStaff->id, 'task_group' => 'move_in_out'],
+                ],
+            ]);
+
+        $response->assertRedirect(route('admin.bookings'));
+        $response->assertSessionHasErrors('assignments.0.task_group');
+        $this->assertDatabaseCount('booking_staff_assignments', 0);
+    }
+
+    public function test_admin_task_plan_only_lists_work_groups_for_the_selected_service(): void
+    {
+        $admin = $this->createUser('admin', 'admin-service-task-options@example.com', 'adminservicetaskoptions');
+        $client = $this->createUser('client', 'client-service-task-options@example.com', 'clientservicetaskoptions');
+        $booking = $this->createBooking($client, null, 'pending');
+        $booking->forceFill([
+            'service_id' => $this->canonicalService(['slug' => 'moveinout'])->id,
+            'required_cleaners' => 2,
+        ])->save();
+
+        $response = $this->actingAs($admin)->get(route('admin.bookings'));
+
+        $response->assertOk();
+        $response->assertSee('Only work groups included in this service are listed.');
+        $response->assertSee('value="move_in_out"', false);
+        $response->assertDontSee('value="post_construction"', false);
+    }
+
     public function test_multi_cleaner_booking_can_be_confirmed_before_specialists_are_assigned(): void
     {
         $admin = $this->createUser('admin', 'admin-specialist-confirm@example.com', 'adminspecialistconfirm');
