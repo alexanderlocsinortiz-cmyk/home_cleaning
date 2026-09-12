@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CleanerApplication;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -55,12 +56,27 @@ class ServiceAreaMapTest extends TestCase
         $this->assertSame(self::EXPECTED_SERVICE_AREA_NAMES, array_keys(config('cleanflow.barangay_centers')));
     }
 
+    public function test_bukidnon_provider_coverage_contains_all_configured_cities_and_municipalities(): void
+    {
+        $coverageAreas = config('cleanflow.bukidnon_service_areas', []);
+
+        $this->assertCount(22, $coverageAreas);
+        $this->assertSame(
+            array_values(config('cleanflow.bukidnon_coverage_areas', [])),
+            array_column($coverageAreas, 'name')
+        );
+        $this->assertArrayHasKey('Malaybalay City', config('cleanflow.bukidnon_location_centers'));
+        $this->assertArrayHasKey('Valencia City', config('cleanflow.bukidnon_location_centers'));
+    }
+
     public function test_public_map_uses_the_canonical_service_area_config(): void
     {
         $response = $this->get(route('map'));
 
         $response->assertOk();
         $response->assertViewHas('barangays', config('cleanflow.service_areas'));
+        $response->assertViewHas('coverageAreas', config('cleanflow.bukidnon_service_areas'));
+        $response->assertViewHas('providerCoveragePoints', []);
         $this->assertSame(3, substr_count($response->getContent(), 'type="button" class="filter-btn'));
         $response->assertViewHas('stats', function (array $stats) {
             return $stats['barangays'] === count(config('cleanflow.service_areas'));
@@ -75,6 +91,7 @@ class ServiceAreaMapTest extends TestCase
 
         $response->assertOk();
         $response->assertViewHas('barangays', config('cleanflow.service_areas'));
+        $response->assertViewHas('coverageAreas', config('cleanflow.bukidnon_service_areas'));
         $this->assertSame(3, substr_count($response->getContent(), 'type="button" class="filter-btn'));
     }
 
@@ -86,6 +103,7 @@ class ServiceAreaMapTest extends TestCase
 
         $response->assertOk();
         $response->assertViewHas('barangays', config('cleanflow.service_areas'));
+        $response->assertViewHas('coverageAreas', config('cleanflow.bukidnon_service_areas'));
         $this->assertSame(4, substr_count($response->getContent(), 'type="button" class="filter-btn'));
         $response->assertViewHas('stats', function (array $stats) {
             return $stats['barangays'] === count(config('cleanflow.service_areas'));
@@ -100,9 +118,40 @@ class ServiceAreaMapTest extends TestCase
 
         $response->assertOk();
         $response->assertViewHas('barangays', config('cleanflow.service_areas'));
+        $response->assertViewHas('coverageAreas', config('cleanflow.bukidnon_service_areas'));
         $response->assertViewHas('stats', function (array $stats) {
             return $stats['barangays'] === count(config('cleanflow.service_areas'));
         });
+    }
+
+    public function test_provider_coverage_map_uses_area_centers_without_exposing_exact_provider_coordinates(): void
+    {
+        CleanerApplication::create([
+            'applicant_type' => CleanerApplication::TYPE_INDIVIDUAL,
+            'business_name' => 'Bukidnon Wide Cleaner',
+            'contact_person' => 'Bukidnon Cleaner',
+            'email' => 'bukidnon-wide@example.com',
+            'phone' => '09171234567',
+            'service_area' => 'All Bukidnon cities and municipalities',
+            'coverage_barangays' => ['All Bukidnon cities and municipalities'],
+            'services_offered' => 'Basic Cleaning, Deep Cleaning',
+            'status' => CleanerApplication::STATUS_APPROVED,
+            'activated_at' => now(),
+            'location_area' => 'Malaybalay City',
+            'location_latitude' => 8.1571234,
+            'location_longitude' => 125.1285678,
+        ]);
+
+        $response = $this->get(route('map'));
+        $points = $response->viewData('providerCoveragePoints');
+        $malaybalayPoint = collect($points)->firstWhere('name', 'Malaybalay City');
+
+        $this->assertNotNull($malaybalayPoint);
+        $this->assertSame(1, $malaybalayPoint['provider_count']);
+        $this->assertSame(8.157, round($malaybalayPoint['lat'], 3));
+        $this->assertSame(125.128, round($malaybalayPoint['lng'], 3));
+        $this->assertArrayNotHasKey('location_latitude', $malaybalayPoint);
+        $this->assertArrayNotHasKey('location_longitude', $malaybalayPoint);
     }
 
     private function createUser(string $role, string $email, string $username): User

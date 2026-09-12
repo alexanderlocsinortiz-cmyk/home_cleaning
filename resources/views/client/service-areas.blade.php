@@ -15,9 +15,9 @@
     ];
 
     $statsCards = [
-        ['icon' => 'fa-map-marker-alt', 'label' => 'Barangays', 'value' => $stats['barangays']],
+        ['icon' => 'fa-map-location-dot', 'label' => 'Bukidnon areas', 'value' => $stats['coverage_areas']],
+        ['icon' => 'fa-map-marker-alt', 'label' => 'Valencia barangays', 'value' => $stats['barangays']],
         ['icon' => 'fa-users', 'label' => 'Customers', 'value' => $stats['customers'], 'id' => 'statCustomers'],
-        ['icon' => 'fa-user-tie', 'label' => 'Staff', 'value' => $stats['staff']],
         ['icon' => 'fa-star', 'label' => 'Satisfaction', 'value' => $stats['satisfaction'] . '%'],
     ];
 @endphp
@@ -36,8 +36,8 @@
                             Explore where CleanFlow can reach you
                         </h1>
                         <p class="max-w-2xl text-sm leading-7 text-white/80 sm:text-base">
-                            Browse all supported barangays in Valencia City, filter by service type, and zoom straight
-                            into your area before you book.
+                            Browse the provider network across all {{ count($coverageAreas) }} Bukidnon cities and municipalities.
+                            Valencia City barangays remain the customer booking locations currently configured in the app.
                         </p>
                     </div>
                     <div class="flex flex-wrap gap-3 text-sm text-white/85">
@@ -51,7 +51,7 @@
                         </span>
                         <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
                             <i class="fas fa-location-crosshairs text-xs"></i>
-                            Shared live map data
+                            Provider coverage pins included
                         </span>
                     </div>
                 </div>
@@ -105,13 +105,38 @@
                                     <span class="font-medium">{{ $item['label'] }}</span>
                                 </div>
                             @endforeach
+                            <div class="flex items-center gap-3 rounded-2xl bg-purple-50 px-3 py-2.5 text-sm text-purple-700">
+                                <span class="h-3 w-3 rounded-full bg-purple-600"></span>
+                                <span class="font-medium">Activated provider coverage</span>
+                            </div>
                         </div>
+                        <p class="mt-3 text-xs leading-5 text-slate-500">Purple pins are placed at the municipality center; exact provider base locations are private.</p>
+                    </div>
+
+                    <div class="min-h-0 rounded-[1.35rem] border border-teal-100 bg-teal-50">
+                        <div class="border-b border-teal-100 px-4 py-3">
+                            <div class="text-xs font-semibold uppercase tracking-[0.18em] text-teal-800">Bukidnon provider coverage ({{ count($coverageAreas) }})</div>
+                            <p class="mt-1 text-sm text-teal-700">Click a city or municipality to center the map.</p>
+                        </div>
+                        <ul id="coverageAreaList" class="max-h-[360px] divide-y divide-teal-100 overflow-y-auto">
+                            @foreach ($coverageAreas as $area)
+                                <li class="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 transition hover:bg-white" data-name="{{ $area['name'] }}">
+                                    <div class="flex items-center gap-3">
+                                        <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-teal-700"></span>
+                                        <div class="text-sm font-semibold text-slate-700">{{ $area['name'] }}</div>
+                                    </div>
+                                    @if(collect($providerCoveragePoints)->firstWhere('name', $area['name']))
+                                        <span class="rounded-full bg-purple-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-purple-700">Provider pin</span>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
                     </div>
 
                     <div class="min-h-0 rounded-[1.35rem] border border-slate-100 bg-white">
                         <div class="border-b border-slate-100 px-4 py-3">
-                            <div class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Barangays</div>
-                            <p class="mt-1 text-sm text-slate-500">Click any location to center the map and open details.</p>
+                            <div class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Valencia customer booking barangays ({{ count($barangays) }})</div>
+                            <p class="mt-1 text-sm text-slate-500">Click any barangay to center the map and open details.</p>
                         </div>
                         <ul id="barangayList" class="max-h-[420px] divide-y divide-slate-100 overflow-y-auto">
                             @foreach ($barangays as $b)
@@ -175,7 +200,7 @@
                                 </span>
                             </div>
                             <p class="mt-4 text-sm leading-6 text-slate-500">
-                                {{ $card['label'] === 'Satisfaction' ? 'Based on recent completed-service feedback in covered areas.' : 'Live project data connected to the shared Valencia City service map.' }}
+                                {{ $card['label'] === 'Satisfaction' ? 'Based on recent completed-service feedback in covered areas.' : 'Live project data connected to the Bukidnon provider coverage map.' }}
                             </p>
                         </section>
                     @endforeach
@@ -189,8 +214,10 @@
 @push('scripts')
 <script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script>
-    window.cleanflowMapConfig = @json(config('cleanflow.map'));
+    window.cleanflowMapConfig = @json(config('cleanflow.coverage_map'));
     window.barangayData = @json($barangays);
+    window.cleanflowCoverageData = @json($coverageAreas);
+    window.providerCoverageData = @json($providerCoveragePoints);
 </script>
 <script src="{{ asset('js/map.js') }}"></script>
 @endpush

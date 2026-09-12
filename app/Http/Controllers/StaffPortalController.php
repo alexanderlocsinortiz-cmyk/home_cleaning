@@ -80,9 +80,11 @@ class StaffPortalController extends Controller
     public function serviceAreas()
     {
         $barangays = config('cleanflow.service_areas', []);
+        $coverageAreas = config('cleanflow.bukidnon_service_areas', []);
+        $providerCoveragePoints = $this->providerCoverageMapPoints();
         $stats = $this->serviceAreaStats();
 
-        return view('staff.service-areas', compact('barangays', 'stats'));
+        return view('staff.service-areas', compact('barangays', 'coverageAreas', 'providerCoveragePoints', 'stats'));
     }
 
     public function updateStatus(Request $request, $id)

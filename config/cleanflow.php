@@ -86,6 +86,24 @@ $bukidnonLocationCenters = [
     'Valencia City' => ['lat' => 7.9047, 'lng' => 125.0940],
 ];
 
+$bukidnonServiceAreas = [];
+
+foreach ($bukidnonCoverageAreas as $areaName) {
+    $center = $bukidnonLocationCenters[$areaName] ?? null;
+
+    if (! $center) {
+        continue;
+    }
+
+    $bukidnonServiceAreas[] = [
+        'name' => $areaName,
+        'lat' => $center['lat'],
+        'lng' => $center['lng'],
+        'type' => 'municipality',
+        'services' => ['Provider network coverage'],
+    ];
+}
+
 $barangays = [];
 $barangayCenters = [];
 
@@ -144,6 +162,7 @@ return [
     'barangays' => $barangays,
     'bukidnon_coverage_areas' => $bukidnonCoverageAreas,
     'bukidnon_location_centers' => $bukidnonLocationCenters,
+    'bukidnon_service_areas' => $bukidnonServiceAreas,
     'barangay_centers' => $barangayCenters,
     'service_areas' => $serviceAreas,
     'map' => [
@@ -157,6 +176,16 @@ return [
         ],
     ],
     'provider_map' => [
+        'center' => ['lat' => 7.95, 'lng' => 124.95],
+        'zoom' => 9,
+        'minZoom' => 8,
+        'maxZoom' => 17,
+        'maxBounds' => [
+            [7.35, 124.40],
+            [8.65, 125.55],
+        ],
+    ],
+    'coverage_map' => [
         'center' => ['lat' => 7.95, 'lng' => 124.95],
         'zoom' => 9,
         'minZoom' => 8,

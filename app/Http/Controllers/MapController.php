@@ -10,9 +10,12 @@ class MapController extends Controller
     public function index()
     {
         $barangays = config('cleanflow.service_areas', []);
+        $coverageAreas = config('cleanflow.bukidnon_service_areas', []);
+        $providerCoveragePoints = $this->providerCoverageMapPoints();
 
         $stats = [
             'barangays' => count($barangays),
+            'coverage_areas' => count($coverageAreas),
             'customers' => User::where('role', 'client')->count(),
             'staff' => User::where('role', 'staff')->count(),
             'satisfaction' => (function () {
@@ -22,6 +25,6 @@ class MapController extends Controller
             })(),
         ];
 
-        return view('map.index', compact('stats', 'barangays'));
+        return view('map.index', compact('stats', 'barangays', 'coverageAreas', 'providerCoveragePoints'));
     }
 }

@@ -44,9 +44,11 @@ class ClientPortalController extends Controller
     public function serviceAreas()
     {
         $barangays = config('cleanflow.service_areas', []);
+        $coverageAreas = config('cleanflow.bukidnon_service_areas', []);
+        $providerCoveragePoints = $this->providerCoverageMapPoints();
         $stats = $this->serviceAreaStats();
 
-        return view('client.service-areas', compact('barangays', 'stats'));
+        return view('client.service-areas', compact('barangays', 'coverageAreas', 'providerCoveragePoints', 'stats'));
     }
 
     public function updateProfile(Request $request)

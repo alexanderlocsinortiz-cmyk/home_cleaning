@@ -207,8 +207,10 @@ class AdminController extends Controller
     public function serviceAreas()
     {
         $barangays = config('cleanflow.service_areas', []);
+        $coverageAreas = config('cleanflow.bukidnon_service_areas', []);
+        $providerCoveragePoints = $this->providerCoverageMapPoints();
 
-        return view('admin.service-areas', compact('barangays'));
+        return view('admin.service-areas', compact('barangays', 'coverageAreas', 'providerCoveragePoints'));
     }
 
     private function dashboardStats(): array
