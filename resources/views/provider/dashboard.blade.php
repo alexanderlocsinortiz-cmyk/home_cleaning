@@ -5,7 +5,6 @@
 @section('page-subtitle', 'Manage assignments, availability, and payout setup')
 
 @push('styles')
-<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}">
 @endpush
 
 @section('content')
@@ -14,6 +13,22 @@
     $formatDashboardDateTime = static fn ($value, string $format = 'M d, Y') => $value?->copy()->timezone($dashboardTimezone)->format($format);
     $cleanerName = $application?->business_name ?? auth()->user()->display_name;
     $ratingValue = $ratingStats['average'] ?? null;
+    $payoutChecklistItems = [
+        'details' => ['label' => $application?->payoutMethodLabel().' information', 'complete' => $payoutChecklist['details'] ?? false],
+        'valid_id' => ['label' => 'Valid ID (front and back)', 'complete' => $payoutChecklist['valid_id'] ?? false],
+        'proof' => ['label' => 'Proof of ownership', 'complete' => $payoutChecklist['proof'] ?? false],
+    ];
+    if ($application?->isTeam()) {
+        $payoutChecklistItems['business_permit'] = [
+            'label' => 'Business permit',
+            'complete' => $application->hasUploadedPayoutDocument(\App\Models\CleanerApplicationDocument::TYPE_BUSINESS_PERMIT),
+        ];
+    }
+    $payoutCompletedCount = collect($payoutChecklistItems)->where('complete', true)->count();
+    $payoutDocumentCount = count($payoutChecklistItems);
+    $payoutSetupComplete = $payoutDocumentCount > 0 && $payoutCompletedCount === $payoutDocumentCount;
+    $dashboardDate = now($dashboardTimezone)->format('l, M j');
+    $nextAssignmentStatus = $currentBooking ? ucfirst(str_replace('_', ' ', $currentBooking->status)) : null;
     $currentProgress = [
         ['label' => 'Assigned', 'icon' => 'fa-clipboard-check', 'active' => (bool) $currentBooking, 'meta' => $formatDashboardDateTime($currentBooking?->created_at)],
         ['label' => 'Confirmed', 'icon' => 'fa-check', 'active' => $currentBooking && in_array($currentBooking->status, ['confirmed', 'in_progress', 'completed'], true), 'meta' => $currentBooking?->scheduled_date?->format('M d, Y')],
@@ -23,8 +38,8 @@
     ];
 @endphp
 
-<section class="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 sm:py-8">
-    <div class="mx-auto max-w-7xl space-y-5">
+<section class="provider-dashboard min-h-screen bg-slate-50 px-4 py-6 sm:px-6 sm:py-8">
+    <div class="mx-auto max-w-[1440px] space-y-6">
         @if(session('success'))
             <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
                 {{ session('success') }}
@@ -36,24 +51,37 @@
             </div>
         @endif
 
-        <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-950 via-blue-900 to-blue-700 p-6 text-white shadow-xl shadow-blue-950/15 sm:p-8">
+        <section class="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-blue-950 via-blue-900 to-blue-700 p-6 text-white shadow-xl shadow-blue-950/15 sm:p-8">
             <div class="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl"></div>
             <div class="pointer-events-none absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-cyan-300/10 blur-3xl"></div>
-            <div class="relative z-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
+            <div class="relative z-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-center">
                 <div>
-                    <div class="flex items-center gap-4">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex min-w-0 items-center gap-4">
                         <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/12 text-2xl text-amber-300 ring-1 ring-white/15">
                             <i class="fas fa-hand-sparkles"></i>
                         </div>
-                        <div>
+                        <div class="min-w-0">
                             <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-100">Cleaner workspace</p>
-                            <h1 class="mt-1 text-3xl font-black tracking-tight text-white sm:text-4xl">Welcome back, {{ $cleanerName }}!</h1>
+                            <h1 class="mt-1 break-words text-3xl font-black tracking-tight text-white sm:text-4xl">Welcome back, {{ $cleanerName }}!</h1>
+                        </div>
+                        </div>
+                        <div class="inline-flex shrink-0 items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs font-bold text-blue-100 ring-1 ring-white/15">
+                            <i class="fas fa-calendar-day text-blue-200"></i>
+                            {{ $dashboardDate }}
                         </div>
                     </div>
-                    <p class="mt-4 max-w-2xl text-sm leading-7 text-blue-100">Stay on top of assignments, keep your availability current, and finish payout verification when it is due.</p>
-                    <div class="mt-5 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-black text-white ring-1 ring-white/15">
-                        <span class="h-2 w-2 rounded-full bg-current"></span>
-                        {{ $application?->availabilityLabel() ?? 'Availability not set' }} for new assignments
+                    <p class="mt-5 max-w-2xl text-sm leading-7 text-blue-100">Stay on top of assignments, keep your availability current, and finish payout verification when it is due.</p>
+                    <div class="mt-5 flex flex-wrap items-center gap-3">
+                        <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-black text-white ring-1 ring-white/15">
+                            <span class="h-2 w-2 rounded-full {{ $application?->availability_status === 'paused' ? 'bg-amber-300' : 'bg-emerald-300' }}"></span>
+                            {{ $application?->availabilityLabel() ?? 'Availability not set' }} for new assignments
+                        </span>
+                        @if($application && ! $payoutSetupComplete)
+                            <a href="#payout-setup" class="inline-flex items-center gap-2 rounded-full bg-amber-300 px-3 py-1.5 text-xs font-black text-blue-950 transition hover:bg-amber-200">
+                                <i class="fas fa-shield-halved"></i> Finish payout setup
+                            </a>
+                        @endif
                     </div>
                 </div>
                 <div class="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-sm">
@@ -63,7 +91,8 @@
                     </div>
                     @if($currentBooking)
                         <div class="mt-4 text-2xl font-black text-white">{{ $currentBooking->scheduled_date->format('M d, Y') }}</div>
-                        <div class="mt-1 text-sm font-semibold text-blue-100">{{ \Carbon\Carbon::parse($currentBooking->scheduled_time)->format('h:i A') }} · {{ $currentBooking->service_label }}</div>
+                        <div class="mt-3 inline-flex rounded-full bg-white/10 px-2.5 py-1 text-xs font-bold text-blue-100 ring-1 ring-white/10">{{ $nextAssignmentStatus }}</div>
+                        <div class="mt-1 text-sm font-semibold text-blue-100">{{ \Carbon\Carbon::parse($currentBooking->scheduled_time)->format('h:i A') }} <span class="px-1 text-blue-300">/</span> {{ $currentBooking->service_label }}</div>
                         <a href="{{ route('provider.bookings.show', $currentBooking) }}" class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-black text-blue-800 transition hover:bg-blue-50">
                             Open assignment <i class="fas fa-arrow-right"></i>
                         </a>
@@ -71,12 +100,25 @@
                         <div class="mt-4 text-lg font-black text-white">No active assignment</div>
                         <p class="mt-1 text-sm leading-6 text-blue-100">Your next booking will appear here once it is assigned.</p>
                         <a href="{{ route('provider.bookings') }}" class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white/12 px-4 py-2.5 text-sm font-black text-white ring-1 ring-white/20 transition hover:bg-white/20">
-                            View bookings <i class="fas fa-arrow-right"></i>
+                            View assigned bookings <i class="fas fa-arrow-right"></i>
                         </a>
                     @endif
                 </div>
             </div>
         </section>
+
+        @if($application && ! $payoutSetupComplete)
+            <section class="flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" role="status">
+                <div class="flex items-start gap-3">
+                    <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><i class="fas fa-shield-halved"></i></span>
+                    <div>
+                        <h2 class="text-sm font-black text-amber-950">Payout setup needs attention</h2>
+                        <p class="mt-1 text-xs leading-5 text-amber-800">Complete {{ $payoutDocumentCount - $payoutCompletedCount }} remaining item{{ ($payoutDocumentCount - $payoutCompletedCount) === 1 ? '' : 's' }} to receive payouts.</p>
+                    </div>
+                </div>
+                <a href="#payout-setup" class="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-xs font-black text-amber-950 transition hover:bg-amber-300">Complete setup <i class="fas fa-arrow-down"></i></a>
+            </section>
+        @endif
 
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <a href="{{ route('provider.bookings') }}" class="group rounded-2xl border-t-4 border-blue-500 border-x border-b border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
@@ -129,7 +171,7 @@
         </div>
 
         <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.95fr)]">
-            <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm xl:self-start">
                 <div class="flex items-center justify-between gap-4">
                     <h2 class="text-lg font-black text-slate-950">Current Booking Progress</h2>
                     @if($currentBooking)
@@ -154,11 +196,12 @@
                         @endforeach
                     </div>
                 @else
-                    <div class="mt-6 rounded-2xl bg-slate-50 px-5 py-10 text-center">
+                    <div class="mt-6 rounded-2xl bg-slate-50 px-5 py-8 text-center">
                         <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-slate-400 ring-1 ring-slate-200">
                             <i class="fas fa-calendar-check text-xl"></i>
                         </div>
                         <p class="mt-3 text-sm font-semibold text-slate-600">No active booking is in progress.</p>
+                        <a href="{{ route('provider.bookings') }}" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-black text-blue-700 ring-1 ring-slate-200 transition hover:bg-blue-50">Review assignments <i class="fas fa-arrow-right"></i></a>
                     </div>
                 @endif
             </section>
@@ -212,8 +255,8 @@
             </section>
         </div>
 
-        <div class="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.8fr)_minmax(360px,0.9fr)]">
-            <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="grid gap-5 xl:grid-cols-[minmax(0,1.12fr)_minmax(360px,0.78fr)]">
+            <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:self-start">
                 <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                     <h2 class="text-lg font-black text-slate-950">Recent Assigned Bookings</h2>
                     <a href="{{ route('provider.bookings') }}" class="rounded-xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">View All <i class="fas fa-arrow-right ml-1"></i></a>
@@ -241,13 +284,18 @@
                             </div>
                         </a>
                     @empty
-                        <div class="px-5 py-10 text-center text-sm font-semibold text-slate-500">No assigned bookings yet.</div>
+                        <div class="px-5 py-8 text-center">
+                            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600"><i class="fas fa-calendar-plus"></i></div>
+                            <p class="mt-3 text-sm font-bold text-slate-700">No assigned bookings yet</p>
+                            <p class="mx-auto mt-1 max-w-xs text-xs leading-5 text-slate-500">New assignments will appear here when CleanFlow sends them to you.</p>
+                            <a href="{{ route('provider.bookings') }}" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 transition hover:bg-blue-100">Open bookings <i class="fas fa-arrow-right"></i></a>
+                        </div>
                     @endforelse
                 </div>
             </section>
 
             @if($application)
-                <section id="availability" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section id="availability" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm scroll-mt-24">
                     <div class="flex items-start justify-between gap-4">
                         <div>
                             <h2 class="text-lg font-black text-slate-950">Availability Status</h2>
@@ -289,35 +337,45 @@
                         </button>
                     </form>
                 </section>
+            @endif
+        </div>
 
-                <section id="payout-setup" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div class="flex items-start justify-between gap-4">
+        @if($application)
+            <section id="payout-setup" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm scroll-mt-24">
+                    <div class="flex flex-wrap items-start justify-between gap-4">
                         <div>
-                            <h2 class="text-lg font-black text-slate-950">Payout Verification</h2>
-                            <p class="mt-2 text-sm text-slate-500">Complete payout setup to receive payments.</p>
+                            <div class="flex items-center gap-2">
+                                <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><i class="fas fa-wallet"></i></span>
+                                <div>
+                                    <h2 class="text-lg font-black text-slate-950">Payout Verification</h2>
+                                    <p class="mt-1 text-sm text-slate-500">Complete your setup so payouts can be released without delays.</p>
+                                </div>
+                            </div>
                         </div>
-                        <span class="rounded-full px-3 py-1 text-xs font-black ring-1 {{ $application->payoutVerificationBadgeClass() }}">{{ $application->payoutVerificationStatusLabel() }}</span>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-bold text-slate-500">{{ $payoutCompletedCount }}/{{ $payoutDocumentCount }} complete</span>
+                            <span class="rounded-full px-3 py-1 text-xs font-black ring-1 {{ $application->payoutVerificationBadgeClass() }}">{{ $application->payoutVerificationStatusLabel() }}</span>
+                        </div>
                     </div>
-                    <div class="mt-5 divide-y divide-slate-100 text-sm">
-                        @foreach([
-                            'details' => ['label' => $application->payoutMethodLabel().' Information'],
-                            'valid_id' => ['label' => 'Valid ID'],
-                            'proof' => ['label' => 'Proof of Ownership'],
-                        ] as $key => $item)
-                            <div class="flex items-center justify-between gap-4 py-3">
-                                <span class="font-bold text-slate-700"><i class="fas fa-circle-info mr-2 text-slate-400"></i>{{ $item['label'] }}</span>
-                                @if($payoutChecklist[$key])
-                                    <span class="text-xs font-black text-emerald-700"><i class="fas fa-check mr-1"></i>Completed</span>
+                    <div class="mt-5 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Payout setup progress" aria-valuenow="{{ $payoutCompletedCount }}" aria-valuemin="0" aria-valuemax="{{ $payoutDocumentCount }}">
+                        <div class="h-full rounded-full bg-blue-600 transition-all" style="width: {{ $payoutDocumentCount > 0 ? round(($payoutCompletedCount / $payoutDocumentCount) * 100) : 0 }}%"></div>
+                    </div>
+                    <div class="mt-5 grid gap-2 text-sm sm:grid-cols-3">
+                        @foreach($payoutChecklistItems as $key => $item)
+                            <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                                <span class="min-w-0 truncate font-bold text-slate-700"><i class="fas fa-circle-info mr-2 text-slate-400"></i>{{ $item['label'] }}</span>
+                                @if($item['complete'])
+                                    <span class="shrink-0 text-xs font-black text-emerald-700"><i class="fas fa-check mr-1"></i>Ready</span>
                                 @else
-                                    <span class="text-xs font-black text-orange-700"><i class="fas fa-clock mr-1"></i>Pending</span>
+                                    <span class="shrink-0 text-xs font-black text-orange-700"><i class="fas fa-clock mr-1"></i>Needed</span>
                                 @endif
                             </div>
                         @endforeach
                     </div>
-                    <form action="{{ route('provider.payout-setup.update') }}" method="POST" enctype="multipart/form-data" class="mt-5 space-y-3">
+                    <form action="{{ route('provider.payout-setup.update') }}" method="POST" enctype="multipart/form-data" class="mt-6 space-y-5">
                         @csrf
                         @method('PATCH')
-                        <div class="grid gap-3 sm:grid-cols-3">
+                        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                             <div>
                                 <label for="payout_method" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Payout method</label>
                                 <select id="payout_method" name="payout_method" required class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-semibold focus:border-blue-500 focus:outline-hidden">
@@ -335,34 +393,34 @@
                                 <input id="payout_account_number" name="payout_account_number" value="{{ old('payout_account_number', $application->payout_account_number) }}" placeholder="Account or mobile number" required maxlength="100" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-hidden">
                             </div>
                         </div>
-                        <div class="grid gap-3 sm:grid-cols-3">
+                        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                             <div>
-                                <label for="valid_id_front_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Valid ID · front</label>
-                                <input id="valid_id_front_document" type="file" name="valid_id_front_document" accept=".jpg,.jpeg,.png,.pdf" @if(! $application->hasUploadedPayoutDocument(\App\Models\CleanerApplicationDocument::TYPE_VALID_ID_FRONT)) required @endif class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
+                                <label for="valid_id_front_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Valid ID / front</label>
+                                <input id="valid_id_front_document" type="file" name="valid_id_front_document" accept=".jpg,.jpeg,.png,.pdf" @if(! $application->hasUploadedPayoutDocument(\App\Models\CleanerApplicationDocument::TYPE_VALID_ID_FRONT)) required @endif class="w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
                             </div>
                             <div>
-                                <label for="valid_id_back_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Valid ID · back</label>
-                                <input id="valid_id_back_document" type="file" name="valid_id_back_document" accept=".jpg,.jpeg,.png,.pdf" @if(! $application->hasUploadedPayoutDocument(\App\Models\CleanerApplicationDocument::TYPE_VALID_ID_BACK)) required @endif class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
+                                <label for="valid_id_back_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Valid ID / back</label>
+                                <input id="valid_id_back_document" type="file" name="valid_id_back_document" accept=".jpg,.jpeg,.png,.pdf" @if(! $application->hasUploadedPayoutDocument(\App\Models\CleanerApplicationDocument::TYPE_VALID_ID_BACK)) required @endif class="w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
                             </div>
                             <div>
                                 <label for="payout_account_proof_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Account proof</label>
                                 <input id="payout_account_proof_document" type="file" name="payout_account_proof_document" accept=".jpg,.jpeg,.png,.pdf" @if(! $application->hasUploadedPayoutDocument(\App\Models\CleanerApplicationDocument::TYPE_PAYOUT_ACCOUNT_PROOF)) required @endif class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
                             </div>
+                            @if($application->isTeam())
+                                <div>
+                                    <label for="business_permit_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Business permit</label>
+                                    <input id="business_permit_document" type="file" name="business_permit_document" accept=".jpg,.jpeg,.png,.pdf" @if(! $application->hasUploadedPayoutDocument(\App\Models\CleanerApplicationDocument::TYPE_BUSINESS_PERMIT)) required @endif class="w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
+                                </div>
+                            @endif
                         </div>
-                        @if($application->isTeam())
-                            <div>
-                                <label for="business_permit_document" class="mb-1.5 block text-xs font-black uppercase tracking-wide text-slate-500">Business permit</label>
-                                <input id="business_permit_document" type="file" name="business_permit_document" accept=".jpg,.jpeg,.png,.pdf" @if(! $application->hasUploadedPayoutDocument(\App\Models\CleanerApplicationDocument::TYPE_BUSINESS_PERMIT)) required @endif class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-blue-700">
-                            </div>
-                        @endif
-                        <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-700">
+                        <p class="text-xs leading-5 text-slate-500"><i class="fas fa-circle-info mr-1 text-slate-400"></i>Accepted formats: JPG, PNG, or PDF. Maximum file size: 5 MB per document.</p>
+                        <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                             <i class="fas fa-cloud-arrow-up"></i>
                             Update Documents
                         </button>
                     </form>
                 </section>
             @endif
-        </div>
 
         @if($application)
             <section data-provider-location-shell class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -445,12 +503,15 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script>
+    window.cleanflowGoogleMapsEnabled = @json(!empty(config('services.google.maps_api_key')));
     window.cleanflowProviderMapConfig = @json(config('cleanflow.provider_map'));
     window.cleanflowProviderLocationCenters = @json(config('cleanflow.bukidnon_location_centers', []));
 </script>
 <script src="{{ asset('js/provider-location-map.js') }}"></script>
+@if(config('services.google.maps_api_key'))
+<script async defer src="https://maps.googleapis.com/maps/api/js?key={{ urlencode(config('services.google.maps_api_key')) }}&callback=initCleanflowProviderMap"></script>
+@endif
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-provider-location-form]').forEach(function (form) {
