@@ -2,7 +2,7 @@
 
 ## Reporting Security Vulnerabilities
 
-If you discover a security vulnerability in Clean Flow, please email **security@cleanflow.local** with:
+Before launch, configure a monitored security contact for vulnerability reports. Do not publish a placeholder address. Reports should include:
 - Description of the vulnerability
 - Steps to reproduce
 - Potential impact
@@ -12,7 +12,12 @@ If you discover a security vulnerability in Clean Flow, please email **security@
 
 ---
 
-## Security Standards
+## Security Standards and Current Controls
+
+This document records implemented controls and deployment requirements. It is
+not a certification, audit opinion, or legal determination that CleanFlow
+complies with any regulation. Compliance depends on the real business entity,
+users, vendors, jurisdictions, contracts, and operating procedures.
 
 ### Authentication & Authorization
 
@@ -31,15 +36,15 @@ Client       - Booking creation, tracking, ratings, profile management
 ```
 
 #### API Authentication
-- Device tokens rotated every 30 days: `php artisan attendance:rotate-tokens`
-- API keys use Bearer authentication
-- All API calls logged for audit trail
+- Device credentials expire after 30 days and can be created or rotated with `php artisan attendance:register-device <serial> <name> --rotate-token`
+- Mobile API tokens use Bearer authentication and are stored as hashes
+- IoT requests use a device serial, timestamp, nonce, and HMAC signature; token-only fallback is not allowed in production
+- Security-sensitive authentication and device events are recorded in `security_events`
 
 ### Password Security
 - Passwords hashed using bcrypt with 12 rounds
 - Password reset tokens expire after 60 minutes
 - Failed password reset attempts rate-limited
-- Passwords cannot be reused (last 5 passwords tracked)
 
 ---
 
@@ -48,21 +53,21 @@ Client       - Booking creation, tracking, ratings, profile management
 ### Data Encryption
 
 **Transit (In-Motion):**
-- All API communication uses HTTPS/TLS 1.2+
-- Certificate pinning recommended for mobile apps
-- API responses include security headers:
+- Production deployment must terminate HTTPS using TLS 1.2+
+- Release Android builds reject cleartext traffic and require an HTTPS URL; debug builds may use local emulator HTTP
+- Laravel responses include:
   ```
   X-Content-Type-Options: nosniff
   X-Frame-Options: SAMEORIGIN
-  X-XSS-Protection: 1; mode=block
   Strict-Transport-Security: max-age=31536000
+  Permissions-Policy: camera=(self "https://*.daily.co"), geolocation=(self), microphone=(self "https://*.daily.co")
   ```
 
 **At-Rest (Stored):**
-- Sensitive payment information encrypted in database
-- Personal data (DOB, phone) encrypted using database-level encryption
-- Fingerprint templates stored only on IoT devices
-- Encrypted backups stored offsite with key separation
+- The application does not store payment-card numbers or CVV/CVC; it stores payment method, status, and provider references
+- Government ID numbers are encrypted with Laravel application-key encryption, and uploaded identity documents use the private upload disk
+- IoT device HMAC secrets are encrypted at rest; mobile bearer tokens and device access tokens are stored as one-way hashes where applicable
+- Production startup rejects local/private-storage misconfiguration; object-storage encryption, backup key separation, and restore testing remain deployment responsibilities
 
 ### Personally Identifiable Information (PII)
 
@@ -75,10 +80,9 @@ Client       - Booking creation, tracking, ratings, profile management
 - Proof of Service Photos
 
 **Protection:**
-- Only visible to authorized personnel
-- Automatic redaction in logs and analytics
-- GDPR-compliant data retention (see Data Retention Policy)
-- Data deletion on account removal
+- Access is restricted by authentication, role checks, and ownership checks
+- Sensitive government identity documents are encrypted through Laravel encrypted casts and stored on the private upload disk
+- Retention and deletion schedules require business-owner and legal approval; this repository does not establish GDPR or Philippine DPA compliance
 
 ### Payment Data
 
@@ -88,9 +92,7 @@ Client       - Booking creation, tracking, ratings, profile management
 - Bank account details
 
 **Handled By Third Parties:**
-- GCash integration (PCI compliant)
-- Maya integration (PCI compliant)
-- Bank transfers via verified providers
+- Payment processing is delegated to configured providers; verify each provider, contract, data location, and PCI responsibility before launch
 
 **Stored Safely:**
 - Payment method preference (GCash/Maya/Cash)
@@ -103,13 +105,16 @@ Client       - Booking creation, tracking, ratings, profile management
 
 | Data Type | Retention Period | Purpose |
 | --- | --- | --- |
-| Booking Records | 7 years | Legal/Tax compliance |
-| Attendance Logs | 2 years | Payroll audit |
-| Customer Ratings | Indefinite | Quality metrics |
-| Login/API Logs | 90 days | Security audit |
-| Failed Login Attempts | 30 days | Intrusion detection |
-| Photos (Service Proof) | Until booking archived (7 years) | Service documentation |
-| Personal GDPR Data | On request deletion | GDPR compliance |
+| Booking Records | Application/business setting | Service, dispute, and accounting needs |
+| Attendance Logs | Application/business setting | Payroll and operations |
+| Customer Ratings | Application/business setting | Quality metrics |
+| Security Events | Configured by `SECURITY_EVENT_RETENTION_DAYS` (minimum 30 days) | Security audit |
+| Photos and identity documents | Application/business setting | Service and application review |
+| Personal data | Delete or restrict when legally required and operationally possible | Privacy requests |
+
+The periods above are not legal advice. The owner must approve a documented
+retention schedule after confirming tax, employment, consumer, privacy, and
+contractual obligations.
 
 ---
 
@@ -118,17 +123,17 @@ Client       - Booking creation, tracking, ratings, profile management
 ### Device Token Management
 - Tokens generated with 256-bit cryptographic randomness
 - Tokens stored hashed in database (never transmitted)
-- Tokens rotated every 30 days automatically
-- Lost/compromised tokens can be revoked: `php artisan attendance:revoke-token <device_id>`
+- Tokens expire every 30 days and can be rotated from the admin panel or registration command
+- Lost or compromised devices can be deactivated and issued new credentials
 
 ### Device Enrollment Workflow
 ```
 1. Generate enrollment request in admin panel
 2. Display QR code or manual PIN on device
-3. Device confirms enrollment with PIN + fingerprint
-4. Template sent encrypted to server
-5. Server verifies and activates template
-6. Device confirms activation
+3. Device confirms enrollment with PIN + local fingerprint capture
+4. Server sends the approved template slot and enrollment state
+5. Device stores and matches the fingerprint template locally
+6. Device confirms activation; the server stores the slot identifier, not the template
 ```
 
 ### Biometric Data
@@ -159,16 +164,16 @@ Client       - Booking creation, tracking, ratings, profile management
 
 ### CORS & CSRF Configuration
 ```
-CORS Origins: Configured for approved frontend domains
-CSRF Tokens: Required for all state-changing operations
-SameSite Cookies: Strict mode enabled
+CSRF Tokens: Required for state-changing web operations
+SameSite Cookies: Strict by default in production; confirm any cross-site integration before changing it
+Bearer API routes: Authenticate with mobile or signed IoT credentials, not browser cookies
 ```
 
 ### Input Validation & Sanitization
 - All user inputs validated against whitelist
 - SQL injection prevention via prepared statements
 - XSS protection via output encoding
-- File uploads: Type validation, size limits, scan for malware
+- File uploads: Type validation, size limits, and private-storage controls; add malware scanning before accepting untrusted files at scale
 
 ---
 
@@ -177,18 +182,14 @@ SameSite Cookies: Strict mode enabled
 ### Events Logged
 - User authentication (login, logout, failed attempts)
 - Authorization changes (role/permission updates)
-- Data modifications (bookings, staff assignments, settings)
-- Admin actions (user management, system configuration)
-- API access (device endpoints, admin endpoints)
-- Failed validations and errors
-- Security events (rate limit violations, token misuse)
+- Selected data modifications and admin actions
+- Mobile authentication, logout, password reset, and device authentication events
+- Security events such as rate-limit violations and token misuse
 
 ### Log Storage
-- Logs written to dedicated secure log file
-- Logs rotated daily, kept for 90 days
-- Access to logs restricted to admins
-- Log integrity verified using checksums
-- Logs indexed for searchability: `php artisan logs:search --term="failed"`
+- Security events are stored append-only in the `security_events` table and pruned by the scheduled retention command
+- Application logs use the configured Laravel logging channel and require infrastructure-level rotation and access control
+- Do not put passwords, bearer tokens, device secrets, or government ID contents in logs
 
 ---
 
@@ -199,11 +200,16 @@ SameSite Cookies: Strict mode enabled
 # Check dependencies for vulnerabilities
 composer audit
 
-# PHP security check
-php vendor/bin/security-checker security:check
+# Production PHP dependencies only
+composer install --no-dev --no-interaction --prefer-dist
 
-# Database migration security
-php artisan schema:audit
+# JavaScript production dependencies
+npm audit --omit=dev --audit-level=moderate
+
+# Application verification
+php artisan test
+php artisan cleanflow:verify --probe
+php artisan storage:verify --probe
 ```
 
 ### Regular Security Updates
@@ -220,7 +226,7 @@ php artisan schema:audit
 1. **Immediately:**
    - Isolate affected systems
    - Preserve logs and evidence
-   - Notify security team: security@cleanflow.local
+   - Notify the monitored security contact configured by the owner
 
 2. **Within 24 Hours:**
    - Assess impact scope
@@ -256,7 +262,7 @@ Recommended Actions:
 
 Timeline: [DATES]
 Incident ID: [ID]
-Support: support@cleanflow.local
+Support: [published business support contact]
 ```
 
 ---
@@ -264,17 +270,14 @@ Support: support@cleanflow.local
 ## Compliance
 
 ### Standards & Regulations
-- **GDPR:** European data protection compliance
-- **Data Privacy Act (DPA):** Philippine data protection
-- **PCI DSS:** Payment Card Industry compliance (via third-party processors)
-- **OWASP Top 10:** Security best practices
+- **OWASP:** The codebase uses common OWASP-aligned controls such as validation, authorization, rate limiting, hashing, encryption, and secure headers.
+- **GDPR / Philippine Data Privacy Act:** Applicability and compliance require a real legal assessment, data inventory, lawful-basis analysis, notices, contracts, retention rules, and operating procedures.
+- **PCI DSS:** Keep payment-card data out of this application and obtain written scope/responsibility confirmation from each payment provider.
 
 ### Privacy Policy Compliance
-Users must accept:
-- Data collection policy
-- Cookie usage
-- Third-party integrations (payment processors)
-- Photo/evidence retention
+The owner must publish and operationalize notices covering data collection, cookies,
+third-party integrations, photos/evidence, retention, data-subject requests,
+and incident contacts. See `docs/PRIVACY_COMPLIANCE_CHECKLIST.md`.
 
 ---
 
@@ -318,8 +321,8 @@ $secret = env('API_SECRET');
 # DO NOT hardcode secrets
 $secret = 'abc123secret';
 
-# DO rotate secrets regularly
-php artisan attendance:rotate-tokens
+# DO rotate device secrets regularly
+php artisan attendance:register-device <serial> <name> --rotate-token
 
 # DO use Laravel's encryption
 decrypt(Crypt::encrypt($sensitiveData));
@@ -338,7 +341,7 @@ Before each production release:
 - [ ] API rate limiting verified
 - [ ] HTTPS/SSL configured
 - [ ] Security headers set
-- [ ] CORS origins whitelisted
+- [ ] CORS requirements reviewed for every browser client and API integration
 - [ ] Environment variables documented
 - [ ] Secrets rotated if needed
 - [ ] Backup created and tested
@@ -349,8 +352,8 @@ Before each production release:
 
 ## Support & Reporting
 
-- **Security Issues:** security@cleanflow.local
-- **General Support:** support@cleanflow.local
+- **Security Issues:** Use the monitored contact configured by the owner before launch
+- **General Support:** Use the published business support contact
 - **Bug Reports:** GitHub Issues (after security review)
 - **Questions?** See SECURITY.md or contact team
 
@@ -360,5 +363,5 @@ Before each production release:
 
 | Version | Date | Changes |
 | --- | --- | --- |
-| 1.0 | 2026-04-15 | Initial security policy |
+| 1.1 | 2026-09-13 | Align policy with implemented controls and add compliance caveats |
 

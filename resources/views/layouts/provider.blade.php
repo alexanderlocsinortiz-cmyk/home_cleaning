@@ -34,6 +34,11 @@
             <a href="{{ route('provider.payouts') }}" aria-current="{{ request()->routeIs('provider.payouts') ? 'page' : 'false' }}" class="mt-1 flex items-center gap-3 rounded-xl px-4 py-3 text-blue-100 transition-all hover:bg-white/10 hover:text-white {{ request()->routeIs('provider.payouts') ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/20' : '' }}">
                 <i class="fas fa-wallet w-5 text-center"></i> Payouts
             </a>
+            @if(auth()->user()->cleanerApplication?->isTeam())
+                <a href="{{ route('provider.team-members') }}" aria-current="{{ request()->routeIs('provider.team-members*') ? 'page' : 'false' }}" class="mt-1 flex items-center gap-3 rounded-xl px-4 py-3 text-blue-100 transition-all hover:bg-white/10 hover:text-white {{ request()->routeIs('provider.team-members*') ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/20' : '' }}">
+                    <i class="fas fa-users w-5 text-center"></i> Team Cleaners
+                </a>
+            @endif
             <div class="mt-5 px-2 py-2 text-xs font-black uppercase tracking-wider text-blue-200/70">Account</div>
             <a href="{{ route('provider.dashboard') }}#availability" class="flex items-center gap-3 rounded-xl px-4 py-3 text-blue-100 transition-all hover:bg-white/10 hover:text-white">
                 <i class="fas fa-toggle-on w-5 text-center"></i> Availability

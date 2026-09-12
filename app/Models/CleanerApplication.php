@@ -216,6 +216,42 @@ class CleanerApplication extends Model
         return $this->hasMany(Booking::class);
     }
 
+    public function teamMembers()
+    {
+        return $this->hasMany(CleanerTeamMember::class);
+    }
+
+    public function approvedTeamMembers()
+    {
+        return $this->teamMembers()->where('status', CleanerTeamMember::STATUS_APPROVED);
+    }
+
+    public function approvedTeamMemberCount(): int
+    {
+        return $this->approvedTeamMembers()->count();
+    }
+
+    public function assignableTeamMemberCount(): int
+    {
+        return $this->approvedTeamMembers()
+            ->where('availability_status', CleanerTeamMember::AVAILABILITY_AVAILABLE)
+            ->count();
+    }
+
+    public function effectiveTeamCapacity(): int
+    {
+        if (! $this->isTeam()) {
+            return 1;
+        }
+
+        // Legacy teams may predate the roster workflow. Keep their declared
+        // capacity until they create their first member record; once a roster
+        // exists, only approved and available cleaners count.
+        return $this->teamMembers()->exists()
+            ? $this->assignableTeamMemberCount()
+            : max(1, (int) ($this->team_size ?: 1));
+    }
+
     public function documents()
     {
         return $this->hasMany(CleanerApplicationDocument::class);
@@ -533,8 +569,27 @@ class CleanerApplication extends Model
         mixed $scheduledDate,
         mixed $scheduledTime,
         ?int $targetDurationMinutes = null,
-        ?int $exceptBookingId = null
+        ?int $exceptBookingId = null,
+        int $requiredCleaners = 1,
     ): bool {
+        // A team can handle overlapping bookings when different approved
+        // members are available. Keep the legacy provider-level check for
+        // older team applications that have not created a member roster yet.
+        if ($this->isTeam() && $this->teamMembers()->exists()) {
+            $availableMembers = $this->approvedTeamMembers()
+                ->where('availability_status', CleanerTeamMember::AVAILABILITY_AVAILABLE)
+                ->get();
+
+            $freeMembers = $availableMembers->reject(fn (CleanerTeamMember $member): bool => $member->hasScheduleConflictFor(
+                $scheduledDate,
+                $scheduledTime,
+                $targetDurationMinutes,
+                $exceptBookingId,
+            ));
+
+            return $freeMembers->count() < max(1, $requiredCleaners);
+        }
+
         return $this->bookings()
             ->whereIn('status', Booking::ACTIVE_SCHEDULE_STATUSES)
             ->where(function ($query): void {

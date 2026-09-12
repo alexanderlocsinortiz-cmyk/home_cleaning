@@ -188,6 +188,7 @@
                                 <div class="font-bold text-slate-800">{{ $provider->isTeam() ? 'Business team' : 'Individual cleaner' }}</div>
                                 <div class="mt-1 text-xs text-slate-500">{{ $provider->contact_person }}</div>
                                 @if($provider->isTeam())
+                                    <div class="mt-2 text-xs font-bold text-emerald-700">{{ $provider->approved_team_members_count }} approved of {{ $provider->team_members_count }} verified roster records</div>
                                     <div class="mt-2 text-xs font-bold text-blue-700">{{ $provider->team_size ?: '—' }} team members</div>
                                 @endif
                                 <div class="mt-2 text-xs text-slate-400">{{ $provider->phone }}</div>
@@ -229,6 +230,9 @@
                             <td class="px-5 py-5 text-right">
                                 <div class="flex flex-col items-end gap-2">
                                     <a href="{{ route('admin.cleaner-applications.index', ['status' => $provider->status, 'search' => $provider->business_name]) }}" class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-100"><i class="fas fa-file-lines"></i> Application</a>
+                                    @if($provider->isTeam())
+                                        <a href="{{ route('admin.cleaner-team-members.index', ['search' => $provider->business_name]) }}" class="inline-flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-black text-violet-700 hover:bg-violet-100"><i class="fas fa-users"></i> Team cleaners</a>
+                                    @endif
                                     @if($provider->status === \App\Models\CleanerApplication::STATUS_APPROVED)
                                         <a href="{{ route('admin.provider-performance', ['provider_id' => $provider->id]) }}" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"><i class="fas fa-chart-line"></i> Performance</a>
                                         <a href="{{ route('admin.provider-payouts', ['provider_id' => $provider->id]) }}" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"><i class="fas fa-wallet"></i> Payouts</a>

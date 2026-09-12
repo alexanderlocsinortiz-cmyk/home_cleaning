@@ -16,12 +16,14 @@ use App\Http\Controllers\BookingLiveVideoController;
 use App\Http\Controllers\BookingLocationController;
 use App\Http\Controllers\BookingMessageController;
 use App\Http\Controllers\CleanerApplicationController;
+use App\Http\Controllers\CleanerTeamMemberVerificationController;
 use App\Http\Controllers\ClientPortalController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MapController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProviderActivationController;
 use App\Http\Controllers\ProviderPortalController;
+use App\Http\Controllers\ProviderTeamMemberController;
 use App\Http\Controllers\PublicServiceController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\StaffController;
@@ -49,6 +51,14 @@ Route::post('/cleaners/apply', [CleanerApplicationController::class, 'store'])
 Route::get('/cleaners/apply/status/{token}', [CleanerApplicationController::class, 'status'])
     ->middleware('throttle:30,1')
     ->name('cleaner-applications.status');
+Route::get('/cleaners/team-members/verify/{token}', [CleanerTeamMemberVerificationController::class, 'show'])
+    ->middleware('throttle:30,1')
+    ->name('cleaner-team-members.verify.show');
+Route::post('/cleaners/team-members/verify/{token}', [CleanerTeamMemberVerificationController::class, 'store'])
+    ->middleware('throttle:6,1')
+    ->name('cleaner-team-members.verify.store');
+Route::get('/cleaners/team-members/verify-invalid', fn () => view('cleaner-team-members.verification-invalid'))
+    ->name('cleaner-team-members.verify.invalid');
 Route::get('/providers/activate/invalid', [ProviderActivationController::class, 'invalid'])->name('provider.activate.invalid');
 Route::get('/providers/activate/{token}', [ProviderActivationController::class, 'show'])->name('provider.activate.show');
 Route::post('/providers/activate/{token}', [ProviderActivationController::class, 'store'])
@@ -137,6 +147,13 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
         Route::get('/customers', [AdminCustomerController::class, 'index'])->name('customers');
         Route::get('/providers', [AdminProviderController::class, 'index'])->name('providers');
+        Route::get('/cleaner-team-members', [\App\Http\Controllers\AdminCleanerTeamMemberController::class, 'index'])->name('cleaner-team-members.index');
+        Route::patch('/cleaner-team-members/{member}', [\App\Http\Controllers\AdminCleanerTeamMemberController::class, 'update'])
+            ->middleware('throttle:30,1')
+            ->name('cleaner-team-members.update');
+        Route::get('/cleaner-team-members/{member}/documents/{type}', [\App\Http\Controllers\AdminCleanerTeamMemberController::class, 'download'])
+            ->middleware('throttle:30,1')
+            ->name('cleaner-team-members.documents.download');
         Route::patch('/providers/{cleanerApplication}/availability', [AdminProviderController::class, 'updateAvailability'])
             ->middleware('throttle:30,1')
             ->name('providers.availability');
@@ -245,6 +262,16 @@ Route::middleware(['auth', 'account.active'])->group(function () {
 
     Route::prefix('provider')->name('provider.')->middleware('provider')->group(function () {
         Route::get('/dashboard', [ProviderPortalController::class, 'dashboard'])->name('dashboard');
+        Route::get('/team-members', [ProviderTeamMemberController::class, 'index'])->name('team-members');
+        Route::post('/team-members', [ProviderTeamMemberController::class, 'store'])
+            ->middleware('throttle:20,1')
+            ->name('team-members.store');
+        Route::post('/team-members/{member}/resend-verification', [ProviderTeamMemberController::class, 'resendVerification'])
+            ->middleware('throttle:20,1')
+            ->name('team-members.resend-verification');
+        Route::patch('/team-members/{member}/availability', [ProviderTeamMemberController::class, 'updateAvailability'])
+            ->middleware('throttle:20,1')
+            ->name('team-members.availability.update');
         Route::patch('/availability', [ProviderPortalController::class, 'updateAvailability'])
             ->middleware('throttle:20,1')
             ->name('availability.update');
@@ -259,6 +286,9 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::patch('/bookings/{booking}/response', [ProviderPortalController::class, 'respondToBooking'])
             ->middleware('throttle:30,1')
             ->name('bookings.response');
+        Route::patch('/bookings/{booking}/team-members', [ProviderPortalController::class, 'updateBookingTeamMembers'])
+            ->middleware('throttle:30,1')
+            ->name('bookings.team-members.update');
         Route::patch('/bookings/{booking}/status', [ProviderPortalController::class, 'updateStatus'])
             ->middleware('throttle:30,1')
             ->name('bookings.status');

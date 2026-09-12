@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\AddSecurityHeaders;
 use App\Http\Middleware\AuthenticateMobileApiToken;
 use App\Http\Middleware\CheckAccountAccess;
 use App\Http\Middleware\CheckStaffPageAccess;
@@ -40,6 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(RejectOversizedProofUpload::class);
+        $middleware->prepend(AddSecurityHeaders::class);
 
         $middleware->alias([
             'admin' => AdminMiddleware::class,

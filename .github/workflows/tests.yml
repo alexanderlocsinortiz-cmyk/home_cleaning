@@ -26,7 +26,7 @@ jobs:
           - 5432:5432
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
@@ -36,7 +36,7 @@ jobs:
         tools: phpunit, composer
 
     - name: Cache Composer dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: vendor
         key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -57,7 +57,8 @@ jobs:
 
     - name: Build frontend assets
       run: |
-        npm ci --audit false
+        npm ci
+        npm audit --omit=dev --audit-level=moderate
         npm run build
 
     - name: Generate application key
@@ -91,7 +92,7 @@ jobs:
       continue-on-error: true
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
       continue-on-error: true

@@ -19,11 +19,17 @@ class Device extends Model
         'last_token_rotated_at',
     ];
 
+    protected $hidden = [
+        'api_token',
+        'secret_key',
+    ];
+
     protected $casts = [
         'is_active' => 'boolean',
         'last_seen_at' => 'datetime',
         'token_expires_at' => 'datetime',
         'last_token_rotated_at' => 'datetime',
+        'secret_key' => 'encrypted',
     ];
 
     // Relationships

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Booking;
 use App\Models\CleanerApplication;
 use App\Models\CleanerApplicationDocument;
+use App\Models\CleanerTeamMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -543,6 +544,21 @@ class ProviderPortalTest extends TestCase
             'activated_at' => now(),
         ]);
 
+        $application->teamMembers()->create([
+            'full_name' => 'Approved Team Cleaner',
+            'email' => 'approved-team-cleaner-'.$application->id.'@example.com',
+            'phone' => '09171234567',
+            'status' => CleanerTeamMember::STATUS_APPROVED,
+            'availability_status' => CleanerTeamMember::AVAILABILITY_AVAILABLE,
+            'government_id_type' => CleanerApplication::GOVERNMENT_ID_NATIONAL_ID,
+            'government_id_number' => 'TEAM-'.$application->id,
+            'government_id_front_document_path' => 'test/team-member-id-front.pdf',
+            'government_id_back_document_path' => 'test/team-member-id-back.pdf',
+            'nbi_clearance_number' => 'NBI-'.$application->id,
+            'nbi_clearance_document_path' => 'test/team-member-clearance.pdf',
+            'selfie_with_id_path' => 'test/team-member-selfie.png',
+        ]);
+
         return [$user->fresh('cleanerApplication'), $application->fresh()];
     }
 
@@ -571,7 +587,7 @@ class ProviderPortalTest extends TestCase
 
     private function createBooking(User $client, CleanerApplication $application, string $status, string $serviceType): Booking
     {
-        return Booking::create([
+        $booking = Booking::create([
             'user_id' => $client->id,
             'cleaner_application_id' => $application->id,
             'service_type' => $serviceType,
@@ -585,6 +601,16 @@ class ProviderPortalTest extends TestCase
             'payment_method' => 'on_site_cash',
             'payment_status' => 'pending',
         ]);
+
+        if ($application->isTeam()) {
+            $member = $application->approvedTeamMembers()->first();
+            $booking->teamMembers()->attach($member->id, [
+                'assigned_by' => $application->user_id,
+                'assigned_at' => now(),
+            ]);
+        }
+
+        return $booking->fresh();
     }
 
     private function fakePngUpload(string $name): UploadedFile

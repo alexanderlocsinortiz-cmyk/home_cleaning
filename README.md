@@ -240,7 +240,7 @@ These test accounts and sample staff records are for local/staging only and are 
 - `/staff/dashboard` - staff overview
 - `/staff/bookings` - assigned jobs, status updates, and proof uploads
 - `/staff/schedule` - booking calendar view
-- `/staff/performance` - ratings and earnings summary
+- `/staff/performance` - ratings and completed service value summary
 - `/staff/notifications` - assignment and status notifications
 
 ### Admin

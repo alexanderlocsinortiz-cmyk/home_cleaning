@@ -89,6 +89,16 @@
                                 <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{{ \App\Models\Booking::paymentStatusLabel($booking->payment?->status ?? 'pending') }}</span>
                                 <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{{ number_format($booking->duration_minutes ?? \App\Models\Service::DEFAULT_DURATION_MINUTES) }} min</span>
                             </div>
+                            @if($application->isTeam())
+                                <div class="mt-3 text-xs font-semibold {{ $booking->teamMembers->isNotEmpty() ? 'text-emerald-700' : 'text-amber-700' }}">
+                                    <i class="fas fa-users mr-1"></i>
+                                    @if($booking->teamMembers->isNotEmpty())
+                                        Assigned cleaner{{ $booking->teamMembers->count() === 1 ? '' : 's' }}: {{ $booking->teamMembers->pluck('full_name')->join(', ') }}
+                                    @else
+                                        No team cleaner assigned yet
+                                    @endif
+                                </div>
+                            @endif
                             <div class="mt-4">
                                 @if($hasClientPin)
                                     <button type="button" class="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 transition hover:bg-blue-100" data-provider-list-map-toggle="provider-list-map-panel-{{ $booking->id }}" data-provider-list-map-target="provider-list-map-{{ $booking->id }}">

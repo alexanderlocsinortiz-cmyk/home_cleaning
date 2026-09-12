@@ -31,6 +31,10 @@ class LoginTest extends TestCase
 
         $response->assertRedirect(route('admin.dashboard'));
         $this->assertAuthenticatedAs($user);
+        $this->assertDatabaseHas('security_events', [
+            'event' => 'web_login_succeeded',
+            'user_id' => $user->id,
+        ]);
     }
 
     public function test_verified_staff_is_redirected_to_staff_dashboard_after_login(): void
@@ -149,6 +153,9 @@ class LoginTest extends TestCase
         $response->assertRedirect(route('login'));
         $response->assertSessionHasErrors('email');
         $this->assertGuest();
+        $this->assertDatabaseHas('security_events', [
+            'event' => 'web_login_failed',
+        ]);
     }
 
     public function test_user_cannot_log_in_with_username_instead_of_email(): void

@@ -40,13 +40,25 @@ class AdminCleanerApplicationController extends Controller
                 });
             })
             ->when($documentFilter === 'complete', function ($query): void {
-                $query->whereNotNull('government_id_document_path')
-                    ->whereNotNull('selfie_with_id_path');
+                $query->whereNotNull('selfie_with_id_path')
+                    ->where(function ($idQuery): void {
+                        $idQuery->whereNotNull('government_id_document_path')
+                            ->orWhere(function ($newIdQuery): void {
+                                $newIdQuery->whereNotNull('government_id_front_document_path')
+                                    ->whereNotNull('government_id_back_document_path');
+                            });
+                    });
             })
             ->when($documentFilter === 'missing', function ($query): void {
                 $query->where(function ($documentQuery): void {
-                    $documentQuery->whereNull('government_id_document_path')
-                        ->orWhereNull('selfie_with_id_path');
+                    $documentQuery->whereNull('selfie_with_id_path')
+                        ->orWhere(function ($idQuery): void {
+                            $idQuery->whereNull('government_id_document_path')
+                                ->where(function ($newIdQuery): void {
+                                    $newIdQuery->whereNull('government_id_front_document_path')
+                                        ->orWhereNull('government_id_back_document_path');
+                                });
+                        });
                 });
             })
             ->latest();
@@ -160,6 +172,8 @@ class AdminCleanerApplicationController extends Controller
             'profile-photo' => ['profile_photo_path', 'profile_photo_original_filename'],
             'business-logo' => ['business_logo_path', 'business_logo_original_filename'],
             'government-id' => ['government_id_document_path', 'government_id_document_original_filename'],
+            'government-id-front' => ['government_id_front_document_path', 'government_id_front_document_original_filename'],
+            'government-id-back' => ['government_id_back_document_path', 'government_id_back_document_original_filename'],
             'clearance' => ['nbi_clearance_document_path', 'nbi_clearance_document_original_filename'],
             'selfie-with-id' => ['selfie_with_id_path', 'selfie_with_id_original_filename'],
         ];

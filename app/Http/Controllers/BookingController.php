@@ -93,6 +93,7 @@ class BookingController extends Controller
                 'name' => $provider->business_name ?: ($provider->user?->full_name ?: $provider->email),
                 'coverage' => array_values($provider->coverage_barangays ?: []),
                 'serviceArea' => $provider->service_area,
+                'servicesOffered' => $provider->serviceOfferingKeys(),
                 'availableDays' => array_values($provider->available_days ?: []),
                 'maxDailyBookings' => (int) ($provider->max_daily_bookings ?: 0),
                 'teamSize' => $provider->isTeam() ? max(1, (int) ($provider->team_size ?: 1)) : 1,
@@ -241,6 +242,7 @@ class BookingController extends Controller
                 $request->scheduled_date,
                 $request->scheduled_time,
                 $request->barangay,
+                $request->service_type,
                 $serviceDurationMinutes,
                 max(1, (int) $pricing['required_cleaners']),
             ) ? 'requested' : 'unavailable';
@@ -319,6 +321,7 @@ class BookingController extends Controller
                                 $schedule['scheduled_date'],
                                 $schedule['scheduled_time'],
                                 $request->barangay,
+                                $request->service_type,
                                 $serviceDurationMinutes,
                                 max(1, (int) $pricing['required_cleaners']),
                             ) ? 'requested' : 'unavailable')
@@ -1334,6 +1337,7 @@ class BookingController extends Controller
         mixed $scheduledDate,
         mixed $scheduledTime,
         string $barangay,
+        string $serviceSlug,
         int $serviceDurationMinutes,
         int $requiredCleaners = 1,
     ): bool {
@@ -1342,6 +1346,7 @@ class BookingController extends Controller
             || ! $provider->activated_at
             || ! $provider->isAvailableForAssignment()
             || ! $provider->coversBarangay($barangay)
+            || ! $provider->offersService($serviceSlug)
         ) {
             return false;
         }
@@ -1357,13 +1362,11 @@ class BookingController extends Controller
             return false;
         }
 
-        $providerCapacity = $provider->isTeam()
-            ? max(1, (int) ($provider->team_size ?: 1))
-            : 1;
+        $providerCapacity = $provider->effectiveTeamCapacity();
 
         if ($providerCapacity < max(1, $requiredCleaners)
             || ! $provider->hasDailyCapacityFor($scheduleDate->toDateString())
-            || $provider->hasScheduleConflictFor($scheduleDate->toDateString(), $scheduledTime, $serviceDurationMinutes)
+            || $provider->hasScheduleConflictFor($scheduleDate->toDateString(), $scheduledTime, $serviceDurationMinutes, null, max(1, $requiredCleaners))
         ) {
             return false;
         }

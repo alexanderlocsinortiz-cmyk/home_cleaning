@@ -29,7 +29,8 @@
     $subscriptionFrequencies = $subscriptionFrequencies ?? \App\Models\Booking::subscriptionFrequencyLabels();
     $selectedAddOns = old('add_ons', []);
     $selectedAddOnQuantities = old('add_on_quantities', []);
-    $selectedServiceType = old('service_type', request()->query('service'));
+    $selectedServiceType = old('service_type', request()->query('service_type', request()->query('service')));
+    $selectedPropertyType = old('property_type', request()->query('property_type'));
     $selectedPaymentMethod = old('payment_method', 'on_site_cash');
     $selectedServicePlan = old('service_plan', 'one_time');
     $selectedSubscriptionFrequency = old('subscription_frequency', 'weekly');
@@ -146,8 +147,8 @@
 
                 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <label class="block cursor-pointer">
-                        <input type="radio" name="property_type" value="house" class="sr-only" {{ old('property_type') == 'house' ? 'checked' : '' }}>
-                        <div class="property-card selection-card {{ old('property_type') == 'house' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="house">
+                        <input type="radio" name="property_type" value="house" class="sr-only" {{ $selectedPropertyType == 'house' ? 'checked' : '' }}>
+                        <div class="property-card selection-card {{ $selectedPropertyType == 'house' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="house">
                             <div class="text-3xl text-blue-600"><i class="fas fa-house"></i></div>
                             <div class="mt-3 text-base font-semibold text-slate-900">House</div>
                             <div class="mt-1 text-xs text-slate-500">Included base rate</div>
@@ -155,8 +156,8 @@
                     </label>
 
                     <label class="block cursor-pointer">
-                        <input type="radio" name="property_type" value="apartment" class="sr-only" {{ old('property_type') == 'apartment' ? 'checked' : '' }}>
-                        <div class="property-card selection-card {{ old('property_type') == 'apartment' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="apartment">
+                        <input type="radio" name="property_type" value="apartment" class="sr-only" {{ $selectedPropertyType == 'apartment' ? 'checked' : '' }}>
+                        <div class="property-card selection-card {{ $selectedPropertyType == 'apartment' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="apartment">
                             <div class="text-3xl text-blue-600"><i class="fas fa-building"></i></div>
                             <div class="mt-3 text-base font-semibold text-slate-900">Apartment</div>
                             <div class="mt-1 text-xs text-slate-500">Included base rate</div>
@@ -164,8 +165,8 @@
                     </label>
 
                     <label class="block cursor-pointer">
-                        <input type="radio" name="property_type" value="boarding_house" class="sr-only" {{ old('property_type') == 'boarding_house' ? 'checked' : '' }}>
-                        <div class="property-card selection-card {{ old('property_type') == 'boarding_house' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="boarding_house">
+                        <input type="radio" name="property_type" value="boarding_house" class="sr-only" {{ $selectedPropertyType == 'boarding_house' ? 'checked' : '' }}>
+                        <div class="property-card selection-card {{ $selectedPropertyType == 'boarding_house' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="boarding_house">
                             <div class="text-3xl text-blue-600"><i class="fas fa-bed"></i></div>
                             <div class="mt-3 text-base font-semibold text-slate-900">Boarding House</div>
                             <div class="mt-1 text-xs text-slate-500">Included base rate</div>
@@ -173,8 +174,8 @@
                     </label>
 
                     <label class="block cursor-pointer">
-                        <input type="radio" name="property_type" value="office" class="sr-only" {{ old('property_type') == 'office' ? 'checked' : '' }}>
-                        <div class="property-card selection-card {{ old('property_type') == 'office' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="office">
+                        <input type="radio" name="property_type" value="office" class="sr-only" {{ $selectedPropertyType == 'office' ? 'checked' : '' }}>
+                        <div class="property-card selection-card {{ $selectedPropertyType == 'office' ? 'selected-card' : '' }} h-full p-5 text-center" data-value="office">
                             <div class="text-3xl text-blue-600"><i class="fas fa-briefcase"></i></div>
                             <div class="mt-3 text-base font-semibold text-slate-900">Office</div>
                             <div class="mt-1 text-xs text-slate-500">Office cleaning rates</div>
@@ -490,7 +491,7 @@
                         <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">5</div>
                         <div>
                             <h2 class="text-lg font-bold text-slate-900">Preferred Cleaner</h2>
-                            <p class="text-sm text-slate-500">Optionally request a company staff cleaner or an approved marketplace provider who covers your barangay and municipality.</p>
+                            <p class="text-sm text-slate-500">Optionally request a company staff cleaner or an approved marketplace provider who matches your selected service, area, schedule, and team size.</p>
                         </div>
                     </div>
                     <span class="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-700">Optional</span>
@@ -517,8 +518,9 @@
                         @endforeach
                         </optgroup>
                     </select>
-                    <div id="preferred-cleaner-note" class="mt-2 text-xs leading-5 text-slate-500">Pick a date, time, and barangay to see company staff and approved marketplace providers available for that slot.</div>
+                    <div id="preferred-cleaner-note" class="mt-2 text-xs leading-5 text-slate-500">Pick a service, date, time, and barangay to see cleaners who match that request.</div>
                     <div class="mt-2 text-xs leading-5 text-slate-500">Company staff cover the configured Valencia City barangays. Attendance and schedule conflicts are checked for today; admin confirms the final assignment.</div>
+                    <div class="mt-2 text-xs leading-5 text-slate-500">Providers appear only when their approved service, coverage area, working day, capacity, and schedule match. No travel fee is added; if no provider covers the area, the list will say so.</div>
                     @error('preferred_staff_id')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                     @error('preferred_cleaner_application_id')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
                 </div>
@@ -927,6 +929,30 @@ function providerCoversSelectedBarangay(provider, barangay) {
         || (coverage.length === 0 && serviceArea === target);
 }
 
+function providerOffersSelectedService(provider, serviceType) {
+    const requiredOffering = {
+        basic: 'basic_cleaning',
+        weeklymaintenance: 'basic_cleaning',
+        deep: 'deep_cleaning',
+        moveinout: 'move_in_move_out_cleaning',
+        postconstruction: 'post_construction_cleaning',
+        commercial: 'office_cleaning',
+        'office-basic': 'office_cleaning',
+        'office-deep': 'office_cleaning',
+    }[serviceType];
+
+    if (!requiredOffering) {
+        return false;
+    }
+
+    const offeredServices = Array.isArray(provider.servicesOffered)
+        ? provider.servicesOffered.map((service) => String(service).toLowerCase())
+        : String(provider.servicesOffered || '').split(/[,;|]+/).map((service) => service.trim().toLowerCase()).filter(Boolean);
+
+    return offeredServices.includes(requiredOffering)
+        || (offeredServices.includes('residential cleaning') && requiredOffering !== 'office_cleaning');
+}
+
 function selectedDateWeekday(dateValue) {
     if (!dateValue) {
         return '';
@@ -990,13 +1016,20 @@ function refreshPreferredCleaners() {
     const selectedDate = dateInput.value;
     const selectedTime = timeSelect.value;
     const selectedBarangay = barangaySelect?.value || '';
+    const selectedServiceType = document.querySelector('input[name="service_type"]:checked')?.value || '';
     const previousSelection = cleanerSelect.value || cleanerSelect.dataset.selected || '';
     const staff = scheduleAvailability.staff || [];
     const providers = scheduleAvailability.providers || [];
     const requiredCleaners = selectedRequiredCleaners();
     const selectedWeekday = selectedDateWeekday(selectedDate);
     const todayValue = currentBookingDateValue();
-    const hasCompleteSchedule = Boolean(selectedDate && selectedTime && selectedBarangay);
+    const hasCompleteSchedule = Boolean(selectedServiceType && selectedDate && selectedTime && selectedBarangay);
+    const selectedAreaIsConfigured = validBarangays.some((area) => normalizeProviderArea(area) === normalizeProviderArea(selectedBarangay));
+    const coveringProviders = selectedServiceType && selectedBarangay
+        ? providers.filter((provider) => providerCoversSelectedBarangay(provider, selectedBarangay)
+            && providerOffersSelectedService(provider, selectedServiceType))
+        : [];
+    const companyStaffCoversSelectedArea = selectedAreaIsConfigured && staff.length > 0;
     const availableStaff = hasCompleteSchedule
         ? staff.filter((cleaner) => {
             if (selectedDate === todayValue && !cleaner.presentToday) {
@@ -1007,18 +1040,18 @@ function refreshPreferredCleaners() {
         })
         : [];
     const availableProviders = hasCompleteSchedule
-        ? providers.filter((provider) => {
+        ? coveringProviders.filter((provider) => {
             const availableDays = (provider.availableDays || []).map((day) => String(day).toLowerCase());
             const teamSize = Number(provider.teamSize || 1);
 
-            return providerCoversSelectedBarangay(provider, selectedBarangay)
-                && (!availableDays.length || availableDays.includes(selectedWeekday))
+            return (!availableDays.length || availableDays.includes(selectedWeekday))
                 && teamSize >= requiredCleaners
                 && providerHasDailyCapacity(provider.id, selectedDate)
                 && !providerConflictsWithSelectedSlot(provider.id, selectedDate, selectedTime);
         })
         : [];
     const availableCleanerCount = availableStaff.length + availableProviders.length;
+    const hasAreaCoverage = companyStaffCoversSelectedArea || coveringProviders.length > 0;
 
     cleanerSelect.innerHTML = '';
 
@@ -1028,7 +1061,9 @@ function refreshPreferredCleaners() {
         ? 'Select date, time, and barangay first'
         : availableCleanerCount > 0
             ? 'No specific cleaner'
-            : 'No cleaner available for this slot';
+            : !hasAreaCoverage
+                ? 'No cleaners found for this area'
+                : 'No cleaner available for this slot';
     cleanerSelect.appendChild(emptyOption);
 
     if (availableStaff.length > 0) {
@@ -1079,14 +1114,16 @@ function refreshPreferredCleaners() {
     cleanerSelect.disabled = !hasCompleteSchedule || availableCleanerCount === 0;
 
     if (note) {
-        if (!selectedDate || !selectedTime) {
-            note.textContent = 'Pick a date, time, and barangay to see company staff and approved marketplace providers available for that slot.';
+        if (!selectedServiceType || !selectedDate || !selectedTime || !selectedBarangay) {
+            note.textContent = 'Pick a service, date, time, and barangay to see cleaners who match that request.';
+        } else if (!hasAreaCoverage) {
+            note.textContent = 'No cleaners currently serve this area for the selected service. You can still submit without a preferred cleaner; admin can review the request.';
         } else if (availableCleanerCount === 0) {
-            note.textContent = 'No company staff or approved marketplace provider is available for this slot. You can still submit without a preferred cleaner.';
+            note.textContent = 'Cleaners serve this area, but none are available for this date and time. You can still submit without a preferred cleaner; admin can review the request.';
         } else {
             const staffLabel = `${availableStaff.length} compan${availableStaff.length === 1 ? 'y staff member' : 'y staff members'}`;
             const providerLabel = `${availableProviders.length} marketplace provider${availableProviders.length === 1 ? '' : 's'}`;
-            note.textContent = `Showing ${staffLabel} and ${providerLabel} covering this barangay and free for this schedule.`;
+            note.textContent = `Showing ${staffLabel} and ${providerLabel} matching this service, covering this area, and free for this schedule. No travel fee is added.`;
         }
     }
 }

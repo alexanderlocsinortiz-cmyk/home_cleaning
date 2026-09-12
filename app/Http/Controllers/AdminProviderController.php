@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CleanerApplication;
 use App\Models\CleanerApplicationActivityLog;
+use App\Models\CleanerTeamMember;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -30,6 +31,10 @@ class AdminProviderController extends Controller
         $providersQuery = CleanerApplication::query()
             ->with(['documents', 'user'])
             ->withCount('bookings')
+            ->withCount('teamMembers')
+            ->withCount(['teamMembers as approved_team_members_count' => function ($query): void {
+                $query->where('status', CleanerTeamMember::STATUS_APPROVED);
+            }])
             ->withCount(['bookings as active_bookings_count' => function ($query): void {
                 $query->whereIn('status', ['pending', 'confirmed', 'in_progress']);
             }])

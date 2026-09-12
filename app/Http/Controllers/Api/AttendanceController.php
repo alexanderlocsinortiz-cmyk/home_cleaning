@@ -264,7 +264,12 @@ class AttendanceController extends Controller
         $nonce = $request->header('X-Nonce');
         $legacyToken = $request->header('X-Device-Token');
 
-        if ((! $signature || ! $timestamp || ! $deviceSerial) && $legacyToken) {
+        // Keep token-only authentication available only for an explicitly
+        // enabled local migration. Production requires signed,
+        // replay-resistant requests.
+        if (! (bool) config('cleanflow.iot.require_signed_requests', true)
+            && (! $signature || ! $timestamp || ! $deviceSerial)
+            && $legacyToken) {
             return $this->authenticateDeviceWithToken($request, $legacyToken);
         }
 
@@ -369,7 +374,6 @@ class AttendanceController extends Controller
         $tokenHash = Device::hashToken($token);
         $device = Device::query()
             ->where('api_token', $tokenHash)
-            ->orWhere('api_token', $token)
             ->first();
 
         if (! $device) {

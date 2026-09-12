@@ -216,6 +216,26 @@ class AppServiceProvider extends ServiceProvider
             $unsafeSettings[] = 'SESSION_DRIVER must use database or shared Redis storage';
         }
 
+        if (! (bool) config('session.encrypt')) {
+            $unsafeSettings[] = 'SESSION_ENCRYPT must be true';
+        }
+
+        if (! (bool) config('session.secure')) {
+            $unsafeSettings[] = 'SESSION_SECURE_COOKIE must be true';
+        }
+
+        if (strtolower((string) config('session.same_site')) !== 'strict') {
+            $unsafeSettings[] = 'SESSION_SAME_SITE must be strict';
+        }
+
+        if (! (bool) config('cleanflow.iot.require_signed_requests', true)) {
+            $unsafeSettings[] = 'IOT_REQUIRE_SIGNED_REQUESTS must be true';
+        }
+
+        if (! str_starts_with(strtolower(rtrim((string) config('app.url'), '/')), 'https://')) {
+            $unsafeSettings[] = 'APP_URL must use HTTPS';
+        }
+
         if ($unsafeSettings !== []) {
             throw new LogicException('Unsafe production configuration: '.implode('; ', $unsafeSettings).'.');
         }

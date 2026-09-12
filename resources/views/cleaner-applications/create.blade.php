@@ -412,6 +412,11 @@
                         <p class="mt-2 text-sm leading-6 text-slate-500">
                             Your ID, selfie, date of birth, and optional clearance details are collected only for cleaner verification and are restricted by role-based access. See our <a href="{{ route('legal.privacy') }}" class="font-bold text-blue-700 underline decoration-blue-300 underline-offset-2 hover:text-blue-900">Privacy Policy</a> for details.
                         </p>
+                        @if(old('applicant_type', 'individual') === 'team')
+                            <div class="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">
+                                <strong>Team application:</strong> these documents verify the contact person who controls the business account. Every cleaner who joins the team will submit their own government ID, NBI / police clearance, and selfie through a private verification link after the team account is activated.
+                            </div>
+                        @endif
                     </div>
                     <div class="grid gap-5 sm:grid-cols-2">
                         <div>

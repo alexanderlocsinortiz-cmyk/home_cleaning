@@ -228,7 +228,7 @@
             'variant' => 'progress',
         ],
         [
-            'label' => 'Earnings',
+            'label' => 'Completed Service Value',
             'value' => 'P' . number_format($totalEarnings, 2),
             'icon' => 'fa-wallet',
             'variant' => 'earnings',
@@ -340,7 +340,7 @@
                     </div>
                     <div class="staff-hero-metric">
                         <div class="text-2xl font-black">P{{ number_format($totalEarnings, 2) }}</div>
-                        <div class="mt-1 text-xs uppercase tracking-[0.18em] text-blue-200">Earnings</div>
+                        <div class="mt-1 text-xs uppercase tracking-[0.18em] text-blue-200">Completed Service Value</div>
                     </div>
                 </div>
             </div>

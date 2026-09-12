@@ -38,11 +38,11 @@ class AdminBookingController extends Controller
             ? $request->get('filter')
             : '';
 
-        $activeBookingsQuery = Booking::with(['user', 'staff', 'staffAssignments.staff', 'cleanerApplication', 'preferredCleanerApplication.user', 'service', 'payment', 'reviewedBy', 'preferredStaff'])
+        $activeBookingsQuery = Booking::with(['user', 'staff', 'staffAssignments.staff', 'cleanerApplication', 'teamMembers', 'preferredCleanerApplication.user', 'service', 'payment', 'reviewedBy', 'preferredStaff'])
             ->withCount(['beforeServiceProofs', 'afterServiceProofs'])
             ->whereIn('status', ['pending', 'confirmed', 'in_progress']);
 
-        $completedBookingsQuery = Booking::with(['user', 'staff', 'staffAssignments.staff', 'cleanerApplication', 'preferredCleanerApplication.user', 'service', 'payment', 'rating', 'reviewedBy', 'preferredStaff'])
+        $completedBookingsQuery = Booking::with(['user', 'staff', 'staffAssignments.staff', 'cleanerApplication', 'teamMembers', 'preferredCleanerApplication.user', 'service', 'payment', 'rating', 'reviewedBy', 'preferredStaff'])
             ->whereIn('status', ['completed', 'cancelled']);
 
         $filteredActiveBookingsQuery = (clone $activeBookingsQuery)
@@ -184,9 +184,7 @@ class AdminBookingController extends Controller
                 ]);
             }
 
-            $providerCapacity = $provider->isTeam()
-                ? max(1, (int) ($provider->team_size ?: 1))
-                : 1;
+            $providerCapacity = $provider->effectiveTeamCapacity();
 
             if ($providerCapacity < max(1, (int) ($booking->required_cleaners ?: 1))) {
                 return back()->withErrors([
@@ -199,6 +197,7 @@ class AdminBookingController extends Controller
                 $booking->scheduled_time,
                 (int) ($booking->duration_minutes ?: Service::durationForSlug($booking->service_type)),
                 $booking->id,
+                max(1, (int) ($booking->required_cleaners ?: 1)),
             )) {
                 return back()->withErrors([
                     'cleaner_application_id' => 'This marketplace provider is already assigned to an overlapping booking. Choose another provider.',

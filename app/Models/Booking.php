@@ -1134,6 +1134,28 @@ class Booking extends Model
         return $this->belongsTo(CleanerApplication::class);
     }
 
+    public function teamMembers()
+    {
+        return $this->belongsToMany(CleanerTeamMember::class, 'booking_cleaner_team_members')
+            ->withPivot(['assigned_by', 'assigned_at'])
+            ->withTimestamps();
+    }
+
+    public function hasRequiredAssignedTeamMembers(): bool
+    {
+        if (! $this->cleaner_application_id || ! $this->cleanerApplication?->isTeam()) {
+            return true;
+        }
+
+        $required = max(1, (int) ($this->required_cleaners ?: 1));
+
+        return $this->teamMembers()
+            ->where('cleaner_team_members.cleaner_application_id', $this->cleaner_application_id)
+            ->where('cleaner_team_members.status', CleanerTeamMember::STATUS_APPROVED)
+            ->where('cleaner_team_members.availability_status', CleanerTeamMember::AVAILABILITY_AVAILABLE)
+            ->count() >= $required;
+    }
+
     public function preferredStaff()
     {
         return $this->belongsTo(User::class, 'preferred_staff_id');

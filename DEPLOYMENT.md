@@ -73,6 +73,8 @@ DB_SSLMODE=require
 SESSION_DRIVER=database
 SESSION_LIFETIME=120
 SESSION_ENCRYPT=true
+SESSION_SECURE_COOKIE=true
+SESSION_SAME_SITE=strict
 SESSION_PATH=/
 SESSION_DOMAIN=.example.com
 
@@ -83,6 +85,9 @@ FILESYSTEM_PROOF_DISK=s3_proof
 FILESYSTEM_PUBLIC_DISK=s3_public
 DATABASE_BACKUP_DISK=s3
 QUEUE_CONNECTION=database
+
+# IoT devices must use the signed timestamp + nonce + HMAC protocol.
+IOT_REQUIRE_SIGNED_REQUESTS=true
 
 CACHE_STORE=redis
 REDIS_CLIENT=phpredis
@@ -234,8 +239,9 @@ server {
     # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(self \"https://*.daily.co\"), geolocation=(self), microphone=(self \"https://*.daily.co\")" always;
+    add_header Strict-Transport-Security "max-age=31536000" always;
 
     location / {
         try_files $uri $uri/ /index.php?$query_string;

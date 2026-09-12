@@ -12,7 +12,11 @@
     $afterProofs = $booking->serviceProofs->where('stage', 'after')->where('media_type', 'image')->values();
     $completionVideos = $booking->serviceProofs->where('stage', 'after')->where('media_type', 'video')->values();
     $assignmentAccepted = $booking->effectiveProviderAssignmentStatus() === 'accepted';
-    $canStart = $assignmentAccepted && $booking->status === 'confirmed';
+    $requiredCleaners = max(1, (int) ($booking->required_cleaners ?: 1));
+    $assignedTeamMemberIds = $booking->teamMembers->pluck('id')->map(fn ($id): int => (int) $id)->all();
+    $hasRequiredTeamMembers = ! $application->isTeam()
+        || $booking->teamMembers->filter(fn ($member) => $member->canBeAssigned())->count() >= $requiredCleaners;
+    $canStart = $assignmentAccepted && $booking->status === 'confirmed' && $hasRequiredTeamMembers;
     $canComplete = $assignmentAccepted && $booking->status === 'in_progress';
     $proofMaxVideoMb = (int) floor(config('cleanflow.proof_uploads.max_video_kb', 102400) / 1024);
     $hasClientPin = filled($booking->service_latitude) && filled($booking->service_longitude);
@@ -20,6 +24,7 @@
     $statusLabel = ucfirst(str_replace('_', ' ', $booking->status));
     $nextActionLabel = match (true) {
         $booking->canProviderRespondToAssignment() => 'Respond to assignment',
+        $application->isTeam() && $assignmentAccepted && ! $hasRequiredTeamMembers => 'Assign approved team cleaners',
         $canStart => 'Upload before photos and start service',
         $canComplete => 'Upload completion proof',
         $booking->status === 'completed' => 'Service completed',
@@ -57,6 +62,9 @@
                     <div class="mt-5 font-mono text-sm font-black text-blue-200">CF-{{ str_pad($booking->id, 5, '0', STR_PAD_LEFT) }}</div>
                     <h1 class="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">{{ $booking->service_label }}</h1>
                     <p class="mt-2 text-sm text-blue-100">Assigned to <strong class="text-white">{{ $application->business_name }}</strong></p>
+                    @if($application->isTeam())
+                        <p class="mt-2 text-sm text-blue-100"><strong class="text-white">Team cleaner{{ $booking->teamMembers->count() === 1 ? '' : 's' }}:</strong> {{ $booking->teamMembers->isNotEmpty() ? $booking->teamMembers->pluck('full_name')->join(', ') : 'Not assigned yet' }}</p>
+                    @endif
                     <div class="mt-4 flex flex-wrap gap-2">
                         <span class="inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-1 text-xs font-black text-white ring-1 ring-white/15">
                             <i class="fas fa-briefcase"></i>
@@ -147,6 +155,34 @@
                                         Decline assignment
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    </form>
+                @endif
+
+                @if($application->isTeam() && $assignmentAccepted && ! in_array($booking->status, ['in_progress', 'completed', 'cancelled'], true))
+                    <form action="{{ route('provider.bookings.team-members.update', $booking) }}" method="POST" class="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5">
+                        @csrf
+                        @method('PATCH')
+                        <div class="flex items-start gap-4">
+                            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-600 ring-1 ring-blue-100"><i class="fas fa-users"></i></span>
+                            <div class="min-w-0 flex-1">
+                                <h3 class="text-base font-black text-slate-950">Choose the cleaner(s) for this booking</h3>
+                                <p class="mt-1 text-sm leading-6 text-slate-600">Select exactly {{ $requiredCleaners }} approved and available team cleaner{{ $requiredCleaners === 1 ? '' : 's' }}. Only the contact person can make this assignment.</p>
+                                @if($approvedTeamMembers->isEmpty())
+                                    <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">No approved team cleaners are available yet. Add cleaners and wait for CleanFlow admin approval.</div>
+                                @else
+                                    <div class="mt-4 grid gap-2 sm:grid-cols-2">
+                                        @foreach($approvedTeamMembers as $member)
+                                            <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-blue-100 bg-white px-3 py-3 text-sm font-bold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50">
+                                                <input type="checkbox" name="member_ids[]" value="{{ $member->id }}" {{ in_array((int) $member->id, $assignedTeamMemberIds, true) ? 'checked' : '' }} class="h-4 w-4 rounded text-blue-600">
+                                                <span class="min-w-0 flex-1">{{ $member->full_name }}</span>
+                                                <span class="text-[11px] font-black text-emerald-700">Approved</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    <button type="submit" class="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white transition hover:bg-blue-700"><i class="fas fa-save"></i> Save cleaner assignment</button>
+                                @endif
                             </div>
                         </div>
                     </form>

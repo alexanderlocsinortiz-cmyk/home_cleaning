@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\SecurityEvent;
 use App\Models\User;
 use App\Notifications\ResetPasswordOtp;
 use App\Support\StrongPassword;
@@ -332,6 +333,9 @@ class AuthController extends Controller
             $user = Auth::user();
 
             if ($user->hasActiveAccessRestriction()) {
+                SecurityEvent::record('web_login_blocked', $user, [
+                    'reason' => $user->access_restriction_reason,
+                ]);
                 Auth::logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
@@ -341,12 +345,20 @@ class AuthController extends Controller
                 ])->onlyInput('email');
             }
 
+            SecurityEvent::record('web_login_succeeded', $user, [
+                'remember' => $remember,
+            ]);
+
             if ($user->role === 'client' && ! $user->hasVerifiedEmail()) {
                 return redirect()->route('verification.notice')->with('success', 'Please verify your email before continuing.');
             }
 
             return $this->redirectByRole($user)->with('success', 'Welcome back, '.$user->first_name.'.');
         }
+
+        SecurityEvent::record('web_login_failed', null, [
+            'identifier_hash' => hash('sha256', $this->normalizedLoginEmail($request)),
+        ]);
 
         $this->recordFailedLoginAttempt($request);
 
@@ -355,6 +367,12 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        $user = $request->user();
+
+        if ($user) {
+            SecurityEvent::record('web_logout', $user);
+        }
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

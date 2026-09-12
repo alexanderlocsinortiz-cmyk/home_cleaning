@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\Device;
 use App\Services\DeviceTokenService;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class DeviceTokenSecurityTest extends TestCase
@@ -33,6 +34,24 @@ class DeviceTokenSecurityTest extends TestCase
 
         // Hash should be long (SHA256 = 64 chars)
         $this->assertEquals(64, strlen($hashedToken));
+    }
+
+    public function test_device_secret_is_encrypted_before_storage(): void
+    {
+        $device = Device::create([
+            'name' => 'Encrypted test device',
+            'serial_number' => 'ENCRYPTED-DEVICE-01',
+            'api_token' => Device::hashToken('encrypted-device-token'),
+            'secret_key' => 'plaintext-secret-for-test',
+            'is_active' => true,
+            'token_expires_at' => now()->addDay(),
+        ]);
+
+        $this->assertSame('plaintext-secret-for-test', $device->fresh()->secret_key);
+        $this->assertNotSame(
+            'plaintext-secret-for-test',
+            DB::table('devices')->where('id', $device->id)->value('secret_key')
+        );
     }
 
     /**

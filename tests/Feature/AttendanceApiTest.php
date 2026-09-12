@@ -138,6 +138,24 @@ class AttendanceApiTest extends TestCase
             ]);
     }
 
+    public function test_token_only_device_authentication_is_rejected_when_signed_requests_are_required(): void
+    {
+        config()->set('cleanflow.iot.require_signed_requests', true);
+
+        $staff = $this->createStaff('emp-token-only');
+        $device = $this->createDevice('ESP32-TOKEN-ONLY');
+
+        $this->withHeader('X-Device-Token', $device->getAttribute('plain_test_token'))
+            ->postJson('/api/iot/attendance/punch', [
+                'employee_code' => $staff->username,
+                'punch_type' => 'in',
+            ])
+            ->assertUnauthorized()
+            ->assertJson(['error' => 'Missing required security headers.']);
+
+        $this->assertDatabaseCount('attendance_logs', 0);
+    }
+
     public function test_punch_rejects_invalid_identity_limits_and_future_timestamps(): void
     {
         $staff = $this->createStaff('emp005');

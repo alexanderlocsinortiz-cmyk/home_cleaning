@@ -285,7 +285,7 @@ Returns confirmed, in-progress, completed, and cancelled bookings assigned to th
 
 **Authentication:** Bearer token required, staff account only
 
-Returns the authenticated staff member's booking totals, completion rate, earnings, review summary, star breakdown, current rank, and the top five staff leaderboard entries.
+Returns the authenticated staff member's booking totals, completion rate, completed service value, review summary, star breakdown, current rank, and the top five staff leaderboard entries. The API field remains `total_earnings` for backward compatibility.
 
 ### 11. Start Staff Booking With Proof
 

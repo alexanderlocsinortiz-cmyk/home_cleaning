@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Booking;
 use App\Models\CleanerApplication;
 use App\Models\CleanerApplicationDocument;
+use App\Models\CleanerTeamMember;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,7 @@ class ProviderPortalController extends Controller
             : Booking::whereRaw('1 = 0');
 
         $assignedBookings = (clone $assignedBookingsQuery)
-            ->with(['rating', 'payment'])
+            ->with(['rating', 'payment', 'teamMembers'])
             ->get();
 
         $bookingStats = [
@@ -66,14 +67,14 @@ class ProviderPortalController extends Controller
         $payoutStats = $this->payoutStats($payoutRows);
 
         $currentBooking = (clone $assignedBookingsQuery)
-            ->with(['user', 'service', 'payment'])
+            ->with(['user', 'service', 'payment', 'teamMembers'])
             ->whereIn('status', ['pending', 'confirmed', 'in_progress'])
             ->orderBy('scheduled_date')
             ->orderBy('scheduled_time')
             ->first();
 
         $recentBookings = (clone $assignedBookingsQuery)
-            ->with(['user', 'service', 'payment'])
+            ->with(['user', 'service', 'payment', 'teamMembers'])
             ->latest()
             ->take(5)
             ->get();
@@ -222,7 +223,7 @@ class ProviderPortalController extends Controller
         ];
 
         $bookings = (clone $baseQuery)
-            ->with(['user', 'service', 'payment'])
+            ->with(['user', 'service', 'payment', 'teamMembers'])
             ->when($status === 'pending_response', function ($query) {
                 $query->where(function ($innerQuery) {
                     $innerQuery->whereNull('provider_assignment_status')
@@ -270,9 +271,12 @@ class ProviderPortalController extends Controller
 
         abort_if(! $application || (int) $booking->cleaner_application_id !== (int) $application->id, 403);
 
-        $booking->load(['user', 'service', 'staff', 'payment', 'payout', 'serviceProofs.uploader']);
+        $booking->load(['user', 'service', 'staff', 'payment', 'payout', 'serviceProofs.uploader', 'teamMembers']);
+        $approvedTeamMembers = $application->isTeam()
+            ? $application->approvedTeamMembers()->orderBy('full_name')->get()
+            : collect();
 
-        return view('provider.booking-show', compact('application', 'booking'));
+        return view('provider.booking-show', compact('application', 'approvedTeamMembers', 'booking'));
     }
 
     public function updateStatus(Request $request, Booking $booking)
@@ -284,6 +288,14 @@ class ProviderPortalController extends Controller
         if ($booking->effectiveProviderAssignmentStatus() !== 'accepted') {
             return back()->withErrors([
                 'status' => 'Accept this assignment before updating service progress.',
+            ]);
+        }
+
+        if ($application->isTeam() && ! $booking->hasRequiredAssignedTeamMembers()) {
+            $required = max(1, (int) ($booking->required_cleaners ?: 1));
+
+            return back()->withErrors([
+                'team_members' => 'Assign '.$required.' approved team cleaner'.($required === 1 ? '' : 's').' before starting the service.',
             ]);
         }
 
@@ -458,6 +470,16 @@ class ProviderPortalController extends Controller
             'provider_assignment_notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        if ($validated['response'] === 'accepted' && $application->isTeam()) {
+            $required = max(1, (int) ($booking->required_cleaners ?: 1));
+
+            if ($application->assignableTeamMemberCount() < $required) {
+                return back()->withErrors([
+                    'response' => 'Add at least '.$required.' approved team cleaner'.($required === 1 ? '' : 's').' before accepting this assignment.',
+                ]);
+            }
+        }
+
         $booking->provider_assignment_status = $validated['response'];
         $booking->provider_assignment_responded_at = now();
         $booking->provider_assignment_notes = $validated['provider_assignment_notes'] ?? null;
@@ -476,6 +498,87 @@ class ProviderPortalController extends Controller
         return redirect()
             ->route('provider.bookings.show', $booking)
             ->with('success', 'Assignment response saved.');
+    }
+
+    public function updateBookingTeamMembers(Request $request, Booking $booking)
+    {
+        $application = auth()->user()->cleanerApplication;
+
+        abort_if(! $application || (int) $booking->cleaner_application_id !== (int) $application->id, 403);
+
+        if (! $application->isTeam()) {
+            return back()->withErrors(['team_members' => 'Individual cleaner providers do not need team member assignment.']);
+        }
+
+        if ($booking->effectiveProviderAssignmentStatus() !== 'accepted') {
+            return back()->withErrors(['team_members' => 'Accept the marketplace assignment before choosing the cleaners for this booking.']);
+        }
+
+        if (in_array($booking->status, ['in_progress', 'completed', 'cancelled'], true)) {
+            return back()->withErrors(['team_members' => 'Team cleaners cannot be changed after service has started or ended.']);
+        }
+
+        $validated = $request->validate([
+            'member_ids' => ['nullable', 'array'],
+            'member_ids.*' => [
+                'integer',
+                Rule::exists('cleaner_team_members', 'id')
+                    ->where(fn ($query) => $query
+                        ->where('cleaner_application_id', $application->id)
+                        ->where('status', CleanerTeamMember::STATUS_APPROVED)
+                        ->where('availability_status', CleanerTeamMember::AVAILABILITY_AVAILABLE)),
+            ],
+        ]);
+
+        $memberIds = collect($validated['member_ids'] ?? [])
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values();
+        $required = max(1, (int) ($booking->required_cleaners ?: 1));
+
+        if ($memberIds->count() !== $required) {
+            return back()->withErrors([
+                'team_members' => 'Select exactly '.$required.' approved team cleaner'.($required === 1 ? '' : 's').' for this booking.',
+            ]);
+        }
+
+        $members = $application->approvedTeamMembers()
+            ->whereIn('id', $memberIds->all())
+            ->get();
+
+        if ($members->count() !== $memberIds->count() || $members->contains(fn (CleanerTeamMember $member): bool => ! $member->canBeAssigned())) {
+            return back()->withErrors(['team_members' => 'Only approved and available team cleaners can be assigned.']);
+        }
+
+        foreach ($members as $member) {
+            if ($member->hasScheduleConflictFor(
+                $booking->scheduled_date,
+                $booking->scheduled_time,
+                (int) ($booking->duration_minutes ?: \App\Models\Service::durationForSlug($booking->service_type)),
+                $booking->id,
+            )) {
+                return back()->withErrors([
+                    'team_members' => $member->full_name.' is already assigned to an overlapping booking.',
+                ]);
+            }
+        }
+
+        $pivot = $memberIds->mapWithKeys(fn (int $memberId): array => [
+            $memberId => [
+                'assigned_by' => auth()->id(),
+                'assigned_at' => now(),
+            ],
+        ])->all();
+
+        $booking->teamMembers()->sync($pivot);
+        $booking->load('teamMembers');
+        $booking->logActivity(auth()->user(), 'team_cleaners_assigned', 'Provider assigned approved team cleaner'.($members->count() === 1 ? '' : 's').' to the booking.', [
+            'cleaner_application_id' => $application->id,
+            'team_member_ids' => $members->pluck('id')->values()->all(),
+            'team_member_names' => $members->pluck('full_name')->values()->all(),
+        ]);
+
+        return back()->with('success', 'Approved team cleaner assignment saved.');
     }
 
     private function payoutStats($payoutRows): array

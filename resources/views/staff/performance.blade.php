@@ -215,7 +215,7 @@
                         </span>
                         <span class="inline-flex items-center gap-2 rounded-full border border-blue-300 bg-blue-800 px-3 py-2">
                             <i class="fas fa-wallet text-xs"></i>
-                            P{{ number_format($totalEarnings, 2) }} earned
+                            P{{ number_format($totalEarnings, 2) }} service value
                         </span>
                     </div>
                 </div>
@@ -414,7 +414,7 @@
                                 <i class="fas fa-wallet text-xs"></i>
                             </span>
                             <div>
-                                <p class="text-sm font-semibold text-slate-900">Completed-job earnings</p>
+                                <p class="text-sm font-semibold text-slate-900">Completed Service Value</p>
                                 <p class="mt-1 text-sm leading-6 text-slate-600">P{{ number_format($totalEarnings, 2) }} from completed bookings.</p>
                             </div>
                         </div>

@@ -33,6 +33,10 @@
         ['slugs' => ['deep'], 'label' => 'Deep'],
         ['slugs' => ['moveinout'], 'label' => 'Move-in'],
         ['slugs' => ['postconstruction'], 'label' => 'Post-Con'],
+        ['slugs' => ['office-basic'], 'label' => 'Office Basic'],
+        ['slugs' => ['commercial'], 'label' => 'Office Standard'],
+        ['slugs' => ['office-deep'], 'label' => 'Office Deep'],
+        ['slugs' => ['weeklymaintenance'], 'label' => 'General/Regular'],
     ];
     $instantQuotePackages = collect($instantQuoteDefinitions)
         ->map(function (array $definition) use ($services): ?array {
@@ -41,27 +45,35 @@
                 ->filter()
                 ->first();
 
-            if (! $service || ! \App\Models\Service::usesPerSquareMeterPricing($service->slug)) {
+            if (! $service) {
                 return null;
             }
+
+            $isPerSquareMeter = \App\Models\Service::usesPerSquareMeterPricing($service->slug);
+            $isFlatRate = \App\Models\Service::usesFlatRateRangePricing($service->slug);
+            $priceRange = $isFlatRate ? \App\Models\Service::priceRangeForSlug($service->slug) : null;
 
             return [
                 'slug' => $service->slug,
                 'label' => $definition['label'],
-                'base' => 0,
-                'area_rate' => (float) $service->price,
-                'pricing_unit' => 'sqm',
+                'base' => $isPerSquareMeter ? 0 : ($priceRange['min'] ?? (float) $service->price),
+                'max_base' => $isFlatRate ? ($priceRange['max'] ?? (float) $service->price) : 0,
+                'area_rate' => $isPerSquareMeter ? (float) $service->price : 0,
+                'pricing_unit' => $isPerSquareMeter ? 'sqm' : ($isFlatRate ? 'flat_range' : 'base'),
             ];
         })
         ->filter()
         ->values()
         ->all();
 
-    $instantQuotePropertyOptions = [
-        ['key' => 'house', 'label' => 'House', 'fee' => 0],
-        ['key' => 'apartment', 'label' => 'Apartment', 'fee' => 0],
-        ['key' => 'boarding_house', 'label' => 'Boarding House', 'fee' => 0],
-    ];
+    $instantQuotePropertyOptions = collect($pricingConfig['property_type_labels'] ?? \App\Models\Booking::propertyTypeLabels())
+        ->map(fn (string $label, string $key): array => [
+            'key' => $key,
+            'label' => $label,
+            'fee' => (float) ($pricingConfig['property_fees'][$key] ?? 0),
+        ])
+        ->values()
+        ->all();
     $defaultInstantQuoteFloorArea = 30;
     $defaultInstantQuoteTotal = round(($instantQuotePackages[0]['base'] ?? 0) + (($instantQuotePackages[0]['area_rate'] ?? 0) * $defaultInstantQuoteFloorArea) + ($instantQuotePropertyOptions[0]['fee'] ?? 0), 2);
 
@@ -526,7 +538,7 @@
             <div class="section-heading mx-auto mb-12 max-w-3xl text-center reveal-on-scroll">
                 <h2 class="section-title text-3xl font-bold text-slate-900 lg:text-5xl">Get your instant quote</h2>
                 <p class="section-subtitle mt-4 text-lg leading-8 text-slate-500">
-                    Build the price live while you compare packages, home size, and add-ons.
+                    Build the price live while you compare packages, property size, and add-ons.
                 </p>
             </div>
             <div class="mt-12 reveal-on-scroll">
@@ -583,7 +595,7 @@
                                         <label for="iq_property" class="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">Property Type</label>
                                         <select id="iq_property" class="w-full rounded-2xl border border-slate-200 bg-white/85 px-4 py-3 text-sm font-medium text-slate-700 outline-hidden transition focus:border-primary-500 focus:ring-2 focus:ring-primary-200">
                                             @foreach($instantQuotePropertyOptions as $property)
-                                            <option value="{{ $property['key'] }}">{{ $property['label'] }}{{ $property['fee'] > 0 ? ' (+₱' . number_format($property['fee'], 0) . ')' : ' (+₱0)' }}</option>
+                                            <option value="{{ $property['key'] }}">{{ $property['label'] }}</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -739,6 +751,7 @@
     const bookButtonLabel = document.getElementById('iq_book_button_label');
     const fabButton = document.getElementById('iq_fab_button');
     const fabButtonLabel = document.getElementById('iq_fab_button_label');
+    const officeServiceSlugs = new Set(['commercial', 'office-basic', 'office-deep']);
 
     if (!packageInputs.length || !propertySelect || !floorAreaSlider || !floorAreaValue || !mobileTotalElement || !mobileBreakdownListElement || !mobileFormulaLineElement || !fabButton || !bookButton) {
         return;
@@ -751,6 +764,31 @@
     const getSelectedPackage = () => {
         const checkedPackage = packageInputs.find((input) => input.checked)?.value || packageInputs[0].value;
         return packageMap[checkedPackage];
+    };
+
+    const alignPropertyWithPackage = () => {
+        const selectedPackage = getSelectedPackage();
+        const isOfficePackage = officeServiceSlugs.has(selectedPackage?.slug);
+        const desiredProperty = isOfficePackage ? 'office' : (propertySelect.value === 'office' ? 'house' : propertySelect.value);
+
+        if (propertyMap[desiredProperty] && propertySelect.value !== desiredProperty) {
+            propertySelect.value = desiredProperty;
+        }
+    };
+
+    const alignPackageWithProperty = () => {
+        const isOfficeProperty = propertySelect.value === 'office';
+        const selectedPackage = getSelectedPackage();
+        const selectedIsOfficePackage = officeServiceSlugs.has(selectedPackage?.slug);
+
+        if (isOfficeProperty === selectedIsOfficePackage) {
+            return;
+        }
+
+        const replacement = packageInputs.find((input) => officeServiceSlugs.has(input.value) === isOfficeProperty);
+        if (replacement) {
+            replacement.checked = true;
+        }
     };
 
     const getFloorArea = () => {
@@ -897,11 +935,18 @@
         }
     };
 
-    packageInputs.forEach((input) => input.addEventListener('change', () => calculateInstantQuote()));
-    propertySelect.addEventListener('change', () => calculateInstantQuote());
+    packageInputs.forEach((input) => input.addEventListener('change', () => {
+        alignPropertyWithPackage();
+        calculateInstantQuote();
+    }));
+    propertySelect.addEventListener('change', () => {
+        alignPackageWithProperty();
+        calculateInstantQuote();
+    });
     floorAreaSlider.addEventListener('input', () => calculateInstantQuote());
     addOnInputs.forEach((input) => input.addEventListener('change', () => calculateInstantQuote({ animateTotal: true })));
 
+    alignPropertyWithPackage();
     calculateInstantQuote();
 })();
 </script>

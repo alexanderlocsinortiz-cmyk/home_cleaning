@@ -522,6 +522,12 @@
                                                     @if($booking->cleanerApplication->isTeam() && $booking->cleanerApplication->team_size)
                                                         &bull; {{ $booking->cleanerApplication->team_size }} cleaners
                                                     @endif
+                                                    @if($booking->cleanerApplication->isTeam())
+                                                        <div class="mt-2 font-bold text-emerald-700">
+                                                            Assigned cleaner{{ $booking->teamMembers->count() === 1 ? '' : 's' }}:
+                                                            {{ $booking->teamMembers->isNotEmpty() ? $booking->teamMembers->pluck('full_name')->join(', ') : 'Not assigned by team yet' }}
+                                                        </div>
+                                                    @endif
                                                 @else
                                                     Approved external provider connected to the marketplace workflow.
                                                 @endif

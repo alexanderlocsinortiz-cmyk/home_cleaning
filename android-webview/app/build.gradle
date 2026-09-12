@@ -2,6 +2,8 @@ plugins {
     id 'com.android.application'
 }
 
+def configuredCleanflowUrl = project.findProperty('cleanflowUrl') ?: 'https://cleanflow.example.com'
+
 android {
     namespace 'com.cleanflow.mobile'
     compileSdk 36
@@ -12,10 +14,32 @@ android {
         targetSdk 36
         versionCode 1
         versionName '1.0'
-        buildConfigField 'String', 'CLEANFLOW_URL', "\"${project.findProperty('cleanflowUrl') ?: 'http://10.0.2.2:8000'}\""
+        buildConfigField 'String', 'CLEANFLOW_URL', "\"${configuredCleanflowUrl}\""
     }
 
     buildFeatures {
         buildConfig true
+    }
+}
+
+// Never produce a release APK that sends credentials over cleartext HTTP.
+// The checked-in gradle.properties is intentionally suitable for debug-only
+// emulator work; release builds must receive an HTTPS URL explicitly.
+def validateReleaseCleanflowUrl = tasks.register('validateReleaseCleanflowUrl') {
+    doLast {
+        def releaseUrl = project.findProperty('cleanflowUrl')?.toString()?.trim()
+
+        if (!releaseUrl || !releaseUrl.toLowerCase().startsWith('https://')) {
+            throw new GradleException(
+                'Release builds require -PcleanflowUrl=https://your-real-host.example. '
+                    + 'HTTP is allowed only for debug emulator builds.'
+            )
+        }
+    }
+}
+
+tasks.configureEach { task ->
+    if (task.name != 'validateReleaseCleanflowUrl' && task.name.toLowerCase().contains('release')) {
+        task.dependsOn(validateReleaseCleanflowUrl)
     }
 }
