@@ -497,7 +497,7 @@
                                     {{ $isOnline ? 'Recently active' : 'Offline / idle' }}
                                 </span>
                             </div>
-                            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                            <div class="grid gap-3 sm:grid-cols-2">
                                 <div class="rounded-2xl border border-white bg-white px-4 py-3">
                                     <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Location</div>
                                     <div class="mt-2 text-sm font-semibold text-slate-800">{{ $device->location ?: 'No location set' }}</div>
@@ -506,21 +506,20 @@
                                     <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Serial Number</div>
                                     <div class="mt-2 text-sm font-semibold text-slate-800">{{ $device->serial_number }}</div>
                                 </div>
-                                <div class="rounded-2xl border border-white bg-white px-4 py-3">
-                                    <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Token Preview</div>
-                                    <div class="mt-2 font-mono text-sm font-semibold text-slate-800">{{ str_repeat('*', 12) }}{{ substr($device->api_token, -8) }}</div>
-                                </div>
                             </div>
                             <div class="text-sm text-slate-500">
                                 Last seen: {{ $device->last_seen_at ? $device->last_seen_at->diffForHumans() : 'Never connected' }}
                             </div>
                         </div>
-                        <form method="POST" action="{{ route('admin.attendance.devices.rotate-token', $device) }}">
+                        <form method="POST" action="{{ route('admin.attendance.devices.rotate-token', $device) }}" onsubmit="return confirm('Regenerate credentials for this device? The current ESP32 signing secret will stop working immediately.');">
                             @csrf
-                            <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700">
+                            <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700" title="Regenerate the API token and ESP32 signing secret">
                                 <i class="fas fa-rotate"></i>
-                                Rotate Token
+                                Regenerate Credentials
                             </button>
+                            <div class="mt-2 max-w-xs text-right text-xs leading-5 text-slate-500">
+                                Use only when needed. A new signing secret will be shown once after regeneration.
+                            </div>
                         </form>
                     </div>
                 </article>
@@ -530,7 +529,7 @@
                         <i class="fas fa-microchip text-2xl"></i>
                     </div>
                     <h4 class="mt-5 text-lg font-extrabold text-slate-900">No biometric devices connected yet</h4>
-                    <p class="mx-auto mt-2 max-w-xl text-sm leading-7 text-slate-500">Generate a device token first so your ESP32 attendance hardware can register and begin reporting attendance events.</p>
+                    <p class="mx-auto mt-2 max-w-xl text-sm leading-7 text-slate-500">Generate device credentials first so your ESP32 attendance hardware can authenticate and begin reporting attendance events.</p>
                 </div>
             @endforelse
         </div>

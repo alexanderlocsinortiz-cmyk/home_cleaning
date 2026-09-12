@@ -249,7 +249,7 @@ class AdminAttendanceController extends Controller
 
         return redirect()
             ->route('admin.attendance')
-            ->with('success', 'Device token rotated successfully.')
+            ->with('success', 'Device credentials regenerated successfully.')
             ->with('generated_device_token', $credentials['token'])
             ->with('generated_device_secret', $credentials['secret_key'])
             ->with('generated_device_name', $device->name)
