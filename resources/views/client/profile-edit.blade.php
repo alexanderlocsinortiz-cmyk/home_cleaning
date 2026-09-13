@@ -392,33 +392,25 @@ document.addEventListener('DOMContentLoaded', function () {
             .sort((a, b) => a.distance - b.distance)[0] || null;
     }
 
-    function streetAddressFromOpenStreetMap(payload) {
-        const address = payload?.address || {};
-        const road = address.road || address.neighbourhood || address.suburb || address.village || '';
-        const parts = [address.house_number, road].filter(Boolean);
-
-        return parts.length ? parts.join(', ') : '';
-    }
-
     async function reverseGeocodeStreet(lat, lng) {
-        const url = new URL('https://nominatim.openstreetmap.org/reverse');
-        url.searchParams.set('format', 'jsonv2');
-        url.searchParams.set('lat', String(lat));
-        url.searchParams.set('lon', String(lng));
-        url.searchParams.set('zoom', '18');
-        url.searchParams.set('addressdetails', '1');
-
-        const response = await fetch(url.toString(), {
-            headers: {
-                Accept: 'application/json',
-            },
-        });
-
-        if (!response.ok) {
+        if (!window.google?.maps?.Geocoder) {
             return '';
         }
 
-        return streetAddressFromOpenStreetMap(await response.json());
+        return new Promise((resolve) => {
+            new window.google.maps.Geocoder().geocode({ location: { lat, lng } }, (results, status) => {
+                if (status !== 'OK' || !results?.length) {
+                    resolve('');
+                    return;
+                }
+
+                const component = (type) => results[0].address_components?.find((item) => item.types.includes(type))?.long_name || '';
+                const route = component('route');
+                const streetNumber = component('street_number');
+
+                resolve([streetNumber, route].filter(Boolean).join(', '));
+            });
+        });
     }
 
     function selectBarangay(name) {
@@ -501,4 +493,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
+<script>
+    window.initCleanflowProfileGoogleMaps = function () {
+        window.cleanflowProfileGoogleMapsReady = true;
+    };
+</script>
+@include('partials.google-maps-script', ['callback' => 'initCleanflowProfileGoogleMaps'])
 @endpush

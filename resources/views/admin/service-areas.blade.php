@@ -4,7 +4,6 @@
 @section('page-subtitle', 'Provider coverage across all 22 cities and municipalities of Bukidnon')
 
 @push('styles')
-<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}"/>
 <style>
     .admin-service-area-page {
         padding: 1.5rem;
@@ -144,7 +143,6 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script>
 window.cleanflowMapConfig = @json(config('cleanflow.coverage_map'));
 window.barangayData = @json($barangays);
@@ -152,4 +150,5 @@ window.cleanflowCoverageData = @json($coverageAreas);
 window.providerCoverageData = @json($providerCoveragePoints);
 </script>
 <script src="{{ asset('js/map.js') }}"></script>
+@include('partials.google-maps-script', ['callback' => 'initCleanflowCoverageMap'])
 @endpush

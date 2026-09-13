@@ -1,10 +1,6 @@
 @extends('layouts.client')
 @section('title', 'Service Areas')
 
-@push('styles')
-<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}" />
-@endpush
-
 @section('content')
 @php
     $legendItems = [
@@ -212,7 +208,6 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script>
     window.cleanflowMapConfig = @json(config('cleanflow.coverage_map'));
     window.barangayData = @json($barangays);
@@ -220,4 +215,5 @@
     window.providerCoverageData = @json($providerCoveragePoints);
 </script>
 <script src="{{ asset('js/map.js') }}"></script>
+@include('partials.google-maps-script', ['callback' => 'initCleanflowCoverageMap'])
 @endpush

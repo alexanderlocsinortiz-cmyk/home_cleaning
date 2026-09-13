@@ -14,10 +14,6 @@
     $backLabel = $isAdmin ? 'Back to Bookings' : ($isStaff ? 'Back to Assigned Bookings' : 'Back to My Bookings');
 @endphp
 
-@push('styles')
-<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}" />
-@endpush
-
 @section('content')
 @php
     $statusConfig = [
@@ -1163,6 +1159,7 @@
 @endphp
 
 @push('scripts')
+@if(false)
 <script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script>
 const bookingId = @json($booking->id);
@@ -1507,4 +1504,42 @@ if (['confirmed', 'in_progress'].includes(bookingStatus)) {
     window.setInterval(pollLocation, 10000);
 }
 </script>
+@endif
+<script>
+window.cleanflowBookingLiveMapConfig = {
+    bookingId: @json($booking->id),
+    bookingStatus: @json($booking->status),
+    staffName: @json($booking->staff?->first_name ?? 'Staff'),
+    serviceAddress: @json($booking->street_address . ', ' . ucfirst($booking->barangay)),
+    destinationLat: @json($booking->service_latitude ?: ($barangayCenters[$booking->barangay]['lat'] ?? $defaultMapCenter['lat'])),
+    destinationLng: @json($booking->service_longitude ?: ($barangayCenters[$booking->barangay]['lng'] ?? $defaultMapCenter['lng'])),
+};
+
+function setRating(value) {
+    const starsInput = document.getElementById('stars-input');
+    if (!starsInput) return;
+    starsInput.value = value;
+    document.querySelectorAll('.star-btn').forEach((btn) => {
+        const starValue = parseInt(btn.dataset.value, 10);
+        btn.style.color = starValue <= value ? '#3B82F6' : '#DBEAFE';
+        btn.setAttribute('aria-pressed', String(starValue === value));
+    });
+}
+
+function previewPhoto(input) {
+    const preview = document.getElementById('photo-preview');
+    const placeholder = document.getElementById('photo-placeholder');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            preview.src = event.target.result;
+            preview.style.display = 'block';
+            placeholder.style.display = 'none';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+</script>
+<script src="{{ asset('js/booking-live-map.js') }}"></script>
+@include('partials.google-maps-script', ['callback' => 'initCleanflowLiveBookingMaps'])
 @endpush

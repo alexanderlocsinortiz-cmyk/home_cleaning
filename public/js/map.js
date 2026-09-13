@@ -1,24 +1,7 @@
-document.addEventListener('DOMContentLoaded', function () {
-    if (typeof L === 'undefined' || !document.getElementById('map')) {
-        return;
-    }
+(function () {
+    'use strict';
 
-    const colors = {
-        service_center: '#1E3A8A',
-        residential: '#2563EB',
-        commercial: '#3B82F6',
-        office: '#60A5FA',
-        municipality: '#0F766E',
-    };
-    const barangayData = Array.isArray(window.barangayData) ? window.barangayData : [];
-    const coverageData = Array.isArray(window.cleanflowCoverageData) ? window.cleanflowCoverageData : [];
-    const providerCoverageData = Array.isArray(window.providerCoverageData) ? window.providerCoverageData : [];
-    const mapConfig = window.cleanflowMapConfig || {};
-    const mapCenter = mapConfig.center || { lat: 7.95, lng: 124.95 };
-    const mapZoom = mapConfig.zoom ?? 9;
-    const minZoom = mapConfig.minZoom ?? 8;
-    const maxZoom = mapConfig.maxZoom ?? 17;
-    const maxBounds = mapConfig.maxBounds ?? [[7.35, 124.40], [8.65, 125.55]];
+    let unavailableTimer = null;
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -29,194 +12,272 @@ document.addEventListener('DOMContentLoaded', function () {
             .replaceAll("'", '&#039;');
     }
 
-    function makeIcon(type) {
-        const color = colors[type] || '#2563EB';
+    function showUnavailable() {
+        const element = document.getElementById('map');
 
-        return L.divIcon({
-            className: '',
-            html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>`,
-            iconSize: [18, 18],
-            iconAnchor: [9, 9],
-            popupAnchor: [0, -12],
+        if (!element || element.dataset.googleMapsMessage === 'true' || window.google?.maps) {
+            return;
+        }
+
+        element.dataset.googleMapsMessage = 'true';
+        element.classList.add('flex', 'items-center', 'justify-center', 'p-6', 'text-center');
+        element.innerHTML = '<div class="max-w-md text-sm font-semibold leading-6 text-slate-600"><div class="mb-2 text-base font-black text-slate-900">Google Maps is not available</div><div>Add a valid <code class="rounded bg-slate-200 px-1.5 py-0.5 text-xs">GOOGLE_MAPS_API_KEY</code> in Laravel Cloud and enable the Maps JavaScript API, then reload this page.</div></div>';
+    }
+
+    function markerIcon(color, scale = 8) {
+        return {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale,
+            fillColor: color,
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 2,
+        };
+    }
+
+    function providerMarkerIcon() {
+        return {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale: 12,
+            fillColor: '#7c3aed',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 3,
+        };
+    }
+
+    function init() {
+        const element = document.getElementById('map');
+
+        if (!element || element.dataset.initialized === 'true') {
+            return;
+        }
+
+        if (!window.google?.maps) {
+            showUnavailable();
+            return;
+        }
+
+        const colors = {
+            service_center: '#1e3a8a',
+            residential: '#2563eb',
+            commercial: '#f97316',
+            office: '#60a5fa',
+            municipality: '#0f766e',
+        };
+        const barangayData = Array.isArray(window.barangayData) ? window.barangayData : [];
+        const coverageData = Array.isArray(window.cleanflowCoverageData) ? window.cleanflowCoverageData : [];
+        const providerCoverageData = Array.isArray(window.providerCoverageData) ? window.providerCoverageData : [];
+        const config = window.cleanflowMapConfig || {};
+        const center = config.center || { lat: 7.95, lng: 124.95 };
+        const boundsConfig = config.maxBounds;
+        const map = new window.google.maps.Map(element, {
+            center: { lat: Number(center.lat), lng: Number(center.lng) },
+            zoom: Number(config.zoom || 9),
+            minZoom: Number(config.minZoom || 8),
+            maxZoom: Number(config.maxZoom || 17),
+            mapTypeId: 'roadmap',
+            scaleControl: true,
+            streetViewControl: false,
+            mapTypeControl: false,
+            fullscreenControl: true,
+            gestureHandling: 'greedy',
+            restriction: Array.isArray(boundsConfig) && boundsConfig.length >= 2
+                ? {
+                    latLngBounds: {
+                        south: Number(boundsConfig[0][0]),
+                        west: Number(boundsConfig[0][1]),
+                        north: Number(boundsConfig[1][0]),
+                        east: Number(boundsConfig[1][1]),
+                    },
+                    strictBounds: false,
+                }
+                : undefined,
         });
-    }
+        const infoWindow = new window.google.maps.InfoWindow();
+        const barangayMarkers = [];
+        const coverageMarkers = [];
 
-    function makeProviderIcon() {
-        return L.divIcon({
-            className: '',
-            html: '<div style="width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#7c3aed;color:#fff;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,0.45);font-size:13px"><i class="fas fa-users"></i></div>',
-            iconSize: [30, 30],
-            iconAnchor: [15, 15],
-            popupAnchor: [0, -17],
-        });
-    }
+        function addMarker(data, type, content, isProvider = false) {
+            const lat = Number(data.lat);
+            const lng = Number(data.lng);
 
-    const map = L.map('map', {
-        center: [mapCenter.lat, mapCenter.lng],
-        zoom: mapZoom,
-        minZoom: minZoom,
-        maxZoom: maxZoom,
-        maxBounds: maxBounds,
-        maxBoundsViscosity: 0.8,
-    });
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                return null;
+            }
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-    }).addTo(map);
-
-    const barangayMarkers = [];
-    const coverageMarkers = [];
-
-    barangayData.forEach(function (barangay) {
-        const serviceList = (barangay.services || [])
-            .map((service) => `<li>${escapeHtml(service)}</li>`)
-            .join('');
-        const typeName = (barangay.type || 'residential')
-            .replace('_', ' ')
-            .replace(/\b\w/g, function (char) {
-                return char.toUpperCase();
-            });
-        const popup = `
-            <div class="cleanflow-map-popup">
-                <strong class="cleanflow-map-popup__title">${escapeHtml(barangay.name)}</strong>
-                <span class="cleanflow-map-popup__type" style="--popup-accent:${colors[barangay.type] || colors.residential};">${escapeHtml(typeName)}</span>
-                <ul class="cleanflow-map-popup__services">${serviceList}</ul>
-            </div>`;
-        const marker = L.marker([barangay.lat, barangay.lng], { icon: makeIcon(barangay.type) })
-            .addTo(map)
-            .bindPopup(popup);
-
-        barangayMarkers.push({ marker, data: barangay });
-    });
-
-    coverageData.forEach(function (area) {
-        const popup = `
-            <div class="cleanflow-map-popup">
-                <strong class="cleanflow-map-popup__title">${escapeHtml(area.name)}</strong>
-                <span class="cleanflow-map-popup__type" style="--popup-accent:${colors.municipality};">Bukidnon provider coverage</span>
-                <ul class="cleanflow-map-popup__services"><li>Approved providers may serve this city/municipality</li></ul>
-            </div>`;
-        const marker = L.marker([area.lat, area.lng], { icon: makeIcon('municipality') })
-            .addTo(map)
-            .bindPopup(popup);
-
-        coverageMarkers.push({ marker, data: area });
-    });
-
-    providerCoverageData.forEach(function (area) {
-        const providerList = (area.providers || [])
-            .map(function (provider) {
-                const services = provider.services?.length
-                    ? ` <span>(${provider.services.map(escapeHtml).join(', ')})</span>`
-                    : '';
-
-                return `<li><strong>${escapeHtml(provider.name)}</strong>${services}<br><small>${escapeHtml(provider.availability)}</small></li>`;
-            })
-            .join('');
-        const availableCount = Number(area.available_provider_count || 0);
-        const totalCount = Number(area.provider_count || 0);
-        const popup = `
-            <div class="cleanflow-map-popup">
-                <strong class="cleanflow-map-popup__title">Provider coverage: ${escapeHtml(area.name)}</strong>
-                <span class="cleanflow-map-popup__type" style="--popup-accent:#7c3aed;">${totalCount} approved provider${totalCount === 1 ? '' : 's'} · ${availableCount} available</span>
-                <p class="mt-2 text-xs text-slate-500">This marker shows the service area center. Provider exact base locations are private.</p>
-                <ul class="cleanflow-map-popup__services">${providerList}</ul>
-            </div>`;
-        const marker = L.marker([area.lat, area.lng], { icon: makeProviderIcon(), zIndexOffset: 500 })
-            .addTo(map)
-            .bindPopup(popup);
-
-        coverageMarkers.push({ marker, data: area, providerMarker: true });
-    });
-
-    function focusMarker(marker, zoom = 13) {
-        map.setView([marker.data.lat, marker.data.lng], zoom);
-        marker.marker.openPopup();
-    }
-
-    document.querySelectorAll('#barangayList li').forEach(function (listItem) {
-        listItem.addEventListener('click', function () {
-            const name = listItem.dataset.name;
-            const foundMarker = barangayMarkers.find(function (entry) {
-                return entry.data.name === name;
+            const marker = new window.google.maps.Marker({
+                map,
+                position: { lat, lng },
+                title: data.name || 'Service area',
+                icon: isProvider ? providerMarkerIcon() : markerIcon(colors[type] || '#2563eb'),
+                zIndex: isProvider ? 500 : undefined,
             });
 
-            if (foundMarker) {
-                focusMarker(foundMarker, 15);
+            marker.set('cleanflowPopupContent', content);
+            marker.addListener('click', () => {
+                infoWindow.setContent(content);
+                infoWindow.open({ map, anchor: marker, shouldFocus: false });
+            });
+
+            return { marker, data, providerMarker: isProvider };
+        }
+
+        barangayData.forEach((barangay) => {
+            const services = (barangay.services || [])
+                .map((service) => `<li>${escapeHtml(service)}</li>`)
+                .join('');
+            const type = barangay.type || 'residential';
+            const typeName = type.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+            const content = `
+                <div class="cleanflow-map-popup">
+                    <strong class="cleanflow-map-popup__title">${escapeHtml(barangay.name)}</strong>
+                    <span class="cleanflow-map-popup__type">${escapeHtml(typeName)}</span>
+                    <ul class="cleanflow-map-popup__services">${services}</ul>
+                </div>`;
+            const entry = addMarker(barangay, type, content);
+
+            if (entry) {
+                barangayMarkers.push(entry);
             }
         });
-    });
 
-    document.querySelectorAll('#coverageAreaList li').forEach(function (listItem) {
-        listItem.addEventListener('click', function () {
-            const name = listItem.dataset.name;
-            const foundMarker = coverageMarkers.find(function (entry) {
-                return entry.data.name === name && !entry.providerMarker;
-            });
+        coverageData.forEach((area) => {
+            const content = `
+                <div class="cleanflow-map-popup">
+                    <strong class="cleanflow-map-popup__title">${escapeHtml(area.name)}</strong>
+                    <span class="cleanflow-map-popup__type">Bukidnon provider coverage</span>
+                    <ul class="cleanflow-map-popup__services"><li>Approved providers may serve this city/municipality</li></ul>
+                </div>`;
+            const entry = addMarker(area, 'municipality', content);
 
-            if (foundMarker) {
-                focusMarker(foundMarker, 11);
+            if (entry) {
+                coverageMarkers.push(entry);
             }
         });
-    });
 
-    const searchInput = document.getElementById('barangaySearch');
-    if (searchInput) {
-        searchInput.addEventListener('input', function () {
-            const query = searchInput.value.toLowerCase();
-            const barangayItems = document.querySelectorAll('#barangayList li');
-            const coverageItems = document.querySelectorAll('#coverageAreaList li');
+        providerCoverageData.forEach((area) => {
+            const providerList = (area.providers || [])
+                .map((provider) => {
+                    const services = provider.services?.length
+                        ? ` <span>(${provider.services.map(escapeHtml).join(', ')})</span>`
+                        : '';
 
-            barangayItems.forEach(function (listItem) {
-                const name = listItem.dataset.name.toLowerCase();
-                listItem.classList.toggle('hidden', query.length > 0 && !name.includes(query));
-            });
-            coverageItems.forEach(function (listItem) {
-                const name = listItem.dataset.name.toLowerCase();
-                listItem.classList.toggle('hidden', query.length > 0 && !name.includes(query));
-            });
+                    return `<li><strong>${escapeHtml(provider.name)}</strong>${services}<br><small>${escapeHtml(provider.availability)}</small></li>`;
+                })
+                .join('');
+            const totalCount = Number(area.provider_count || 0);
+            const availableCount = Number(area.available_provider_count || 0);
+            const content = `
+                <div class="cleanflow-map-popup">
+                    <strong class="cleanflow-map-popup__title">Provider coverage: ${escapeHtml(area.name)}</strong>
+                    <span class="cleanflow-map-popup__type">${totalCount} approved provider${totalCount === 1 ? '' : 's'} · ${availableCount} available</span>
+                    <p class="mt-2 text-xs text-slate-500">This marker shows the service-area center. Provider exact base locations are private.</p>
+                    <ul class="cleanflow-map-popup__services">${providerList}</ul>
+                </div>`;
+            const entry = addMarker(area, 'municipality', content, true);
 
-            if (query.length > 1) {
-                const match = barangayMarkers.find((entry) => entry.data.name.toLowerCase().includes(query))
-                    || coverageMarkers.find((entry) => !entry.providerMarker && entry.data.name.toLowerCase().includes(query));
+            if (entry) {
+                coverageMarkers.push(entry);
+            }
+        });
 
-                if (match) {
-                    map.setView([match.data.lat, match.data.lng], match.providerMarker ? 11 : 13);
+        function focusMarker(entry, zoom) {
+            const position = entry.marker.getPosition();
+
+            if (!position) {
+                return;
+            }
+
+            map.setCenter(position);
+            map.setZoom(zoom);
+            infoWindow.setContent(entry.marker.get('cleanflowPopupContent'));
+            infoWindow.open({ map, anchor: entry.marker, shouldFocus: false });
+        }
+
+        function findEntry(collection, name, includeProvider) {
+            return collection.find((entry) => entry.data.name === name && (includeProvider || !entry.providerMarker));
+        }
+
+        document.querySelectorAll('#barangayList li').forEach((listItem) => {
+            listItem.addEventListener('click', () => {
+                const entry = findEntry(barangayMarkers, listItem.dataset.name, true);
+
+                if (entry) {
+                    focusMarker(entry, 15);
                 }
-            } else if (query.length === 0) {
-                map.setView([mapCenter.lat, mapCenter.lng], mapZoom);
-            }
+            });
         });
+
+        document.querySelectorAll('#coverageAreaList li').forEach((listItem) => {
+            listItem.addEventListener('click', () => {
+                const entry = findEntry(coverageMarkers, listItem.dataset.name, false);
+
+                if (entry) {
+                    focusMarker(entry, 11);
+                }
+            });
+        });
+
+        const searchInput = document.getElementById('barangaySearch');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const query = searchInput.value.toLowerCase();
+                document.querySelectorAll('#barangayList li, #coverageAreaList li').forEach((listItem) => {
+                    listItem.classList.toggle('hidden', query.length > 0 && !listItem.dataset.name.toLowerCase().includes(query));
+                });
+
+                if (query.length > 1) {
+                    const match = barangayMarkers.find((entry) => entry.data.name.toLowerCase().includes(query))
+                        || coverageMarkers.find((entry) => !entry.providerMarker && entry.data.name.toLowerCase().includes(query));
+
+                    if (match) {
+                        map.setCenter(match.marker.getPosition());
+                        map.setZoom(match.providerMarker ? 11 : 13);
+                    }
+                } else if (query.length === 0) {
+                    map.setCenter({ lat: Number(center.lat), lng: Number(center.lng) });
+                    map.setZoom(Number(config.zoom || 9));
+                }
+            });
+        }
+
+        document.querySelectorAll('.filter-btn').forEach((button) => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach((filterButton) => filterButton.classList.remove('active'));
+                button.classList.add('active');
+                const activeFilter = button.dataset.filter;
+
+                barangayMarkers.forEach(({ marker, data }) => {
+                    const visible = activeFilter === 'all'
+                        || data.type === activeFilter
+                        || (activeFilter === 'residential' && data.type === 'service_center');
+                    marker.setMap(visible ? map : null);
+                });
+
+                document.querySelectorAll('#barangayList li').forEach((listItem) => {
+                    const visible = activeFilter === 'all'
+                        || listItem.dataset.type === activeFilter
+                        || (activeFilter === 'residential' && listItem.dataset.type === 'service_center');
+                    listItem.classList.toggle('hidden', !visible);
+                });
+            });
+        });
+
+        element.dataset.initialized = 'true';
+        window.setTimeout(() => window.google.maps.event.trigger(map, 'resize'), 100);
     }
 
-    let activeFilter = 'all';
-    document.querySelectorAll('.filter-btn').forEach(function (button) {
-        button.addEventListener('click', function () {
-            document.querySelectorAll('.filter-btn').forEach(function (filterButton) {
-                filterButton.classList.remove('active');
-            });
+    window.initCleanflowCoverageMap = init;
 
-            button.classList.add('active');
-            activeFilter = button.dataset.filter;
+    document.addEventListener('DOMContentLoaded', () => {
+        init();
 
-            barangayMarkers.forEach(function ({ marker, data }) {
-                if (activeFilter === 'all' || data.type === activeFilter || (activeFilter === 'residential' && data.type === 'service_center')) {
-                    marker.addTo(map);
-                } else {
-                    map.removeLayer(marker);
-                }
-            });
-
-            document.querySelectorAll('#barangayList li').forEach(function (listItem) {
-                const type = listItem.dataset.type;
-
-                if (activeFilter === 'all' || type === activeFilter || (activeFilter === 'residential' && type === 'service_center')) {
-                    listItem.classList.remove('hidden');
-                } else {
-                    listItem.classList.add('hidden');
-                }
-            });
-        });
+        if (!window.google?.maps && !window.cleanflowGoogleMapsEnabled) {
+            showUnavailable();
+        } else if (!window.google?.maps) {
+            unavailableTimer = window.setTimeout(showUnavailable, 8000);
+        }
     });
-});
+}());

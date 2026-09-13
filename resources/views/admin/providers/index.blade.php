@@ -5,7 +5,6 @@
 @section('page-subtitle', 'Manage approved individual cleaners and business teams')
 
 @push('styles')
-<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}">
 @endpush
 
 @section('content')
@@ -262,52 +261,8 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
-<script>
-    (() => {
-        const element = document.getElementById('provider-directory-map');
-
-        if (!element || !window.L) {
-            return;
-        }
-
-        const config = @json(config('cleanflow.provider_map'));
-        const points = @json($providerMapPoints);
-        const map = L.map(element, {
-            minZoom: config.minZoom,
-            maxZoom: config.maxZoom,
-            maxBounds: config.maxBounds,
-            maxBoundsViscosity: 0.85,
-        }).setView([config.center.lat, config.center.lng], config.zoom);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors',
-            maxZoom: config.maxZoom,
-        }).addTo(map);
-        L.control.scale({ imperial: false }).addTo(map);
-
-        const escapeHtml = (value) => String(value ?? '')
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#039;');
-        const bounds = [];
-
-        points.forEach((point) => {
-            const latLng = [point.lat, point.lng];
-            bounds.push(latLng);
-            L.circleMarker(latLng, {
-                radius: 9,
-                color: '#1d4ed8',
-                weight: 3,
-                fillColor: '#60a5fa',
-                fillOpacity: 0.9,
-            }).addTo(map).bindPopup(`
-                <div class="cleanflow-map-popup">
-                    <strong>${escapeHtml(point.name)}</strong>
-                    <div>${escapeHtml(point.contact)}</div>
-                    <div>${escapeHtml(point.area || 'Area not set')}</div>
+<!-- Google Maps implementation is loaded below. -->
+@if(false)
                     <div>${escapeHtml(point.availability)} · ${escapeHtml(point.status)}</div>
                 </div>
             `);
@@ -320,4 +275,11 @@
         window.setTimeout(() => map.invalidateSize(), 100);
     })();
 </script>
+@endif
+<script>
+    window.cleanflowAdminProviderMapConfig = @json(config('cleanflow.provider_map'));
+    window.cleanflowAdminProviderMapPoints = @json($providerMapPoints);
+</script>
+<script src="{{ asset('js/admin-provider-map.js') }}"></script>
+@include('partials.google-maps-script', ['callback' => 'initCleanflowAdminProviderMap'])
 @endpush

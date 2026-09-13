@@ -1,10 +1,6 @@
 @extends('layouts.client')
 @section('title', 'Book a Service - Home Cleaning Service')
 
-@push('styles')
-<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}" />
-@endpush
-
 @section('content')
 @php
     $serviceBasePrices = $services->mapWithKeys(function ($service) {
@@ -717,7 +713,6 @@
 </div>
 
 @push('scripts')
-<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script>
 const basePrices = @json($serviceBasePrices);
 const serviceLabels = @json($serviceLabels);
@@ -1460,44 +1455,6 @@ function setAddressMap(lat, lng, options = {}) {
         } else if (addressMarker) {
             addressMarker.setPosition(position);
         }
-    } else if (window.L) {
-        if (!addressMap) {
-            addressMap = L.map(mapEl, {
-                zoomControl: true,
-                dragging: true,
-                touchZoom: true,
-                doubleClickZoom: true,
-                scrollWheelZoom: true,
-                boxZoom: true,
-                keyboard: true,
-                tap: true,
-                maxBounds: serviceMapBounds,
-                maxBoundsViscosity: 0.85,
-            }).setView([lat, lng], 17);
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors',
-                maxZoom: 19,
-            }).addTo(addressMap);
-
-            addressMap.on('click', (event) => {
-                handleAddressPinMoved(event.latlng.lat, event.latlng.lng);
-            });
-        }
-
-        if (addressMap && !preserveViewport) {
-            addressMap.setView([lat, lng], 17);
-        }
-
-        if (!addressMarker) {
-            addressMarker = L.marker([lat, lng], { draggable: true }).addTo(addressMap).bindPopup('Service location pin');
-            addressMarker.on('dragend', (event) => {
-                const markerPosition = event.target.getLatLng();
-                handleAddressPinMoved(markerPosition.lat, markerPosition.lng);
-            });
-        } else if (addressMarker) {
-            addressMarker.setLatLng([lat, lng]);
-        }
     }
 
     window.setTimeout(() => {
@@ -1510,8 +1467,6 @@ function setAddressMap(lat, lng, options = {}) {
             if (!preserveViewport) {
                 addressMap.setCenter(position);
             }
-        } else if (window.L) {
-            addressMap.invalidateSize();
         }
 
         if (fallback) {
@@ -1539,76 +1494,15 @@ async function handleAddressPinMoved(lat, lng) {
                 return;
             }
 
-            reverseGeocodeWithOpenStreetMap(lat, lng)
-                .then((address) => {
-                    showLocationPreview(lat, lng, address || [], { preserveViewport: true });
-                    setLocationStatus(
-                        address
-                            ? 'Pin moved. Confirm this location to use the updated street details.'
-                            : 'Pin moved, but no street name was found. Type the street details manually.',
-                        address ? 'success' : 'warning'
-                    );
-                })
-                .catch(() => {
-                    showLocationPreview(lat, lng, [], { preserveViewport: true });
-                    setLocationStatus('Pin moved, but address lookup failed. Type the street details manually.', 'warning');
-                });
+            showLocationPreview(lat, lng, [], { preserveViewport: true });
+            setLocationStatus('Pin moved, but Google could not find a street address. Type the street details manually.', 'warning');
         });
 
         return;
     }
 
-    try {
-        const address = await reverseGeocodeWithOpenStreetMap(lat, lng);
-        showLocationPreview(lat, lng, address || [], { preserveViewport: true });
-        setLocationStatus(
-            address
-                ? 'Pin moved. Confirm this location to use the updated street details.'
-                : 'Pin moved, but no street name was found. Type the street details manually.',
-            address ? 'success' : 'warning'
-        );
-    } catch (error) {
-        showLocationPreview(lat, lng, [], { preserveViewport: true });
-        setLocationStatus('Pin moved, but address lookup failed. Type the street details manually.', 'warning');
-    }
-}
-
-function streetAddressFromOpenStreetMap(data) {
-    const address = data?.address || {};
-    const road = address.road || address.pedestrian || address.footway || address.path || '';
-
-    if (!road) {
-        return '';
-    }
-
-    const parts = [address.house_number, road].filter(Boolean);
-
-    if (parts.length) {
-        return parts.join(', ');
-    }
-
-    return '';
-}
-
-async function reverseGeocodeWithOpenStreetMap(lat, lng) {
-    const url = new URL('https://nominatim.openstreetmap.org/reverse');
-    url.searchParams.set('format', 'jsonv2');
-    url.searchParams.set('lat', String(lat));
-    url.searchParams.set('lon', String(lng));
-    url.searchParams.set('zoom', '18');
-    url.searchParams.set('addressdetails', '1');
-
-    const response = await fetch(url.toString(), {
-        headers: {
-            Accept: 'application/json',
-        },
-    });
-
-    if (!response.ok) {
-        return '';
-    }
-
-    return streetAddressFromOpenStreetMap(await response.json());
+    showLocationPreview(lat, lng, [], { preserveViewport: true });
+    setLocationStatus('Google Maps is still loading. Type the street details manually, then try again.', 'warning');
 }
 
 function showLocationPreview(lat, lng, results = [], options = {}) {
@@ -1747,7 +1641,7 @@ function useCurrentLocation() {
         return;
     }
 
-    if (!window.L && (!googleMapsEnabled || !window.google || !window.google.maps)) {
+    if (!googleMapsEnabled || !window.google || !window.google.maps) {
         setLocationStatus('Map preview is still loading. Wait a moment, then try again.', 'warning');
         return;
     }
@@ -1792,22 +1686,9 @@ function useCurrentLocation() {
             setLocationStatus('Location found. Loading street address...', 'neutral');
 
             if (!googleMapsEnabled || !window.google?.maps?.Geocoder) {
-                reverseGeocodeWithOpenStreetMap(lat, lng)
-                    .then((address) => {
-                        showLocationPreview(lat, lng, address || []);
-                        setLocationStatus(
-                            address
-                                ? 'Street address found. Confirm the pin to fill the street details.'
-                                : 'Location found, but no street address was returned. Type the street manually.',
-                            address ? 'success' : 'warning'
-                        );
-                    })
-                    .catch(() => {
-                        showLocationPreview(lat, lng, []);
-                        setLocationStatus('Location found, but address lookup failed. Type the street manually.', 'warning');
-                    })
-                    .finally(resetCurrentLocationButton);
-
+                showLocationPreview(lat, lng, []);
+                setLocationStatus('Location found, but Google Maps is unavailable. Type the street details manually.', 'warning');
+                resetCurrentLocationButton();
                 return;
             }
 
@@ -1819,21 +1700,9 @@ function useCurrentLocation() {
                 }
 
                 geocodeHandled = true;
-                reverseGeocodeWithOpenStreetMap(lat, lng)
-                    .then((address) => {
-                        showLocationPreview(lat, lng, address || []);
-                        setLocationStatus(
-                            address
-                                ? 'Street address found. Confirm the pin to fill the street details.'
-                                : 'Location found, but no street address was returned. Type the street manually.',
-                            address ? 'success' : 'warning'
-                        );
-                    })
-                    .catch(() => {
-                        showLocationPreview(lat, lng, []);
-                        setLocationStatus('Location found, but address lookup failed. Type the street manually.', 'warning');
-                    })
-                    .finally(resetCurrentLocationButton);
+                showLocationPreview(lat, lng, []);
+                setLocationStatus('Location found, but Google address lookup timed out. Type the street details manually.', 'warning');
+                resetCurrentLocationButton();
             }, 8000);
 
             geocoder.geocode({ location: { lat, lng } }, (results, status) => {
@@ -1850,21 +1719,9 @@ function useCurrentLocation() {
                     return;
                 }
 
-                reverseGeocodeWithOpenStreetMap(lat, lng)
-                    .then((address) => {
-                        showLocationPreview(lat, lng, address || []);
-                        setLocationStatus(
-                            address
-                                ? 'Street address found. Confirm the pin to fill the street details.'
-                                : 'Location found, but no street address was returned. Type the street manually.',
-                            address ? 'success' : 'warning'
-                        );
-                    })
-                    .catch(() => {
-                        showLocationPreview(lat, lng, []);
-                        setLocationStatus('Location found, but address lookup failed. Type the street manually.', 'warning');
-                    })
-                    .finally(resetCurrentLocationButton);
+                showLocationPreview(lat, lng, []);
+                setLocationStatus('Location found, but Google could not find a street address. Type the street details manually.', 'warning');
+                resetCurrentLocationButton();
             });
         },
         (error) => {
@@ -2290,9 +2147,21 @@ filterServicesForProperty();
 refreshScheduleDependentFields();
 window.setInterval(refreshScheduleDependentFields, 60000);
 updatePrice();
+
+window.initCleanflowBookingAddressMap = function () {
+    const latitude = Number(document.getElementById('service-latitude')?.value);
+    const longitude = Number(document.getElementById('service-longitude')?.value);
+
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        setAddressMap(latitude, longitude);
+    }
+};
 </script>
-@if($googleMapsApiKey)
-<script async defer src="https://maps.googleapis.com/maps/api/js?key={{ urlencode($googleMapsApiKey) }}"></script>
-@endif
+<script>
+    if (window.google?.maps) {
+        window.initCleanflowBookingAddressMap();
+    }
+</script>
+@include('partials.google-maps-script', ['callback' => 'initCleanflowBookingAddressMap'])
 @endpush
 @endsection
