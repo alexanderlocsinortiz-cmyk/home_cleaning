@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AttendanceLog;
 use App\Models\Booking;
+use App\Models\CleanerApplication;
 use App\Models\Notification;
 use App\Models\Rating;
 use App\Models\Service;
+use App\Models\User;
 use App\Services\PaymongoCheckoutService;
 use App\Services\PaymongoRefundService;
 use Carbon\Carbon;
@@ -64,6 +67,33 @@ class MobileBookingController extends Controller
             $validated['add_ons'] ?? [],
             $validated['add_on_quantities'] ?? []
         );
+        $preferredStaff = ! empty($validated['preferred_staff_id'])
+            ? User::where('role', 'staff')->find($validated['preferred_staff_id'])
+            : null;
+        $preferredStaffStatus = $preferredStaff && $this->preferredStaffIsAvailable(
+            $preferredStaff,
+            $validated['scheduled_date'],
+            $validated['scheduled_time'],
+            $serviceDurationMinutes
+        ) ? 'requested' : 'none';
+        $preferredProvider = ! empty($validated['preferred_cleaner_application_id'])
+            ? CleanerApplication::with('user')
+                ->where('status', CleanerApplication::STATUS_APPROVED)
+                ->whereNotNull('user_id')
+                ->whereNotNull('activated_at')
+                ->find($validated['preferred_cleaner_application_id'])
+            : null;
+        $preferredProviderStatus = $preferredProvider
+            ? ($this->preferredProviderIsAvailable(
+                $preferredProvider,
+                $validated['scheduled_date'],
+                $validated['scheduled_time'],
+                $validated['barangay'],
+                $validated['service_type'],
+                $serviceDurationMinutes,
+                max(1, (int) $pricing['required_cleaners'])
+            ) ? 'requested' : 'unavailable')
+            : 'none';
         $servicePlan = $validated['service_plan'];
         $subscriptionFrequency = $servicePlan === 'subscription' ? $validated['subscription_frequency'] : null;
         $subscriptionOccurrences = $servicePlan === 'subscription' ? (int) $validated['subscription_occurrences'] : null;
@@ -89,6 +119,10 @@ class MobileBookingController extends Controller
                 $service,
                 $serviceDurationMinutes,
                 $pricing,
+                $preferredStaff,
+                $preferredStaffStatus,
+                $preferredProvider,
+                $preferredProviderStatus,
                 $schedulePlan,
                 $servicePlan,
                 $subscriptionFrequency,
@@ -107,19 +141,42 @@ class MobileBookingController extends Controller
                     $service,
                     $serviceDurationMinutes,
                     $pricing,
+                    $preferredStaff,
+                    $preferredStaffStatus,
+                    $preferredProvider,
+                    $preferredProviderStatus,
                     $schedulePlan,
                     $servicePlan,
                     $subscriptionFrequency,
                     $subscriptionOccurrences,
                     $subscriptionGroupId,
                 ) {
-                    return collect($schedulePlan)->map(function (array $schedule) use ($user, $validated, $service, $serviceDurationMinutes, $pricing, $servicePlan, $subscriptionFrequency, $subscriptionOccurrences, $subscriptionGroupId) {
+                    return collect($schedulePlan)->map(function (array $schedule) use ($user, $validated, $service, $serviceDurationMinutes, $pricing, $preferredStaff, $preferredStaffStatus, $preferredProvider, $preferredProviderStatus, $servicePlan, $subscriptionFrequency, $subscriptionOccurrences, $subscriptionGroupId) {
                         $riskReasons = Booking::detectRiskReasons($user->id, $validated['street_address'], $validated['barangay'], $schedule['scheduled_date'], $schedule['scheduled_time']);
                         if ($service->requiresScopeManualReview((int) $validated['floor_area'])) $riskReasons[] = 'Requested floor area exceeds the provisional measurable limit for this service.';
                         if (Booking::staffingRequiresManualReview((int) $pricing['required_cleaners'])) $riskReasons[] = Booking::staffingManualReviewReason((int) $pricing['required_cleaners']);
                         $availableCleaners = Booking::availableCleanerCountForSchedule($schedule['scheduled_date'], $schedule['scheduled_time'], $serviceDurationMinutes);
                         if ($availableCleaners < max(1, (int) $pricing['required_cleaners'])) $riskReasons[] = Booking::capacityManualReviewReason(max(1, (int) $pricing['required_cleaners']), $availableCleaners);
                         $manualReviewStatus = empty($riskReasons) ? 'not_required' : 'pending';
+                        $currentPreferredStaffStatus = $preferredStaff
+                            ? ($this->preferredStaffIsAvailable(
+                                $preferredStaff,
+                                $schedule['scheduled_date'],
+                                $schedule['scheduled_time'],
+                                $serviceDurationMinutes
+                            ) ? 'requested' : 'unavailable')
+                            : $preferredStaffStatus;
+                        $currentPreferredProviderStatus = $preferredProvider
+                            ? ($this->preferredProviderIsAvailable(
+                                $preferredProvider,
+                                $schedule['scheduled_date'],
+                                $schedule['scheduled_time'],
+                                $validated['barangay'],
+                                $validated['service_type'],
+                                $serviceDurationMinutes,
+                                max(1, (int) $pricing['required_cleaners'])
+                            ) ? 'requested' : 'unavailable')
+                            : $preferredProviderStatus;
                         $booking = Booking::create([
                             'user_id' => $user->id, 'service_id' => $service->id, 'service_type' => $validated['service_type'], 'property_type' => $validated['property_type'],
                             'rooms' => $validated['rooms'], 'bathrooms' => $validated['bathrooms'], 'floor_area' => $validated['floor_area'], 'required_cleaners' => $pricing['required_cleaners'],
@@ -130,7 +187,11 @@ class MobileBookingController extends Controller
                             'risk_reasons' => empty($riskReasons) ? null : array_values(array_unique($riskReasons)), 'manual_review_status' => $manualReviewStatus,
                             'price' => $pricing['total'], 'base_price' => $pricing['base_price'], 'property_fee' => $pricing['property_fee'], 'rooms_fee' => $pricing['rooms_fee'], 'bathrooms_fee' => $pricing['bathrooms_fee'], 'floor_area_fee' => $pricing['floor_area_fee'], 'add_ons_fee' => $pricing['add_ons_fee'],
                             'payment_method' => $validated['payment_method'], 'payment_status' => 'pending', 'payment_reference' => null, 'paid_at' => null,
-                            'status' => $manualReviewStatus === 'not_required' ? 'confirmed' : 'pending', 'preferred_staff_status' => 'none',
+                            'status' => $manualReviewStatus === 'not_required' ? 'confirmed' : 'pending',
+                            'preferred_staff_id' => $preferredStaff?->id,
+                            'preferred_staff_status' => $currentPreferredStaffStatus,
+                            'preferred_cleaner_application_id' => $preferredProvider?->id,
+                            'preferred_cleaner_status' => $currentPreferredProviderStatus,
                         ]);
                         if ($booking->status === 'confirmed') { $booking->setExpectedServiceWindow(); $booking->save(); }
                         return $booking;
@@ -413,6 +474,87 @@ class MobileBookingController extends Controller
         }
     }
 
+    private function preferredStaffIsAvailable(
+        User $staff,
+        mixed $scheduledDate,
+        mixed $scheduledTime,
+        int $serviceDurationMinutes
+    ): bool {
+        $bookingTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+        $scheduleDate = Carbon::parse($scheduledDate, $bookingTimezone)->toDateString();
+
+        if ($scheduleDate === Carbon::now($bookingTimezone)->toDateString()
+            && ! in_array((int) $staff->id, $this->presentStaffIdsForDate($scheduleDate), true)) {
+            return false;
+        }
+
+        return ! Booking::staffHasScheduleConflict(
+            (int) $staff->id,
+            $scheduledDate,
+            $scheduledTime,
+            null,
+            $serviceDurationMinutes
+        );
+    }
+
+    private function preferredProviderIsAvailable(
+        CleanerApplication $provider,
+        mixed $scheduledDate,
+        mixed $scheduledTime,
+        string $barangay,
+        string $serviceSlug,
+        int $serviceDurationMinutes,
+        int $requiredCleaners = 1
+    ): bool {
+        if ($provider->status !== CleanerApplication::STATUS_APPROVED
+            || ! $provider->user_id
+            || ! $provider->activated_at
+            || ! $provider->isAvailableForAssignment()
+            || ! $provider->coversBarangay($barangay)
+            || ! $provider->offersService($serviceSlug)) {
+            return false;
+        }
+
+        $bookingTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+        $scheduleDate = Carbon::parse($scheduledDate, $bookingTimezone);
+        $availableDays = collect($provider->available_days ?: [])
+            ->map(fn ($day): string => strtolower((string) $day))
+            ->filter()
+            ->values();
+
+        if ($availableDays->isNotEmpty() && ! $availableDays->contains(strtolower($scheduleDate->format('l')))) {
+            return false;
+        }
+
+        return $provider->effectiveTeamCapacity() >= max(1, $requiredCleaners)
+            && $provider->hasDailyCapacityFor($scheduleDate->toDateString())
+            && ! $provider->hasScheduleConflictFor(
+                $scheduledDate,
+                $scheduledTime,
+                $serviceDurationMinutes,
+                null,
+                max(1, $requiredCleaners)
+            );
+    }
+
+    private function presentStaffIdsForDate(string $localDate): array
+    {
+        $bookingTimezone = config('cleanflow.attendance_timezone', 'Asia/Manila');
+        $localDay = Carbon::parse($localDate, $bookingTimezone);
+
+        return AttendanceLog::query()
+            ->where('punch_type', 'in')
+            ->whereBetween('logged_at', [
+                $localDay->copy()->startOfDay()->utc(),
+                $localDay->copy()->endOfDay()->utc(),
+            ])
+            ->pluck('user_id')
+            ->map(fn ($staffId): int => (int) $staffId)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     private function validateBookingRequest(Request $request): array
     {
         $request->merge([
@@ -442,6 +584,17 @@ class MobileBookingController extends Controller
             'street_address' => ['required', 'string', 'max:255'],
             'service_latitude' => ['nullable', 'numeric', 'between:'.$locationBounds['min_latitude'].','.$locationBounds['max_latitude'], 'required_with:service_longitude'],
             'service_longitude' => ['nullable', 'numeric', 'between:'.$locationBounds['min_longitude'].','.$locationBounds['max_longitude'], 'required_with:service_latitude'],
+            'preferred_staff_id' => [
+                'nullable',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'staff')),
+            ],
+            'preferred_cleaner_application_id' => [
+                'nullable',
+                Rule::exists('cleaner_applications', 'id')->where(fn ($query) => $query
+                    ->where('status', \App\Models\CleanerApplication::STATUS_APPROVED)
+                    ->whereNotNull('user_id')
+                    ->whereNotNull('activated_at')),
+            ],
             'scheduled_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$bookingToday],
             'scheduled_time' => ['required', Rule::in(Booking::bookingTimeSlots())],
             'notes' => ['nullable', 'string', 'max:500'],

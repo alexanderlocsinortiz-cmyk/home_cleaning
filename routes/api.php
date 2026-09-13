@@ -52,6 +52,8 @@ Route::prefix('mobile')->group(function () {
         Route::get('/notifications', [MobileNotificationController::class, 'index']);
         Route::post('/notifications/read-all', [MobileNotificationController::class, 'markAllAsRead']);
         Route::post('/notifications/{notification}/read', [MobileNotificationController::class, 'markAsRead']);
+        Route::get('/booking-availability', [MobileServiceController::class, 'bookingAvailability']);
+        Route::get('/preferred-cleaners', [MobileServiceController::class, 'preferredCleaners']);
         Route::get('/bookings', [MobileBookingController::class, 'index']);
         Route::post('/bookings', [MobileBookingController::class, 'store'])
             ->middleware('throttle:10,1');

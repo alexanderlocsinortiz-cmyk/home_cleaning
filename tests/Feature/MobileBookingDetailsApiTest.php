@@ -36,19 +36,54 @@ class MobileBookingDetailsApiTest extends TestCase
             'file_path' => $proofPath,
             'original_name' => 'after.jpg',
         ]);
+        $videoPath = 'booking-proofs/after/completion.mp4';
+        Storage::disk('local')->put($videoPath, 'proof video');
+        $video = BookingServiceProof::create([
+            'booking_id' => $booking->id,
+            'uploaded_by' => $staff->id,
+            'stage' => 'after',
+            'media_type' => 'video',
+            'file_path' => $videoPath,
+            'original_name' => 'completion.mp4',
+        ]);
+
+        $booking->forceFill([
+            'property_type' => 'house',
+            'rooms' => 2,
+            'bathrooms' => 2,
+            'floor_area' => 80,
+            'barangay' => 'Poblacion',
+            'street_address' => '123 Sample Street',
+            'add_ons' => ['mattress_single'],
+            'add_on_quantities' => ['mattress_single' => 2],
+            'add_ons_fee' => 1800,
+            'price' => 4600,
+        ])->save();
 
         $token = $this->loginToken($client->email);
         $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson("/api/mobile/bookings/{$booking->id}/details")
             ->assertOk()
             ->assertJsonPath('booking.id', $booking->id)
+            ->assertJsonPath('booking.property_type', 'house')
+            ->assertJsonPath('booking.floor_area', 80)
+            ->assertJsonPath('booking.add_ons.0.key', 'mattress_single')
+            ->assertJsonPath('booking.add_ons.0.quantity', 2)
+            ->assertJsonPath('booking.add_ons_fee', 1800)
             ->assertJsonPath('booking.proofs.0.original_name', 'after.jpg')
-            ->assertJsonPath('booking.proofs.0.media_url', route('api.mobile.booking.proof', [$booking, $proof]));
+            ->assertJsonPath('booking.proofs.0.media_url', route('api.mobile.booking.proof', [$booking, $proof]))
+            ->assertJsonPath('booking.proofs.1.media_type', 'video')
+            ->assertJsonPath('booking.proofs.1.media_url', route('api.mobile.booking.proof', [$booking, $video]));
 
         $this->withHeader('Authorization', 'Bearer '.$token)
             ->get("/api/mobile/bookings/{$booking->id}/proofs/{$proof->id}")
             ->assertOk()
             ->assertHeader('Content-Type', 'image/jpeg');
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->get("/api/mobile/bookings/{$booking->id}/proofs/{$video->id}")
+            ->assertOk()
+            ->assertHeader('Content-Type', 'video/mp4');
 
         $otherClient = $this->user('mobile-details-other@example.com');
         $otherToken = $this->loginToken($otherClient->email);

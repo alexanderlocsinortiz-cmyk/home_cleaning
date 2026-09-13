@@ -14,7 +14,7 @@ class MobileBookingDetailsController extends Controller
     public function show(Request $request, Booking $booking): JsonResponse
     {
         $this->assertParticipant($request, $booking);
-        $booking->load(['service', 'payment', 'rating', 'serviceProofs', 'messages.sender', 'staff', 'staffAssignments:id,booking_id,staff_id']);
+        $booking->load(['service', 'payment', 'rating', 'serviceProofs', 'messages.sender', 'staff', 'staffAssignments:id,booking_id,staff_id', 'preferredStaff', 'preferredCleanerApplication.user']);
 
         return response()->json(['booking' => $this->detailsPayload($booking, $request->user())]);
     }
@@ -129,6 +129,42 @@ class MobileBookingDetailsController extends Controller
         return [
             'id' => $booking->id,
             'code' => $this->bookingCode($booking),
+            'service' => [
+                'slug' => $booking->service_type,
+                'label' => $booking->service?->name ?? $booking->service_label,
+            ],
+            'property_type' => $booking->property_type,
+            'property_type_label' => Booking::propertyTypeLabels()[$booking->property_type] ?? $booking->property_type,
+            'rooms' => (int) $booking->rooms,
+            'bathrooms' => (int) $booking->bathrooms,
+            'floor_area' => (int) $booking->floor_area,
+            'barangay' => $booking->barangay,
+            'street_address' => $booking->street_address,
+            'scheduled_date' => $booking->scheduled_date?->toDateString(),
+            'scheduled_time' => $booking->scheduled_time
+                ? \Carbon\Carbon::parse($booking->scheduled_time)->format('H:i')
+                : null,
+            'price' => (float) $booking->price,
+            'formatted_price' => 'P'.number_format((float) $booking->price, 2),
+            'add_ons' => Booking::addOnBreakdown($booking->add_ons ?? [], $booking->add_on_quantities ?? []),
+            'add_ons_fee' => (float) $booking->add_ons_fee,
+            'service_plan' => $booking->service_plan,
+            'preferred_cleaner' => $booking->preferredStaff
+                ? [
+                    'type' => 'staff',
+                    'id' => (int) $booking->preferredStaff->id,
+                    'name' => $booking->preferredStaff->full_name,
+                    'status' => $booking->preferred_staff_status,
+                ]
+                : ($booking->preferredCleanerApplication
+                    ? [
+                        'type' => 'provider',
+                        'id' => (int) $booking->preferredCleanerApplication->id,
+                        'name' => $booking->preferredCleanerApplication->business_name
+                            ?: ($booking->preferredCleanerApplication->user?->full_name ?: $booking->preferredCleanerApplication->email),
+                        'status' => $booking->preferred_cleaner_status,
+                    ]
+                    : null),
             'status' => $booking->status,
             'can_cancel' => $viewer->role === 'client' && $booking->clientCanCancel(),
             'payment' => [

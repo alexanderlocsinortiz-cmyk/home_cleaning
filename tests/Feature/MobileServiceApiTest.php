@@ -112,6 +112,48 @@ class MobileServiceApiTest extends TestCase
             ->assertJsonPath('formatted_total', 'P2,857.50');
     }
 
+    public function test_mobile_price_calculation_applies_server_add_on_quantities(): void
+    {
+        Service::updateOrCreate(['slug' => 'basic'], [
+            'name' => 'Basic Clean',
+            'price' => 35,
+            'is_active' => true,
+        ]);
+
+        $this->mobileToken();
+
+        $this->postJson('/api/mobile/calculate-price', [
+            'service_type' => 'basic',
+            'property_type' => 'house',
+            'floor_area' => 30,
+            'add_ons' => ['mattress_single'],
+            'add_on_quantities' => ['mattress_single' => 3],
+        ])
+            ->assertOk()
+            ->assertJsonPath('pricing.add_ons_fee', 2700)
+            ->assertJsonPath('pricing.total', 3750)
+            ->assertJsonPath('formatted_total', 'P3,750.00');
+    }
+
+    public function test_verified_mobile_client_receives_the_website_booking_time_rules(): void
+    {
+        Service::updateOrCreate(['slug' => 'deep'], [
+            'name' => 'Deep Clean',
+            'price' => 95,
+            'is_active' => true,
+        ]);
+        $token = $this->mobileToken();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/mobile/booking-availability?service_type=deep&property_type=house&floor_area=30&scheduled_date='.now()->addDay()->toDateString())
+            ->assertOk()
+            ->assertJsonCount(9, 'time_slots')
+            ->assertJsonPath('time_slots.0.time', '08:00')
+            ->assertJsonPath('time_slots.0.available', true)
+            ->assertJsonPath('time_slots.8.time', '16:00')
+            ->assertJsonPath('timezone', 'Asia/Manila');
+    }
+
     public function test_mobile_price_calculation_rejects_incompatible_service_and_property_type(): void
     {
         Service::updateOrCreate(['slug' => 'deep'], [
